@@ -161,6 +161,7 @@
   <header>
     <h1>Marginals &amp; Conditionals of a Multivariate Gaussian</h1>
     <div class="subtitle">An interactive companion to Murphy, <em>Probabilistic Machine Learning</em>, &sect;3.2.3 (Eq. 3.26&ndash;3.28)</div>
+    <div class="subtitle">Worked example: predicting an adult's <b>height</b> from their <b>weight</b> (or vice versa)</div>
   </header>
 
   <div class="eqbox">
@@ -172,11 +173,12 @@
   </div>
 
   <div class="intro">
-    Below, <b>y<sub>1</sub></b> is the horizontal axis and <b>y<sub>2</sub></b> is the vertical axis of a 2‑D Gaussian
-    (the smallest case where these equations are non‑trivial). The shaded region is the joint density
-    <code>p(y1, y2)</code>. <b>Drag the horizontal line</b> to set an observed value <code>y2 = c</code> and watch the
-    conditional <code>p(y1 | y2 = c)</code> update on the right &mdash; exactly per Eq. 3.28. Use the sliders to change the
-    means, variances, and correlation.
+    <b>The story:</b> in a population of adults, height (<b>y<sub>1</sub></b>, cm) and weight (<b>y<sub>2</sub></b>, kg) are
+    jointly Gaussian &mdash; taller people tend to be heavier, so &rho; &gt; 0 by default. The shaded region below is the
+    joint density <code>p(y1, y2)</code>. Every slider keeps its textbook symbol (&mu;<sub>1</sub>, &Sigma;<sub>11</sub>,
+    &hellip;) so you can map the picture straight back to Eq. 3.26&ndash;3.28. <b>Drag the horizontal line</b> to set an
+    observed weight <code>y2 = c</code> kg and watch the conditional distribution of height, <code>p(y1 | y2 = c)</code>,
+    update on the right.
   </div>
 
   <div class="grid">
@@ -184,39 +186,39 @@
       <h2>Joint density <span class="hint">drag the dashed line to set y2 = c</span></h2>
       <canvas id="joint" width="480" height="480"></canvas>
       <div class="legend">
-        <span><i class="swatch" style="background:var(--accent)"></i> observed line y2 = c</span>
-        <span><i class="swatch" style="background:var(--accent2)"></i> regression line E[y1|y2]</span>
+        <span><i class="swatch" style="background:var(--accent)"></i> observed weight, y2 = c</span>
+        <span><i class="swatch" style="background:var(--accent2)"></i> regression line E[y1|y2] (expected height given weight)</span>
         <span><i class="swatch" style="background:#999;border-top:1px dashed #999;height:0"></i> 1σ / 2σ / 3σ contours</span>
       </div>
 
       <div class="controls">
         <div class="ctrl">
-          <label>&mu;<sub>1</sub> (mean of y1) <b id="v-mu1"></b></label>
-          <input type="range" id="mu1" min="-4" max="4" step="0.05" value="0">
+          <label>&mu;<sub>1</sub> &mdash; mean height, y1 (cm) <b id="v-mu1"></b></label>
+          <input type="range" id="mu1" min="150" max="200" step="0.5" value="170">
         </div>
         <div class="ctrl">
-          <label>&mu;<sub>2</sub> (mean of y2) <b id="v-mu2"></b></label>
-          <input type="range" id="mu2" min="-4" max="4" step="0.05" value="0">
+          <label>&mu;<sub>2</sub> &mdash; mean weight, y2 (kg) <b id="v-mu2"></b></label>
+          <input type="range" id="mu2" min="40" max="120" step="0.5" value="70">
         </div>
         <div class="ctrl">
-          <label>&sigma;<sub>1</sub> (std of y1) <b id="v-s1"></b></label>
-          <input type="range" id="s1" min="0.3" max="3" step="0.02" value="1">
+          <label>&sigma;<sub>1</sub> &mdash; height std. dev. (cm) <b id="v-s1"></b></label>
+          <input type="range" id="s1" min="3" max="15" step="0.1" value="7">
         </div>
         <div class="ctrl">
-          <label>&sigma;<sub>2</sub> (std of y2) <b id="v-s2"></b></label>
-          <input type="range" id="s2" min="0.3" max="3" step="0.02" value="1">
+          <label>&sigma;<sub>2</sub> &mdash; weight std. dev. (kg) <b id="v-s2"></b></label>
+          <input type="range" id="s2" min="5" max="25" step="0.2" value="12">
         </div>
         <div class="ctrl" style="grid-column: 1 / -1;">
-          <label>&rho; (correlation) <b id="v-rho"></b></label>
+          <label>&rho; &mdash; height/weight correlation <b id="v-rho"></b></label>
           <input type="range" id="rho" min="-0.97" max="0.97" step="0.01" value="0.6">
         </div>
       </div>
       <div class="presets">
-        <button class="preset" data-preset="indep">Independent (&rho;=0)</button>
-        <button class="preset" data-preset="pos">Strong positive corr.</button>
-        <button class="preset" data-preset="neg">Strong negative corr.</button>
-        <button class="preset" data-preset="aniso">Unequal variances</button>
-        <button class="preset" data-preset="reset">Reset</button>
+        <button class="preset" data-preset="indep">Unrelated traits (&rho;=0)</button>
+        <button class="preset" data-preset="pos">Strongly linked (tall &amp; heavy)</button>
+        <button class="preset" data-preset="neg">Hypothetical inverse trait</button>
+        <button class="preset" data-preset="aniso">Wider weight spread</button>
+        <button class="preset" data-preset="reset">Reset to typical adults</button>
       </div>
     </div>
 
@@ -224,8 +226,8 @@
       <h2>Marginal vs. conditional of y1</h2>
       <canvas id="slice" width="480" height="300"></canvas>
       <div class="legend">
-        <span><i class="swatch" style="border-top:2px dashed #999;height:0"></i> marginal p(y1)</span>
-        <span><i class="swatch" style="background:var(--accent)"></i> conditional p(y1|y2=c)</span>
+        <span><i class="swatch" style="border-top:2px dashed #999;height:0"></i> marginal p(y1) &mdash; height, ignoring weight</span>
+        <span><i class="swatch" style="background:var(--accent)"></i> conditional p(y1|y2=c) &mdash; height given weight=c</span>
         <span><i class="swatch" style="background:#cfcfcf"></i> raw slice p(y1, y2=c) (unnormalized)</span>
       </div>
 
@@ -238,13 +240,14 @@
 
   <div class="foot">
     Built to accompany Murphy's <em>Probabilistic Machine Learning: An Introduction</em>, Section 3.2.3 &mdash;
-    for CS 473 self-study. Everything here reduces the book's general formulas (with block matrices) to the
-    scalar 2&times;2 case, which is exactly what the equations simplify to when y1 and y2 are each 1-D.
+    for CS 473 self-study. The height/weight scenario is illustrative (not fit to real data); it stands in for any
+    pair of jointly Gaussian variables. Everything here reduces the book's general formulas (with block matrices)
+    to the scalar 2&times;2 case, which is exactly what the equations simplify to when y1 and y2 are each 1-D.
   </div>
 </div>
 
 <script>
-const state = { mu1: 0, mu2: 0, s1: 1, s2: 1, rho: 0.6, c: 1.2, dragging: false };
+const state = { mu1: 170, mu2: 70, s1: 7, s2: 12, rho: 0.6, c: 78, dragging: false };
 
 const els = {
   mu1: document.getElementById('mu1'),
@@ -288,10 +291,10 @@ document.querySelectorAll('.preset').forEach(btn => {
   btn.addEventListener('click', () => {
     const p = btn.dataset.preset;
     if (p === 'indep') Object.assign(state, {rho: 0});
-    else if (p === 'pos') Object.assign(state, {rho: 0.9, s1:1, s2:1});
-    else if (p === 'neg') Object.assign(state, {rho: -0.85, s1:1, s2:1});
-    else if (p === 'aniso') Object.assign(state, {s1: 0.6, s2: 2.4, rho: 0.5});
-    else if (p === 'reset') Object.assign(state, {mu1:0, mu2:0, s1:1, s2:1, rho:0.6});
+    else if (p === 'pos') Object.assign(state, {rho: 0.9, s1:7, s2:12});
+    else if (p === 'neg') Object.assign(state, {rho: -0.85, s1:7, s2:12});
+    else if (p === 'aniso') Object.assign(state, {s1: 5, s2: 22, rho: 0.5});
+    else if (p === 'reset') Object.assign(state, {mu1:170, mu2:70, s1:7, s2:12, rho:0.6});
     clampC();
     syncSliders();
     updateLabels();
@@ -441,12 +444,12 @@ function drawJoint() {
   // axis ticks/labels (minimal)
   jctx.fillStyle = '#555';
   jctx.font = '11px -apple-system, sans-serif';
-  jctx.fillText('y1 →', W-32, H-8);
+  jctx.fillText('y1 → height (cm)', W-118, H-8);
   jctx.save();
   jctx.translate(10, 14);
-  jctx.fillText('↑ y2', 0, 0);
+  jctx.fillText('↑ y2 weight (kg)', 0, 0);
   jctx.restore();
-  jctx.fillText('c = ' + fmt(state.c), 6, cy - 6 < 12 ? cy+14 : cy-6);
+  jctx.fillText('y2 = c = ' + fmt(state.c,1) + ' kg', 6, cy - 6 < 12 ? cy+14 : cy-6);
 }
 
 // dragging interaction
@@ -541,7 +544,7 @@ function drawSlice() {
 
   sctx.fillStyle = '#555';
   sctx.font = '11px -apple-system, sans-serif';
-  sctx.fillText('y1 →', W-32, H-10);
+  sctx.fillText('y1 → height (cm)', W-118, H-10);
 }
 
 // --- numeric panel ---
@@ -570,6 +573,15 @@ function renderNumbers() {
       <tr><td class="formula-label">\\(\\Lambda_{11}^{-1}\\)</td><td class="result">${fmt(cond.Sigma1_2_b,3)}</td></tr>
     </table>
     <div class="check">&#10003; both &Sigma;<sub>1|2</sub> expressions agree &mdash; &Sigma;<sub>1|2</sub> = ${fmt(cond.Sigma1_2_a,3)}</div>
+    <hr class="sep">
+    <div style="font-size:0.86rem;">
+      <b>In plain terms:</b> someone who weighs <b>${fmt(state.c,1)} kg</b> is expected to be about
+      <b>${fmt(cond.mu1_2_a,1)} cm</b> tall, with ~95% of such people falling roughly between
+      ${fmt(cond.mu1_2_a-2*Math.sqrt(cond.Sigma1_2_a),1)} and ${fmt(cond.mu1_2_a+2*Math.sqrt(cond.Sigma1_2_a),1)} cm
+      (&mu;<sub>1|2</sub> &plusmn; 2&radic;&Sigma;<sub>1|2</sub>). Compare that to the unconditional (marginal) spread of
+      heights, &mu;<sub>1</sub> &plusmn; 2&radic;&Sigma;<sub>11</sub> = ${fmt(P.mu1-2*Math.sqrt(P.Sigma11),1)}&ndash;${fmt(P.mu1+2*Math.sqrt(P.Sigma11),1)} cm
+      &mdash; conditioning on weight narrows (or shifts) what you'd guess about height.
+    </div>
   `;
   if (window.renderMathInElement) {
     renderMathInElement(panel, { delimiters: [{left:"\\(", right:"\\)", display:false}] });
