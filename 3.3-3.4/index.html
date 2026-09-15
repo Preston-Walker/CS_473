@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MVN Marginals &amp; Conditionals</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --accent: #b1453a;
+    --accent2: #3a6fb1;
+    --accent3: #4a9c6d;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+  header h1 {
+    font-size: 1.6rem;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  header .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-bottom: 18px;
+  }
+  .eqbox {
+    background: var(--panel);
+    border: 1.5px solid var(--ink);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 18px 0 22px;
+    overflow-x: auto;
+  }
+  .eqbox .eq-row { margin: 6px 0; }
+  .eqbox .label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px;}
+  .intro {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 22px;
+    font-size: 0.95rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0,1.05fr) minmax(0,0.95fr);
+    gap: 20px;
+  }
+  @media (max-width: 880px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .panel h2 {
+    font-size: 1rem;
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
+  .panel h2 .hint {
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-left: 6px;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    background: #fff;
+    touch-action: none;
+    cursor: ns-resize;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .controls {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 18px;
+  }
+  .ctrl { display: flex; flex-direction: column; gap: 3px; }
+  .ctrl label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+  .ctrl label b { color: var(--ink); font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--accent2); }
+  .presets {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  button.preset {
+    font-size: 0.78rem;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: #fafaf9;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  button.preset:hover { border-color: var(--accent2); color: var(--accent2); }
+  .numbers {
+    margin-top: 18px;
+    font-size: 0.84rem;
+  }
+  .numbers table { border-collapse: collapse; width: 100%; }
+  .numbers td { padding: 3px 6px; vertical-align: middle; }
+  .numbers .formula-label { color: var(--muted); white-space: nowrap; }
+  .numbers .result { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .check { color: var(--accent3); font-weight: 600; font-size: 0.8rem; margin-top: 6px; }
+  .matdisp { font-variant-numeric: tabular-nums; }
+  .foot {
+    margin-top: 30px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+  }
+  .foot a { color: var(--accent2); }
+  hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Marginals &amp; Conditionals of a Multivariate Gaussian</h1>
+    <div class="subtitle">An interactive companion to Murphy, <em>Probabilistic Machine Learning</em>, &sect;3.2.3 (Eq. 3.26&ndash;3.28)</div>
+  </header>
+
+  <div class="eqbox">
+    <div class="label">The boxed result</div>
+    <div class="eq-row">$$ p(y_1) = \mathcal{N}(y_1 \mid \mu_1, \Sigma_{11}) \qquad p(y_2) = \mathcal{N}(y_2 \mid \mu_2, \Sigma_{22}) $$</div>
+    <div class="eq-row">$$ p(y_1 \mid y_2) = \mathcal{N}(y_1 \mid \mu_{1|2}, \Sigma_{1|2}) $$</div>
+    <div class="eq-row">$$ \mu_{1|2} = \mu_1 + \Sigma_{12}\Sigma_{22}^{-1}(y_2-\mu_2) \;=\; \mu_1 - \Lambda_{11}^{-1}\Lambda_{12}(y_2-\mu_2) \;=\; \Sigma_{1|2}\big(\Lambda_{11}\mu_1 - \Lambda_{12}(y_2-\mu_2)\big) $$</div>
+    <div class="eq-row">$$ \Sigma_{1|2} = \Sigma_{11} - \Sigma_{12}\Sigma_{22}^{-1}\Sigma_{21} \;=\; \Lambda_{11}^{-1} $$</div>
+  </div>
+
+  <div class="intro">
+    Below, <b>y<sub>1</sub></b> is the horizontal axis and <b>y<sub>2</sub></b> is the vertical axis of a 2‑D Gaussian
+    (the smallest case where these equations are non‑trivial). The shaded region is the joint density
+    <code>p(y1, y2)</code>. <b>Drag the horizontal line</b> to set an observed value <code>y2 = c</code> and watch the
+    conditional <code>p(y1 | y2 = c)</code> update on the right &mdash; exactly per Eq. 3.28. Use the sliders to change the
+    means, variances, and correlation.
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Joint density <span class="hint">drag the dashed line to set y2 = c</span></h2>
+      <canvas id="joint" width="480" height="480"></canvas>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--accent)"></i> observed line y2 = c</span>
+        <span><i class="swatch" style="background:var(--accent2)"></i> regression line E[y1|y2]</span>
+        <span><i class="swatch" style="background:#999;border-top:1px dashed #999;height:0"></i> 1σ / 2σ / 3σ contours</span>
+      </div>
+
+      <div class="controls">
+        <div class="ctrl">
+          <label>&mu;<sub>1</sub> (mean of y1) <b id="v-mu1"></b></label>
+          <input type="range" id="mu1" min="-4" max="4" step="0.05" value="0">
+        </div>
+        <div class="ctrl">
+          <label>&mu;<sub>2</sub> (mean of y2) <b id="v-mu2"></b></label>
+          <input type="range" id="mu2" min="-4" max="4" step="0.05" value="0">
+        </div>
+        <div class="ctrl">
+          <label>&sigma;<sub>1</sub> (std of y1) <b id="v-s1"></b></label>
+          <input type="range" id="s1" min="0.3" max="3" step="0.02" value="1">
+        </div>
+        <div class="ctrl">
+          <label>&sigma;<sub>2</sub> (std of y2) <b id="v-s2"></b></label>
+          <input type="range" id="s2" min="0.3" max="3" step="0.02" value="1">
+        </div>
+        <div class="ctrl" style="grid-column: 1 / -1;">
+          <label>&rho; (correlation) <b id="v-rho"></b></label>
+          <input type="range" id="rho" min="-0.97" max="0.97" step="0.01" value="0.6">
+        </div>
+      </div>
+      <div class="presets">
+        <button class="preset" data-preset="indep">Independent (&rho;=0)</button>
+        <button class="preset" data-preset="pos">Strong positive corr.</button>
+        <button class="preset" data-preset="neg">Strong negative corr.</button>
+        <button class="preset" data-preset="aniso">Unequal variances</button>
+        <button class="preset" data-preset="reset">Reset</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Marginal vs. conditional of y1</h2>
+      <canvas id="slice" width="480" height="300"></canvas>
+      <div class="legend">
+        <span><i class="swatch" style="border-top:2px dashed #999;height:0"></i> marginal p(y1)</span>
+        <span><i class="swatch" style="background:var(--accent)"></i> conditional p(y1|y2=c)</span>
+        <span><i class="swatch" style="background:#cfcfcf"></i> raw slice p(y1, y2=c) (unnormalized)</span>
+      </div>
+
+      <hr class="sep">
+
+      <h2>Numeric check <span class="hint">all three &mu;<sub>1|2</sub> formulas agree, both &Sigma;<sub>1|2</sub> formulas agree</span></h2>
+      <div class="numbers" id="numpanel"></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    Built to accompany Murphy's <em>Probabilistic Machine Learning: An Introduction</em>, Section 3.2.3 &mdash;
+    for CS 473 self-study. Everything here reduces the book's general formulas (with block matrices) to the
+    scalar 2&times;2 case, which is exactly what the equations simplify to when y1 and y2 are each 1-D.
+  </div>
+</div>
+
+<script>
+const state = { mu1: 0, mu2: 0, s1: 1, s2: 1, rho: 0.6, c: 1.2, dragging: false };
+
+const els = {
+  mu1: document.getElementById('mu1'),
+  mu2: document.getElementById('mu2'),
+  s1: document.getElementById('s1'),
+  s2: document.getElementById('s2'),
+  rho: document.getElementById('rho'),
+};
+const labels = {
+  mu1: document.getElementById('v-mu1'),
+  mu2: document.getElementById('v-mu2'),
+  s1: document.getElementById('v-s1'),
+  s2: document.getElementById('v-s2'),
+  rho: document.getElementById('v-rho'),
+};
+
+function fmt(x, d=2) { return (Object.is(x,-0)?0:x).toFixed(d); }
+
+function syncSliders() {
+  els.mu1.value = state.mu1; els.mu2.value = state.mu2;
+  els.s1.value = state.s1; els.s2.value = state.s2; els.rho.value = state.rho;
+}
+function updateLabels() {
+  labels.mu1.textContent = fmt(state.mu1);
+  labels.mu2.textContent = fmt(state.mu2);
+  labels.s1.textContent = fmt(state.s1);
+  labels.s2.textContent = fmt(state.s2);
+  labels.rho.textContent = fmt(state.rho);
+}
+
+for (const key of ['mu1','mu2','s1','s2','rho']) {
+  els[key].addEventListener('input', () => {
+    state[key] = parseFloat(els[key].value);
+    clampC();
+    updateLabels();
+    render();
+  });
+}
+
+document.querySelectorAll('.preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.preset;
+    if (p === 'indep') Object.assign(state, {rho: 0});
+    else if (p === 'pos') Object.assign(state, {rho: 0.9, s1:1, s2:1});
+    else if (p === 'neg') Object.assign(state, {rho: -0.85, s1:1, s2:1});
+    else if (p === 'aniso') Object.assign(state, {s1: 0.6, s2: 2.4, rho: 0.5});
+    else if (p === 'reset') Object.assign(state, {mu1:0, mu2:0, s1:1, s2:1, rho:0.6});
+    clampC();
+    syncSliders();
+    updateLabels();
+    render();
+  });
+});
+
+// --- math helpers ---
+function computeParams() {
+  const {mu1, mu2, s1, s2, rho} = state;
+  const Sigma11 = s1*s1, Sigma22 = s2*s2, Sigma12 = rho*s1*s2;
+  const det = Sigma11*Sigma22 - Sigma12*Sigma12;
+  const Lambda11 = Sigma22/det, Lambda22 = Sigma11/det, Lambda12 = -Sigma12/det;
+  return {mu1, mu2, Sigma11, Sigma22, Sigma12, det, Lambda11, Lambda22, Lambda12};
+}
+
+function conditional(c) {
+  const P = computeParams();
+  const dy = c - P.mu2;
+  const mu1_2_a = P.mu1 + (P.Sigma12/P.Sigma22)*dy;
+  const mu1_2_b = P.mu1 - (1/P.Lambda11)*P.Lambda12*dy;
+  const Sigma1_2_a = P.Sigma11 - (P.Sigma12*P.Sigma12)/P.Sigma22;
+  const Sigma1_2_b = 1/P.Lambda11;
+  const mu1_2_c = Sigma1_2_a * (P.Lambda11*P.mu1 - P.Lambda12*dy);
+  return {P, mu1_2_a, mu1_2_b, mu1_2_c, Sigma1_2_a, Sigma1_2_b};
+}
+
+function gauss1d(x, mu, sigma2) {
+  return Math.exp(-0.5*(x-mu)*(x-mu)/sigma2) / Math.sqrt(2*Math.PI*sigma2);
+}
+
+function viewport() {
+  const P = computeParams();
+  const R = Math.max(4*Math.max(state.s1, state.s2), 4);
+  return {
+    x0: P.mu1 - R, x1: P.mu1 + R,
+    y0: P.mu2 - R, y1: P.mu2 + R,
+    R
+  };
+}
+function clampC() {
+  const vp = viewport();
+  state.c = Math.min(vp.y1, Math.max(vp.y0, state.c));
+}
+
+// --- canvas: joint density ---
+const jointCv = document.getElementById('joint');
+const jctx = jointCv.getContext('2d');
+
+function eig2x2(a, b, d) {
+  // symmetric [[a,b],[b,d]]
+  const tr = a+d, diff = a-d;
+  const disc = Math.sqrt(diff*diff/4 + b*b);
+  const l1 = tr/2 + disc, l2 = tr/2 - disc;
+  const theta = 0.5*Math.atan2(2*b, diff);
+  return {l1, l2, theta};
+}
+
+function drawJoint() {
+  const W = jointCv.width, H = jointCv.height;
+  const vp = viewport();
+  const P = computeParams();
+  const img = jctx.createImageData(W, H);
+  const maxDensity = 1/(2*Math.PI*Math.sqrt(P.det));
+  for (let py = 0; py < H; py++) {
+    // pixel row 0 = top = y2 = vp.y1 (higher value), row H = y2 = vp.y0
+    const y2 = vp.y1 - (py/(H-1))*(vp.y1-vp.y0);
+    for (let px = 0; px < W; px++) {
+      const y1 = vp.x0 + (px/(W-1))*(vp.x1-vp.x0);
+      const dy1 = y1 - P.mu1, dy2 = y2 - P.mu2;
+      const q = P.Lambda11*dy1*dy1 + 2*P.Lambda12*dy1*dy2 + P.Lambda22*dy2*dy2;
+      const dens = maxDensity*Math.exp(-0.5*q);
+      const t = Math.min(1, dens/maxDensity);
+      // white -> steel blue
+      const r = Math.round(255 - t*(255-40));
+      const g = Math.round(255 - t*(255-95));
+      const bch = Math.round(255 - t*(255-150));
+      const idx = (py*W+px)*4;
+      img.data[idx] = r; img.data[idx+1] = g; img.data[idx+2] = bch; img.data[idx+3] = 255;
+    }
+  }
+  jctx.putImageData(img, 0, 0);
+
+  // coordinate transforms
+  const toPx = (y1) => (y1-vp.x0)/(vp.x1-vp.x0)*W;
+  const toPy = (y2) => H - (y2-vp.y0)/(vp.y1-vp.y0)*H;
+
+  // sigma ellipses
+  const eig = eig2x2(P.Sigma11, P.Sigma12, P.Sigma22);
+  jctx.save();
+  jctx.strokeStyle = 'rgba(60,60,60,0.55)';
+  jctx.setLineDash([5,4]);
+  jctx.lineWidth = 1.2;
+  for (const k of [1,2,3]) {
+    const a = k*Math.sqrt(Math.max(eig.l1,0));
+    const b = k*Math.sqrt(Math.max(eig.l2,0));
+    jctx.beginPath();
+    const steps = 90;
+    for (let i=0;i<=steps;i++) {
+      const t = i/steps*2*Math.PI;
+      const ex = a*Math.cos(t), ey = b*Math.sin(t);
+      const rx = ex*Math.cos(eig.theta) - ey*Math.sin(eig.theta);
+      const ry = ex*Math.sin(eig.theta) + ey*Math.cos(eig.theta);
+      const wx = P.mu1+rx, wy = P.mu2+ry;
+      const X = toPx(wx), Y = toPy(wy);
+      if (i===0) jctx.moveTo(X,Y); else jctx.lineTo(X,Y);
+    }
+    jctx.stroke();
+  }
+  jctx.restore();
+
+  // regression line E[y1|y2] across viewport
+  jctx.save();
+  jctx.strokeStyle = '#3a6fb1';
+  jctx.lineWidth = 2;
+  jctx.setLineDash([]);
+  jctx.beginPath();
+  const y2top = vp.y1, y2bot = vp.y0;
+  const x1top = P.mu1 + (P.Sigma12/P.Sigma22)*(y2top-P.mu2);
+  const x1bot = P.mu1 + (P.Sigma12/P.Sigma22)*(y2bot-P.mu2);
+  jctx.moveTo(toPx(x1top), toPy(y2top));
+  jctx.lineTo(toPx(x1bot), toPy(y2bot));
+  jctx.stroke();
+  jctx.restore();
+
+  // draggable line y2 = c
+  const cy = toPy(state.c);
+  jctx.save();
+  jctx.strokeStyle = '#b1453a';
+  jctx.lineWidth = 2.5;
+  jctx.beginPath();
+  jctx.moveTo(0, cy); jctx.lineTo(W, cy);
+  jctx.stroke();
+  jctx.restore();
+
+  // marker at (mu1|2, c)
+  const cond = conditional(state.c);
+  const mx = toPx(cond.mu1_2_a), my = toPy(state.c);
+  jctx.beginPath();
+  jctx.fillStyle = '#b1453a';
+  jctx.arc(mx, my, 5, 0, 2*Math.PI);
+  jctx.fill();
+  jctx.strokeStyle = '#fff';
+  jctx.lineWidth = 1.5;
+  jctx.stroke();
+
+  // axis ticks/labels (minimal)
+  jctx.fillStyle = '#555';
+  jctx.font = '11px -apple-system, sans-serif';
+  jctx.fillText('y1 →', W-32, H-8);
+  jctx.save();
+  jctx.translate(10, 14);
+  jctx.fillText('↑ y2', 0, 0);
+  jctx.restore();
+  jctx.fillText('c = ' + fmt(state.c), 6, cy - 6 < 12 ? cy+14 : cy-6);
+}
+
+// dragging interaction
+function pyToY2(py) {
+  const vp = viewport();
+  const H = jointCv.height;
+  const rect = jointCv.getBoundingClientRect();
+  const scaledPy = py * (H/rect.height);
+  return vp.y1 - (scaledPy/H)*(vp.y1-vp.y0);
+}
+let renderQueued = false;
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => { renderQueued = false; render(); });
+}
+function handlePointer(e) {
+  const rect = jointCv.getBoundingClientRect();
+  const clientY = (e.touches ? e.touches[0].clientY : e.clientY);
+  const py = clientY - rect.top;
+  state.c = pyToY2(py);
+  clampC();
+  scheduleRender();
+}
+jointCv.addEventListener('mousedown', e => { state.dragging = true; handlePointer(e); });
+window.addEventListener('mousemove', e => { if (state.dragging) handlePointer(e); });
+window.addEventListener('mouseup', () => state.dragging = false);
+jointCv.addEventListener('touchstart', e => { state.dragging = true; handlePointer(e); e.preventDefault(); }, {passive:false});
+jointCv.addEventListener('touchmove', e => { if (state.dragging) { handlePointer(e); e.preventDefault(); } }, {passive:false});
+jointCv.addEventListener('touchend', () => state.dragging = false);
+
+// --- canvas: 1D slice plot ---
+const sliceCv = document.getElementById('slice');
+const sctx = sliceCv.getContext('2d');
+
+function drawSlice() {
+  const W = sliceCv.width, H = sliceCv.height;
+  sctx.clearRect(0,0,W,H);
+  const vp = viewport();
+  const P = computeParams();
+  const cond = conditional(state.c);
+  const marginalPeak = gauss1d(P.mu1, P.mu1, P.Sigma11);
+  const condPeak = gauss1d(cond.mu1_2_a, cond.mu1_2_a, cond.Sigma1_2_a);
+  const pY2atC = gauss1d(state.c, P.mu2, P.Sigma22);
+  const maxY = Math.max(marginalPeak, condPeak) * 1.15;
+
+  const toX = (y1) => (y1-vp.x0)/(vp.x1-vp.x0)*W;
+  const toY = (d) => H - 28 - (d/maxY)*(H-40);
+
+  // axes
+  sctx.strokeStyle = '#ddd';
+  sctx.lineWidth = 1;
+  sctx.beginPath();
+  sctx.moveTo(0, H-28); sctx.lineTo(W, H-28);
+  sctx.stroke();
+
+  const N = 240;
+  function plotCurve(fn, color, dash) {
+    sctx.beginPath();
+    sctx.strokeStyle = color;
+    sctx.lineWidth = 2.2;
+    sctx.setLineDash(dash || []);
+    for (let i=0;i<=N;i++) {
+      const y1 = vp.x0 + (i/N)*(vp.x1-vp.x0);
+      const d = fn(y1);
+      const X = toX(y1), Y = toY(d);
+      if (i===0) sctx.moveTo(X,Y); else sctx.lineTo(X,Y);
+    }
+    sctx.stroke();
+    sctx.setLineDash([]);
+  }
+
+  // raw slice (unnormalized): p(y1, y2=c) = N(y1; mu1|2, Sigma1|2) * p(y2=c)
+  plotCurve(y1 => gauss1d(y1, cond.mu1_2_a, cond.Sigma1_2_a) * pY2atC, '#cfcfcf');
+  // marginal p(y1)
+  plotCurve(y1 => gauss1d(y1, P.mu1, P.Sigma11), '#999', [5,4]);
+  // conditional p(y1|y2=c)
+  plotCurve(y1 => gauss1d(y1, cond.mu1_2_a, cond.Sigma1_2_a), '#b1453a');
+
+  // markers
+  function marker(y1, color) {
+    const X = toX(y1);
+    sctx.beginPath();
+    sctx.strokeStyle = color;
+    sctx.setLineDash([3,3]);
+    sctx.moveTo(X, H-28); sctx.lineTo(X, 8);
+    sctx.stroke();
+    sctx.setLineDash([]);
+  }
+  marker(P.mu1, '#999');
+  marker(cond.mu1_2_a, '#b1453a');
+
+  sctx.fillStyle = '#555';
+  sctx.font = '11px -apple-system, sans-serif';
+  sctx.fillText('y1 →', W-32, H-10);
+}
+
+// --- numeric panel ---
+function renderNumbers() {
+  const cond = conditional(state.c);
+  const P = cond.P;
+  const panel = document.getElementById('numpanel');
+  panel.innerHTML = `
+    <table>
+      <tr><td class="formula-label">\\(\\Sigma\\)</td><td class="matdisp">
+        [[${fmt(P.Sigma11)}, ${fmt(P.Sigma12)}], [${fmt(P.Sigma12)}, ${fmt(P.Sigma22)}]]
+      </td></tr>
+      <tr><td class="formula-label">\\(\\Lambda=\\Sigma^{-1}\\)</td><td class="matdisp">
+        [[${fmt(P.Lambda11,3)}, ${fmt(P.Lambda12,3)}], [${fmt(P.Lambda12,3)}, ${fmt(P.Lambda22,3)}]]
+      </td></tr>
+    </table>
+    <hr class="sep">
+    <table>
+      <tr><td class="formula-label">\\(\\mu_1+\\Sigma_{12}\\Sigma_{22}^{-1}(y_2-\\mu_2)\\)</td><td class="result">${fmt(cond.mu1_2_a,3)}</td></tr>
+      <tr><td class="formula-label">\\(\\mu_1-\\Lambda_{11}^{-1}\\Lambda_{12}(y_2-\\mu_2)\\)</td><td class="result">${fmt(cond.mu1_2_b,3)}</td></tr>
+      <tr><td class="formula-label">\\(\\Sigma_{1|2}(\\Lambda_{11}\\mu_1-\\Lambda_{12}(y_2-\\mu_2))\\)</td><td class="result">${fmt(cond.mu1_2_c,3)}</td></tr>
+    </table>
+    <div class="check">&#10003; all three &mu;<sub>1|2</sub> expressions agree &mdash; &mu;<sub>1|2</sub> = ${fmt(cond.mu1_2_a,3)}</div>
+    <table style="margin-top:8px;">
+      <tr><td class="formula-label">\\(\\Sigma_{11}-\\Sigma_{12}\\Sigma_{22}^{-1}\\Sigma_{21}\\)</td><td class="result">${fmt(cond.Sigma1_2_a,3)}</td></tr>
+      <tr><td class="formula-label">\\(\\Lambda_{11}^{-1}\\)</td><td class="result">${fmt(cond.Sigma1_2_b,3)}</td></tr>
+    </table>
+    <div class="check">&#10003; both &Sigma;<sub>1|2</sub> expressions agree &mdash; &Sigma;<sub>1|2</sub> = ${fmt(cond.Sigma1_2_a,3)}</div>
+  `;
+  if (window.renderMathInElement) {
+    renderMathInElement(panel, { delimiters: [{left:"\\(", right:"\\)", display:false}] });
+  }
+}
+
+function render() {
+  drawJoint();
+  drawSlice();
+  renderNumbers();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.renderMathInElement) {
+    renderMathInElement(document.body, {
+      delimiters: [
+        {left: "$$", right: "$$", display: true},
+        {left: "\\(", right: "\\)", display: false}
+      ]
+    });
+  }
+  syncSliders();
+  updateLabels();
+  clampC();
+  render();
+});
+</script>
+</body>
+</html>
