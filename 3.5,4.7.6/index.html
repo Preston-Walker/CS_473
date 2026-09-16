@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Bias&ndash;Variance Tradeoff</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --accent: #b1453a;
+    --accent2: #3a6fb1;
+    --accent3: #4a9c6d;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+  header h1 {
+    font-size: 1.6rem;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  header .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-bottom: 18px;
+  }
+  .eqbox {
+    background: var(--panel);
+    border: 1.5px solid var(--ink);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 18px 0 22px;
+    overflow-x: auto;
+  }
+  .eqbox .eq-row { margin: 6px 0; }
+  .eqbox .label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px;}
+  .intro {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 22px;
+    font-size: 0.95rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0,1.1fr) minmax(0,0.9fr);
+    gap: 20px;
+  }
+  @media (max-width: 880px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .panel h2 {
+    font-size: 1rem;
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
+  .panel h2 .hint {
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-left: 6px;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    background: #fff;
+    touch-action: none;
+  }
+  #fitplot { cursor: ew-resize; }
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .controls {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 18px;
+  }
+  .ctrl { display: flex; flex-direction: column; gap: 3px; }
+  .ctrl.full { grid-column: 1 / -1; }
+  .ctrl label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+  .ctrl label b { color: var(--ink); font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--accent2); }
+  .presets {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  button.preset {
+    font-size: 0.78rem;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: #fafaf9;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  button.preset:hover { border-color: var(--accent2); color: var(--accent2); }
+  .numbers {
+    margin-top: 12px;
+    font-size: 0.84rem;
+  }
+  .numbers table { border-collapse: collapse; width: 100%; }
+  .numbers td { padding: 3px 6px; vertical-align: middle; }
+  .numbers .formula-label { color: var(--muted); white-space: nowrap; }
+  .numbers .result { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .check { color: var(--accent3); font-weight: 600; font-size: 0.8rem; margin-top: 6px; }
+  .readout {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #fafaf9;
+    border: 1px solid var(--border);
+    font-size: 0.88rem;
+  }
+  .readout b { color: var(--accent); }
+  hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .foot {
+    margin-top: 30px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+  }
+  .foot a { color: var(--accent2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>The Bias&ndash;Variance Tradeoff</h1>
+    <div class="subtitle">An interactive companion to &sect;3.5 (sampling distribution of an estimator) and &sect;4.7.6 (the bias&ndash;variance tradeoff), Murphy's <em>Probabilistic Machine Learning: An Introduction</em></div>
+    <div class="subtitle">Worked example: predicting <b>monthly rent</b> from an apartment's <b>square footage</b></div>
+  </header>
+
+  <div class="eqbox">
+    <div class="label">The boxed result</div>
+    <div class="eq-row">$$ \mathrm{MSE}(\hat\theta) = \mathbb{E}\big[(\hat\theta(\mathcal D) - \theta^*)^2\big] = \underbrace{\big(\mathbb{E}[\hat\theta(\mathcal D)] - \theta^*\big)^2}_{\text{Bias}^2} \;+\; \underbrace{\mathrm{Var}\big[\hat\theta(\mathcal D)\big]}_{\text{Variance}} $$</div>
+    <div class="eq-row">$$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] \;=\; \underbrace{\sigma^2}_{\text{irreducible noise}} \;+\; \underbrace{\big(\mathbb{E}[\hat f(x_0)] - f(x_0)\big)^2}_{\text{Bias}^2 \text{ (model too rigid)}} \;+\; \underbrace{\mathrm{Var}\big[\hat f(x_0)\big]}_{\text{Variance (model too sensitive to } \mathcal D \text{)}} $$</div>
+  </div>
+
+  <div class="intro">
+    <b>The story:</b> you're a data scientist at a rental platform. You want a curve
+    <code>rent&nbsp;=&nbsp;f(sqft)</code> that predicts monthly rent from an apartment's size. Each month you only get
+    to survey a small random sample of <code>n</code> listed apartments &mdash; that sample <em>is</em> your training
+    set <code>&Dscr;</code>. Fit a low-degree polynomial (e.g. a straight line) and it may be too rigid to capture the
+    true diminishing-returns shape of the market &mdash; it misses the same way <em>every</em> month, regardless of
+    which apartments you happened to survey: <b>low variance, high bias</b>. Fit a high-degree polynomial and it
+    happily bends through the noise of whichever <code>n</code> apartments you drew &mdash; refit next month on a
+    different sample and you get a wildly different curve: <b>low bias, high variance</b>. The <code>&sigma;</code>
+    slider controls how noisy real rents are around the true curve (measurement noise, unit-to-unit quirks); that
+    noise is <em>irreducible</em> &mdash; no model, however flexible, can fit it away.
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Fitted rent curves <span class="hint">drag the vertical line to choose a target square footage x&#8320;</span></h2>
+      <canvas id="fitplot" width="620" height="400"></canvas>
+      <div class="legend">
+        <span><i class="swatch" style="border-top:2px dashed #888;height:0"></i> true market curve f(x) (unknown in practice)</span>
+        <span><i class="swatch" style="background:var(--accent2)"></i> average fitted curve, E[f&#770;(x)]</span>
+        <span><i class="swatch" style="background:#bcd0ea"></i> &plusmn;1&sigma; spread across resamples (variance)</span>
+        <span><i class="swatch" style="background:#c9c9c9"></i> one month's fit / survey</span>
+      </div>
+
+      <div class="controls">
+        <div class="ctrl">
+          <label>Model complexity &mdash; polynomial degree <b id="v-degree"></b></label>
+          <input type="range" id="degree" min="1" max="9" step="1" value="3">
+        </div>
+        <div class="ctrl">
+          <label>Sample size &mdash; apartments surveyed, n <b id="v-n"></b></label>
+          <input type="range" id="n" min="12" max="50" step="1" value="18">
+        </div>
+        <div class="ctrl full">
+          <label>Market noise &mdash; &sigma; ($/mo around the true curve) <b id="v-sigma"></b></label>
+          <input type="range" id="sigma" min="20" max="250" step="5" value="120">
+        </div>
+      </div>
+      <div class="presets">
+        <button class="preset" data-preset="underfit">Underfit (straight line)</button>
+        <button class="preset" data-preset="sweet">Sweet spot</button>
+        <button class="preset" data-preset="overfit">Overfit (degree 9)</button>
+        <button class="preset" data-preset="tiny">Tiny sample (n=12)</button>
+        <button class="preset" data-preset="big">Large sample (n=50)</button>
+        <button class="preset" data-preset="noisy">Noisy market</button>
+        <button class="preset" data-preset="reset">Reset</button>
+      </div>
+
+      <div class="readout" id="readout"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Expected error vs. model complexity <span class="hint">averaged over the whole market</span></h2>
+      <canvas id="sweep" width="480" height="260"></canvas>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--accent)"></i> Bias&sup2;</span>
+        <span><i class="swatch" style="background:var(--accent2)"></i> Variance</span>
+        <span><i class="swatch" style="background:var(--ink)"></i> Bias&sup2; + Variance (expected test error, no noise)</span>
+      </div>
+
+      <hr class="sep">
+
+      <h2>At x&#8320; = <span id="x0label"></span> sqft, degree = <span id="degreelabel"></span></h2>
+      <div class="numbers" id="numpanel"></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    Built to accompany Murphy's <em>Probabilistic Machine Learning: An Introduction</em>, &sect;3.5 &amp; &sect;4.7.6
+    &mdash; for CS 473 self-study. The rent/square-footage market is simulated (not real listings): the "true" curve
+    is a fixed, mildly concave function of square footage, and each "month" draws a fresh random sample of noisy
+    apartments from it. Everything here is computed live in the browser via repeated polynomial least-squares fits
+    (Monte Carlo resampling) &mdash; no data leaves your machine.
+  </div>
+</div>
+
+<script>
+const DOMAIN = { xMin: 400, xMax: 2000, xMid: 1200, xHalf: 800, yMin: 0, yMax: 2700 };
+const M_MAIN = 60;   // resamples for the main plot
+const M_SWEEP = 45;  // resamples per degree for the complexity sweep
+const MAX_DEGREE = 9;
+
+function trueF(x) {
+  const d = x - 400;
+  return 600 + 1.6 * d - 0.0005 * d * d;
+}
+
+let seed = 42;
+function rand() { // small deterministic-ish PRNG so re-renders during a drag don't flicker wildly
+  seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+  return (seed % 1000000) / 1000000;
+}
+let spareGauss = null;
+function randn() {
+  if (spareGauss !== null) { const v = spareGauss; spareGauss = null; return v; }
+  let u = 0, v = 0;
+  while (u === 0) u = rand();
+  while (v === 0) v = rand();
+  const mag = Math.sqrt(-2 * Math.log(u));
+  spareGauss = mag * Math.sin(2 * Math.PI * v);
+  return mag * Math.cos(2 * Math.PI * v);
+}
+
+function sampleData(n, sigma) {
+  const xs = new Array(n), ys = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = DOMAIN.xMin + rand() * (DOMAIN.xMax - DOMAIN.xMin);
+    xs[i] = x;
+    ys[i] = trueF(x) + randn() * sigma;
+  }
+  return { xs, ys };
+}
+
+// solve a k x k linear system A*beta = b via Gaussian elimination w/ partial pivoting
+function solveLinear(A, b) {
+  const k = b.length;
+  for (let col = 0; col < k; col++) {
+    let piv = col;
+    for (let r = col + 1; r < k; r++) if (Math.abs(A[r][col]) > Math.abs(A[piv][col])) piv = r;
+    if (piv !== col) { [A[col], A[piv]] = [A[piv], A[col]]; [b[col], b[piv]] = [b[piv], b[col]]; }
+    const pivVal = A[col][col] || 1e-9;
+    for (let r = col + 1; r < k; r++) {
+      const f = A[r][col] / pivVal;
+      for (let c = col; c < k; c++) A[r][c] -= f * A[col][c];
+      b[r] -= f * b[col];
+    }
+  }
+  const x = new Array(k).fill(0);
+  for (let r = k - 1; r >= 0; r--) {
+    let s = b[r];
+    for (let c = r + 1; c < k; c++) s -= A[r][c] * x[c];
+    x[r] = s / (A[r][r] || 1e-9);
+  }
+  return x;
+}
+
+// fit y ~ sum beta_j * xc^j  (xc = centered/scaled x) via least squares, xc-space coefficients
+function fitPoly(xs, ys, degree) {
+  const n = xs.length, k = degree + 1;
+  const xc = xs.map(x => (x - DOMAIN.xMid) / DOMAIN.xHalf);
+  const S = new Array(2 * degree + 1).fill(0);
+  const T = new Array(k).fill(0);
+  for (let i = 0; i < n; i++) {
+    let p = 1;
+    const xi = xc[i], yi = ys[i];
+    for (let e = 0; e <= 2 * degree; e++) {
+      S[e] += p;
+      if (e <= degree) T[e] += p * yi;
+      p *= xi;
+    }
+  }
+  const ATA = [];
+  for (let r = 0; r < k; r++) {
+    const row = new Array(k);
+    for (let c = 0; c < k; c++) row[c] = S[r + c] + (r === c ? 1e-6 : 0); // tiny ridge for numerical safety
+    ATA.push(row);
+  }
+  return solveLinear(ATA, T);
+}
+
+function evalPoly(beta, x) {
+  const xc = (x - DOMAIN.xMid) / DOMAIN.xHalf;
+  let y = 0, p = 1;
+  for (let j = 0; j < beta.length; j++) { y += beta[j] * p; p *= xc; }
+  return y;
+}
+
+function runTrials(M, n, sigma, degree) {
+  const betas = new Array(M);
+  let lastSample = null;
+  for (let t = 0; t < M; t++) {
+    const { xs, ys } = sampleData(n, sigma);
+    betas[t] = fitPoly(xs, ys, degree);
+    lastSample = { xs, ys };
+  }
+  return { betas, lastSample };
+}
+
+function linspace(a, b, n) {
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) out[i] = a + (b - a) * i / (n - 1);
+  return out;
+}
+
+function curvesFromBetas(betas, gridXs) {
+  const G = gridXs.length, M = betas.length;
+  const mean = new Array(G).fill(0), variance = new Array(G).fill(0);
+  const preds = new Array(M);
+  for (let t = 0; t < M; t++) {
+    const row = new Array(G);
+    for (let i = 0; i < G; i++) row[i] = evalPoly(betas[t], gridXs[i]);
+    preds[t] = row;
+  }
+  for (let i = 0; i < G; i++) {
+    let s = 0;
+    for (let t = 0; t < M; t++) s += preds[t][i];
+    mean[i] = s / M;
+  }
+  for (let i = 0; i < G; i++) {
+    let s = 0;
+    for (let t = 0; t < M; t++) { const d = preds[t][i] - mean[i]; s += d * d; }
+    variance[i] = s / M;
+  }
+  const bias2 = mean.map((m, i) => { const d = m - trueF(gridXs[i]); return d * d; });
+  const mse = new Array(G).fill(0);
+  for (let i = 0; i < G; i++) {
+    let s = 0;
+    for (let t = 0; t < M; t++) { const d = preds[t][i] - trueF(gridXs[i]); s += d * d; }
+    mse[i] = s / M;
+  }
+  return { preds, mean, variance, bias2, mse };
+}
+
+function avg(arr) { return arr.reduce((a, b) => a + b, 0) / arr.length; }
+function fmt(x, d = 1) { return (Object.is(x, -0) ? 0 : x).toFixed(d); }
+function fmtMoney(x) { return '$' + fmt(x, 0); }
+
+// ---------------- state & UI wiring ----------------
+const state = { degree: 3, n: 18, sigma: 120, x0: 1200, dragging: false };
+const els = { degree: document.getElementById('degree'), n: document.getElementById('n'), sigma: document.getElementById('sigma') };
+const labels = { degree: document.getElementById('v-degree'), n: document.getElementById('v-n'), sigma: document.getElementById('v-sigma') };
+
+function syncSliders() { els.degree.value = state.degree; els.n.value = state.n; els.sigma.value = state.sigma; }
+function updateLabels() {
+  labels.degree.textContent = state.degree;
+  labels.n.textContent = state.n;
+  labels.sigma.textContent = fmtMoney(state.sigma);
+}
+for (const key of ['degree', 'n', 'sigma']) {
+  els[key].addEventListener('input', () => {
+    state[key] = parseFloat(els[key].value);
+    updateLabels();
+    render();
+  });
+}
+document.querySelectorAll('.preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.preset;
+    if (p === 'underfit') Object.assign(state, { degree: 1 });
+    else if (p === 'sweet') Object.assign(state, { degree: 2, n: 18, sigma: 120 });
+    else if (p === 'overfit') Object.assign(state, { degree: 9, n: 15 });
+    else if (p === 'tiny') Object.assign(state, { n: 12 });
+    else if (p === 'big') Object.assign(state, { n: 50 });
+    else if (p === 'noisy') Object.assign(state, { sigma: 240 });
+    else if (p === 'reset') Object.assign(state, { degree: 3, n: 18, sigma: 120, x0: 1200 });
+    syncSliders(); updateLabels(); render();
+  });
+});
+
+// ---------------- canvas geometry ----------------
+const fitCv = document.getElementById('fitplot');
+const fctx = fitCv.getContext('2d');
+const M_ = { l: 55, r: 15, t: 15, b: 35 };
+function px(x) { return M_.l + (x - DOMAIN.xMin) / (DOMAIN.xMax - DOMAIN.xMin) * (fitCv.width - M_.l - M_.r); }
+function py(y) { return fitCv.height - M_.b - (y - DOMAIN.yMin) / (DOMAIN.yMax - DOMAIN.yMin) * (fitCv.height - M_.t - M_.b); }
+function invPx(px_) { return DOMAIN.xMin + (px_ - M_.l) / (fitCv.width - M_.l - M_.r) * (DOMAIN.xMax - DOMAIN.xMin); }
+
+function drawAxes(ctx, cv, m, xTicks, yTicks, xFmt, yFmt, xLabel, yLabel, xToPx, yToPx) {
+  ctx.strokeStyle = '#ccc'; ctx.fillStyle = '#888';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(m.l, m.t); ctx.lineTo(m.l, cv.height - m.b); ctx.lineTo(cv.width - m.r, cv.height - m.b); ctx.stroke();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  xTicks.forEach(v => {
+    const x = xToPx(v);
+    ctx.strokeStyle = '#eee'; ctx.beginPath(); ctx.moveTo(x, m.t); ctx.lineTo(x, cv.height - m.b); ctx.stroke();
+    ctx.fillStyle = '#888'; ctx.fillText(xFmt(v), x, cv.height - m.b + 6);
+  });
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  yTicks.forEach(v => {
+    const y = yToPx(v);
+    ctx.fillText(yFmt(v), m.l - 6, y);
+  });
+}
+
+function renderFitPlot() {
+  const { degree, n, sigma, x0 } = state;
+  const { betas, lastSample } = runTrials(M_MAIN, n, sigma, degree);
+  const gridXs = linspace(DOMAIN.xMin, DOMAIN.xMax, 140);
+  const { preds, mean, variance } = curvesFromBetas(betas, gridXs);
+
+  fctx.clearRect(0, 0, fitCv.width, fitCv.height);
+  const xTicks = [400, 800, 1200, 1600, 2000];
+  const yTicks = [0, 500, 1000, 1500, 2000, 2500];
+  drawAxes(fctx, fitCv, M_, xTicks, yTicks, v => v, v => '$' + v, 'sqft', '$/mo', px, py);
+
+  fctx.save();
+  fctx.beginPath();
+  fctx.rect(M_.l, M_.t, fitCv.width - M_.l - M_.r, fitCv.height - M_.t - M_.b);
+  fctx.clip();
+
+  // variance band (+-1 std around mean)
+  fctx.beginPath();
+  gridXs.forEach((x, i) => { const yv = mean[i] + Math.sqrt(variance[i]); const p = { x: px(x), y: py(yv) }; i === 0 ? fctx.moveTo(p.x, p.y) : fctx.lineTo(p.x, p.y); });
+  for (let i = gridXs.length - 1; i >= 0; i--) { const yv = mean[i] - Math.sqrt(variance[i]); fctx.lineTo(px(gridXs[i]), py(yv)); }
+  fctx.closePath();
+  fctx.fillStyle = 'rgba(58,111,177,0.15)';
+  fctx.fill();
+
+  // a handful of individual "one month's survey" fits
+  fctx.strokeStyle = 'rgba(150,150,150,0.55)'; fctx.lineWidth = 1;
+  for (let t = 0; t < Math.min(14, preds.length); t++) {
+    fctx.beginPath();
+    gridXs.forEach((x, i) => { const p = { x: px(x), y: py(preds[t][i]) }; i === 0 ? fctx.moveTo(p.x, p.y) : fctx.lineTo(p.x, p.y); });
+    fctx.stroke();
+  }
+
+  // true function, dashed
+  fctx.strokeStyle = '#888'; fctx.lineWidth = 2; fctx.setLineDash([6, 4]);
+  fctx.beginPath();
+  gridXs.forEach((x, i) => { const p = { x: px(x), y: py(trueF(x)) }; i === 0 ? fctx.moveTo(p.x, p.y) : fctx.lineTo(p.x, p.y); });
+  fctx.stroke();
+  fctx.setLineDash([]);
+
+  // mean fitted curve
+  fctx.strokeStyle = '#3a6fb1'; fctx.lineWidth = 2.5;
+  fctx.beginPath();
+  gridXs.forEach((x, i) => { const p = { x: px(x), y: py(mean[i]) }; i === 0 ? fctx.moveTo(p.x, p.y) : fctx.lineTo(p.x, p.y); });
+  fctx.stroke();
+
+  // scatter of one representative sample
+  fctx.fillStyle = 'rgba(28,28,30,0.55)';
+  lastSample.xs.forEach((x, i) => { fctx.beginPath(); fctx.arc(px(x), py(lastSample.ys[i]), 2.6, 0, 2 * Math.PI); fctx.fill(); });
+
+  fctx.restore();
+
+  // x0 marker
+  const xPix = px(x0);
+  fctx.strokeStyle = '#b1453a'; fctx.lineWidth = 1.5; fctx.setLineDash([3, 3]);
+  fctx.beginPath(); fctx.moveTo(xPix, M_.t); fctx.lineTo(xPix, fitCv.height - M_.b); fctx.stroke();
+  fctx.setLineDash([]);
+
+  return { gridXs, mean, variance, betas };
+}
+
+const sweepCv = document.getElementById('sweep');
+const sctx = sweepCv.getContext('2d');
+const SM = { l: 45, r: 12, t: 12, b: 28 };
+function sweepData(n, sigma) {
+  const gridXs = linspace(DOMAIN.xMin, DOMAIN.xMax, 60);
+  const degrees = [], bias2s = [], vars = [], mses = [];
+  for (let d = 1; d <= MAX_DEGREE; d++) {
+    const { betas } = runTrials(M_SWEEP, n, sigma, d);
+    const c = curvesFromBetas(betas, gridXs);
+    degrees.push(d);
+    bias2s.push(avg(c.bias2));
+    vars.push(avg(c.variance));
+    mses.push(avg(c.mse));
+  }
+  return { degrees, bias2s, vars, mses };
+}
+
+function renderSweep(currentDegree) {
+  const { n, sigma } = state;
+  const { degrees, bias2s, vars, mses } = sweepData(n, sigma);
+  const yMax = Math.max(...mses, ...bias2s, ...vars) * 1.15 || 1;
+  function sx(d) { return SM.l + (d - 1) / (MAX_DEGREE - 1) * (sweepCv.width - SM.l - SM.r); }
+  function sy(v) { return sweepCv.height - SM.b - v / yMax * (sweepCv.height - SM.t - SM.b); }
+
+  sctx.clearRect(0, 0, sweepCv.width, sweepCv.height);
+  const xTicks = degrees;
+  const yTicks = linspace(0, yMax, 5);
+  drawAxes(sctx, sweepCv, SM, xTicks, yTicks, v => v, v => Math.round(v), 'degree', 'error', sx, sy);
+
+  function line(vals, color, width) {
+    sctx.strokeStyle = color; sctx.lineWidth = width;
+    sctx.beginPath();
+    degrees.forEach((d, i) => { const p = { x: sx(d), y: sy(vals[i]) }; i === 0 ? sctx.moveTo(p.x, p.y) : sctx.lineTo(p.x, p.y); });
+    sctx.stroke();
+  }
+  line(bias2s, '#b1453a', 2);
+  line(vars, '#3a6fb1', 2);
+  line(mses, '#1c1c1e', 2.5);
+
+  let bestIdx = 0;
+  for (let i = 1; i < mses.length; i++) if (mses[i] < mses[bestIdx]) bestIdx = i;
+  const bestDeg = degrees[bestIdx];
+  sctx.fillStyle = 'rgba(74,156,109,0.12)';
+  sctx.fillRect(sx(bestDeg) - 6, SM.t, 12, sweepCv.height - SM.t - SM.b);
+  sctx.fillStyle = '#4a9c6d'; sctx.font = 'bold 11px -apple-system, sans-serif'; sctx.textAlign = 'center';
+  sctx.fillText('sweet spot', sx(bestDeg), SM.t + 12);
+
+  const curXPix = sx(currentDegree);
+  sctx.strokeStyle = '#b1453a'; sctx.lineWidth = 1; sctx.setLineDash([2, 3]);
+  sctx.beginPath(); sctx.moveTo(curXPix, SM.t); sctx.lineTo(curXPix, sweepCv.height - SM.b); sctx.stroke();
+  sctx.setLineDash([]);
+
+  return { degrees, bias2s, vars, mses, bestDeg };
+}
+
+function nearestIndex(gridXs, x0) {
+  let best = 0, bd = Infinity;
+  gridXs.forEach((x, i) => { const d = Math.abs(x - x0); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+
+function updateNumbers(fitResult) {
+  const { gridXs, mean, variance, betas } = fitResult;
+  const idx = nearestIndex(gridXs, state.x0);
+  const x0 = gridXs[idx];
+  const bias2 = Math.pow(mean[idx] - trueF(x0), 2);
+  const varAtX0 = variance[idx];
+  const sigma2 = state.sigma * state.sigma;
+  let mcMse = 0;
+  betas.forEach(b => { const d = evalPoly(b, x0) - trueF(x0); mcMse += d * d; });
+  mcMse /= betas.length;
+
+  document.getElementById('x0label').textContent = Math.round(x0);
+  document.getElementById('degreelabel').textContent = state.degree;
+
+  const rows = [
+    ['True rent, f(x&#8320;)', fmtMoney(trueF(x0))],
+    ['Average predicted rent, E[f&#770;(x&#8320;)]', fmtMoney(mean[idx])],
+    ['Bias&sup2;(x&#8320;)', fmtMoney(bias2)],
+    ['Variance(x&#8320;)', fmtMoney(varAtX0)],
+    ['Bias&sup2; + Variance', fmtMoney(bias2 + varAtX0)],
+    ['Irreducible noise, &sigma;&sup2;', fmtMoney(sigma2)],
+    ['Expected total error, &sigma;&sup2; + Bias&sup2; + Var', fmtMoney(sigma2 + bias2 + varAtX0)],
+  ];
+  const html = ['<table>'];
+  rows.forEach(([label, val]) => {
+    html.push(`<tr><td class="formula-label">${label}</td><td class="result">${val}</td></tr>`);
+  });
+  html.push('</table>');
+  html.push(`<div class="check">&#10003; direct Monte-Carlo E[(pred&minus;truth)&sup2;] = ${fmtMoney(mcMse)} &mdash; matches Bias&sup2;+Variance above</div>`);
+  document.getElementById('numpanel').innerHTML = html.join('');
+
+  const readout = document.getElementById('readout');
+  let msg;
+  if (bias2 > varAtX0 * 1.5) {
+    msg = `<b>Underfitting.</b> The degree-${state.degree} curve is too rigid to bend with the market's true shape near ${Math.round(x0)} sqft &mdash; almost every month's survey gives nearly the same, systematically wrong prediction. Bias dominates; variance is small.`;
+  } else if (varAtX0 > bias2 * 1.5) {
+    msg = `<b>Overfitting.</b> The degree-${state.degree} curve has enough freedom to chase the noise in whichever ${state.n} apartments got surveyed &mdash; refit on a different month's sample and the prediction at ${Math.round(x0)} sqft swings a lot. Variance dominates; bias is small.`;
+  } else {
+    msg = `<b>Near the sweet spot.</b> At ${Math.round(x0)} sqft, bias and variance are roughly balanced for degree ${state.degree} &mdash; adding more flexibility would trade a little bias for a lot more variance.`;
+  }
+  readout.innerHTML = msg;
+}
+
+let sweepResult = null;
+function render() {
+  const fitResult = renderFitPlot();
+  sweepResult = renderSweep(state.degree);
+  updateNumbers(fitResult);
+  if (window.renderMathInElement) {
+    renderMathInElement(document.body, { delimiters: [{ left: '$$', right: '$$', display: true }] });
+  }
+}
+
+// --- dragging x0 on the main plot ---
+function setX0FromEvent(e) {
+  const rect = fitCv.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const cx = (clientX - rect.left) * (fitCv.width / rect.width);
+  let x = invPx(cx);
+  x = Math.max(DOMAIN.xMin, Math.min(DOMAIN.xMax, x));
+  state.x0 = x;
+  render();
+}
+fitCv.addEventListener('mousedown', e => { state.dragging = true; setX0FromEvent(e); });
+window.addEventListener('mousemove', e => { if (state.dragging) setX0FromEvent(e); });
+window.addEventListener('mouseup', () => { state.dragging = false; });
+fitCv.addEventListener('touchstart', e => { state.dragging = true; setX0FromEvent(e); }, { passive: true });
+fitCv.addEventListener('touchmove', e => { if (state.dragging) setX0FromEvent(e); }, { passive: true });
+window.addEventListener('touchend', () => { state.dragging = false; });
+
+syncSliders();
+updateLabels();
+render();
+window.addEventListener('load', () => {
+  if (window.renderMathInElement) {
+    renderMathInElement(document.body, { delimiters: [{ left: '$$', right: '$$', display: true }] });
+  }
+});
+</script>
+</body>
+</html>
