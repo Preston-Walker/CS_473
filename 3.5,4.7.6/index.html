@@ -14,9 +14,9 @@
     --ink: #1c1c1e;
     --muted: #6b6b70;
     --border: #e2e1de;
-    --accent: #b1453a;
-    --accent2: #3a6fb1;
-    --accent3: #4a9c6d;
+    --bias: #b1453a;
+    --variance: #3a6fb1;
+    --good: #3f9142;
     color-scheme: light;
   }
   * { box-sizing: border-box; }
@@ -25,226 +25,206 @@
     background: var(--bg);
     color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    line-height: 1.5;
+    line-height: 1.55;
   }
-  .wrap {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 28px 20px 60px;
-  }
-  header h1 {
-    font-size: 1.6rem;
-    margin: 0 0 4px;
-    letter-spacing: -0.01em;
-  }
-  header .subtitle {
-    color: var(--muted);
-    font-size: 0.95rem;
-    margin-bottom: 18px;
-  }
-  .eqbox {
-    background: var(--panel);
-    border: 1.5px solid var(--ink);
-    border-radius: 6px;
-    padding: 16px 20px;
-    margin: 18px 0 22px;
-    overflow-x: auto;
-  }
-  .eqbox .eq-row { margin: 6px 0; }
-  .eqbox .label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px;}
-  .intro {
+  .wrap { max-width: 900px; margin: 0 auto; padding: 30px 20px 70px; }
+  header h1 { font-size: 1.7rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  section.block {
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 18px;
-    margin-bottom: 22px;
-    font-size: 0.95rem;
+    border-radius: 12px;
+    padding: 22px 24px 26px;
+    margin-top: 26px;
   }
-  .grid {
-    display: grid;
-    grid-template-columns: minmax(0,1.1fr) minmax(0,0.9fr);
-    gap: 20px;
+  section.block h2 { font-size: 1.2rem; margin: 0 0 10px; }
+  section.block h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--ink); color: #fff; font-size: 0.78rem; margin-right: 8px;
   }
-  @media (max-width: 880px) {
-    .grid { grid-template-columns: 1fr; }
-  }
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-  }
-  .panel h2 {
-    font-size: 1rem;
-    margin: 0 0 10px;
-    font-weight: 600;
-  }
-  .panel h2 .hint {
-    font-weight: 400;
-    color: var(--muted);
-    font-size: 0.8rem;
-    margin-left: 6px;
-  }
-  canvas {
-    display: block;
-    width: 100%;
-    height: auto;
-    border-radius: 6px;
-    background: #fff;
-    touch-action: none;
-  }
-  #fitplot { cursor: ew-resize; }
-  .legend {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-    font-size: 0.78rem;
-    color: var(--muted);
-    margin-top: 8px;
-  }
+  p.lead { font-size: 0.96rem; margin: 0 0 16px; }
+  p.lead:last-of-type { margin-bottom: 0; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  canvas { display: block; width: 100%; height: auto; border-radius: 8px; background: #fff; touch-action: none; }
+  #fitplot { cursor: ew-resize; margin-top: 14px; }
+  .target-row { display: flex; gap: 22px; margin-top: 14px; flex-wrap: wrap; align-items: flex-start; }
+  .target-row canvas { max-width: 300px; flex: 0 0 300px; }
+  .target-controls { flex: 1 1 280px; min-width: 240px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 10px; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }
-  .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
-  .controls {
-    margin-top: 16px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 18px;
-  }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; flex: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+  .controls { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
   .ctrl { display: flex; flex-direction: column; gap: 3px; }
   .ctrl.full { grid-column: 1 / -1; }
-  .ctrl label {
-    font-size: 0.78rem;
-    color: var(--muted);
-    display: flex;
-    justify-content: space-between;
-  }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; }
   .ctrl label b { color: var(--ink); font-weight: 600; }
-  input[type=range] { width: 100%; accent-color: var(--accent2); }
-  .presets {
-    margin-top: 12px;
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
+  input[type=range] { width: 100%; accent-color: var(--variance); }
+  .presets { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
   button.preset {
-    font-size: 0.78rem;
-    padding: 5px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: #fafaf9;
-    cursor: pointer;
-    color: var(--ink);
+    font-size: 0.78rem; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid var(--border); background: #fafaf9; cursor: pointer; color: var(--ink);
   }
-  button.preset:hover { border-color: var(--accent2); color: var(--accent2); }
-  .numbers {
-    margin-top: 12px;
-    font-size: 0.84rem;
-  }
-  .numbers table { border-collapse: collapse; width: 100%; }
-  .numbers td { padding: 3px 6px; vertical-align: middle; }
+  button.preset:hover { border-color: var(--variance); color: var(--variance); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+  .subpanel { background: #fafaf9; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .subpanel h3 { font-size: 0.88rem; margin: 0 0 8px; }
+  .numbers table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  .numbers td { padding: 3px 4px; vertical-align: middle; }
   .numbers .formula-label { color: var(--muted); white-space: nowrap; }
-  .numbers .result { font-variant-numeric: tabular-nums; font-weight: 600; }
-  .check { color: var(--accent3); font-weight: 600; font-size: 0.8rem; margin-top: 6px; }
-  .readout {
-    margin-top: 14px;
-    padding: 12px 14px;
-    border-radius: 8px;
-    background: #fafaf9;
-    border: 1px solid var(--border);
-    font-size: 0.88rem;
+  .numbers .result { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+  .numbers .bias-row .result { color: var(--bias); }
+  .numbers .var-row .result { color: var(--variance); }
+  .check { color: var(--good); font-weight: 600; font-size: 0.78rem; margin-top: 8px; }
+  .readout { font-size: 0.88rem; }
+  .readout b { color: var(--bias); }
+  .eqbox {
+    background: #fafaf9; border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 18px; margin-top: 18px; overflow-x: auto;
   }
-  .readout b { color: var(--accent); }
+  .eqbox .label { color: var(--muted); font-size: 0.76rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .eqbox .eq-row { margin: 6px 0; }
   hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
-  .foot {
-    margin-top: 30px;
-    color: var(--muted);
-    font-size: 0.8rem;
-    border-top: 1px solid var(--border);
-    padding-top: 14px;
-  }
-  .foot a { color: var(--accent2); }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>The Bias&ndash;Variance Tradeoff</h1>
-    <div class="subtitle">An interactive companion to &sect;3.5 (sampling distribution of an estimator) and &sect;4.7.6 (the bias&ndash;variance tradeoff), Murphy's <em>Probabilistic Machine Learning: An Introduction</em></div>
-    <div class="subtitle">Worked example: predicting <b>monthly rent</b> from an apartment's <b>square footage</b></div>
+    <div class="subtitle">A companion to &sect;3.5 &amp; &sect;4.7.6 of Murphy's <em>Probabilistic Machine Learning: An Introduction</em> &mdash; built for CS 473 self-study.</div>
   </header>
 
-  <div class="eqbox">
-    <div class="label">The boxed result</div>
-    <div class="eq-row">$$ \mathrm{MSE}(\hat\theta) = \mathbb{E}\big[(\hat\theta(\mathcal D) - \theta^*)^2\big] = \underbrace{\big(\mathbb{E}[\hat\theta(\mathcal D)] - \theta^*\big)^2}_{\text{Bias}^2} \;+\; \underbrace{\mathrm{Var}\big[\hat\theta(\mathcal D)\big]}_{\text{Variance}} $$</div>
-    <div class="eq-row">$$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] \;=\; \underbrace{\sigma^2}_{\text{irreducible noise}} \;+\; \underbrace{\big(\mathbb{E}[\hat f(x_0)] - f(x_0)\big)^2}_{\text{Bias}^2 \text{ (model too rigid)}} \;+\; \underbrace{\mathrm{Var}\big[\hat f(x_0)\big]}_{\text{Variance (model too sensitive to } \mathcal D \text{)}} $$</div>
-  </div>
-
-  <div class="intro">
-    <b>The story:</b> you're a data scientist at a rental platform. You want a curve
-    <code>rent&nbsp;=&nbsp;f(sqft)</code> that predicts monthly rent from an apartment's size. Each month you only get
-    to survey a small random sample of <code>n</code> listed apartments &mdash; that sample <em>is</em> your training
-    set <code>&Dscr;</code>. Fit a low-degree polynomial (e.g. a straight line) and it may be too rigid to capture the
-    true diminishing-returns shape of the market &mdash; it misses the same way <em>every</em> month, regardless of
-    which apartments you happened to survey: <b>low variance, high bias</b>. Fit a high-degree polynomial and it
-    happily bends through the noise of whichever <code>n</code> apartments you drew &mdash; refit next month on a
-    different sample and you get a wildly different curve: <b>low bias, high variance</b>. The <code>&sigma;</code>
-    slider controls how noisy real rents are around the true curve (measurement noise, unit-to-unit quirks); that
-    noise is <em>irreducible</em> &mdash; no model, however flexible, can fit it away.
-  </div>
-
-  <div class="grid">
-    <div class="panel">
-      <h2>Fitted rent curves <span class="hint">drag the vertical line to choose a target square footage x&#8320;</span></h2>
-      <canvas id="fitplot" width="620" height="400"></canvas>
-      <div class="legend">
-        <span><i class="swatch" style="border-top:2px dashed #888;height:0"></i> true market curve f(x) (unknown in practice)</span>
-        <span><i class="swatch" style="background:var(--accent2)"></i> average fitted curve, E[f&#770;(x)]</span>
-        <span><i class="swatch" style="background:#bcd0ea"></i> &plusmn;1&sigma; spread across resamples (variance)</span>
-        <span><i class="swatch" style="background:#c9c9c9"></i> one month's fit / survey</span>
-      </div>
-
-      <div class="controls">
+  <section class="block" id="sec-intuition">
+    <h2><span class="num">1</span>What do &ldquo;bias&rdquo; and &ldquo;variance&rdquo; actually mean?</h2>
+    <p class="lead">
+      Imagine repeating an experiment many times &mdash; each time you get a slightly different estimate.
+      <b style="color:var(--variance)">Variance</b> asks: how much do your estimates bounce around from one repeat
+      to the next? <b style="color:var(--bias)">Bias</b> asks a completely different question: if you averaged
+      infinitely many repeats together, would that average land on the truth, or is it systematically off?
+      A method can have either problem without the other. The classic way to see this is an archer shooting
+      arrows at a target: each arrow is one estimate from one repeat of the experiment.
+    </p>
+    <div class="target-row">
+      <canvas id="target" width="300" height="300"></canvas>
+      <div class="target-controls">
         <div class="ctrl">
-          <label>Model complexity &mdash; polynomial degree <b id="v-degree"></b></label>
-          <input type="range" id="degree" min="1" max="9" step="1" value="3">
+          <label>Bias &mdash; how far off-center the archer aims <b id="v-tbias"></b></label>
+          <input type="range" id="tbias" min="0" max="100" step="1" value="15">
         </div>
         <div class="ctrl">
-          <label>Sample size &mdash; apartments surveyed, n <b id="v-n"></b></label>
-          <input type="range" id="n" min="12" max="50" step="1" value="18">
+          <label>Variance &mdash; how shaky the archer's hand is <b id="v-tvariance"></b></label>
+          <input type="range" id="tvariance" min="0" max="100" step="1" value="15">
         </div>
-        <div class="ctrl full">
-          <label>Market noise &mdash; &sigma; ($/mo around the true curve) <b id="v-sigma"></b></label>
-          <input type="range" id="sigma" min="20" max="250" step="5" value="120">
+        <div class="presets">
+          <button class="preset" data-preset="ideal">Ideal</button>
+          <button class="preset" data-preset="highbias">High bias only</button>
+          <button class="preset" data-preset="highvariance">High variance only</button>
+          <button class="preset" data-preset="both">Both bad</button>
         </div>
+        <div class="readout" id="target-readout" style="margin-top:14px;"></div>
       </div>
-      <div class="presets">
-        <button class="preset" data-preset="underfit">Underfit (straight line)</button>
-        <button class="preset" data-preset="sweet">Sweet spot</button>
-        <button class="preset" data-preset="overfit">Overfit (degree 9)</button>
-        <button class="preset" data-preset="tiny">Tiny sample (n=12)</button>
-        <button class="preset" data-preset="big">Large sample (n=50)</button>
-        <button class="preset" data-preset="noisy">Noisy market</button>
-        <button class="preset" data-preset="reset">Reset</button>
-      </div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:#1c1c1e"></i> truth (bullseye)</span>
+      <span><i class="dot" style="background:var(--variance)"></i> average of all the arrows</span>
+      <span><i class="dot" style="background:#9a9a9a"></i> one arrow (one repeat)</span>
+      <span><i class="swatch" style="background:rgba(58,111,177,0.35)"></i> typical spread of the arrows</span>
+      <span><i class="swatch" style="border-top:2px dashed var(--bias);height:0;background:none"></i> bias = truth&ndash;to&ndash;average gap</span>
+    </div>
+  </section>
 
-      <div class="readout" id="readout"></div>
+  <section class="block" id="sec-regression">
+    <h2><span class="num">2</span>Seeing it in a real prediction problem</h2>
+    <p class="lead">
+      You're a data scientist at a rental platform, trying to predict <b>monthly rent</b> from an apartment's
+      <b>square footage</b>. Each month you can only survey a small random sample of <code>n</code> listings &mdash;
+      that sample is one "repeat" of the experiment, and it's all you ever actually see. Fit a low-degree polynomial
+      (e.g. a straight line) and it's too rigid to bend with the market's true curve &mdash; average its predictions
+      over many different months and you're still off, in the same direction, every time: that persistent gap is
+      <b style="color:var(--bias)">bias</b>. Fit a very high-degree polynomial and it happily bends through whichever
+      <code>n</code> apartments happened to get surveyed that month &mdash; refit next month on a different sample
+      and the curve changes a lot, even though on average it's closer to right: that swing is
+      <b style="color:var(--variance)">variance</b>.
+    </p>
+    <canvas id="fitplot" width="820" height="440"></canvas>
+    <div class="legend">
+      <span><i class="swatch" style="border-top:2px dashed #888;height:0;background:none"></i> true market curve f(x) (unknown in practice)</span>
+      <span><i class="swatch" style="background:var(--variance)"></i> average fitted curve, E[f&#770;(x)]</span>
+      <span><i class="swatch" style="background:#bcd0ea"></i> &plusmn;1&sigma; spread across resamples (variance)</span>
+      <span><i class="swatch" style="background:#c9c9c9"></i> one month's fit</span>
+      <span><i class="dot" style="background:#3a6fb1"></i> predictions at x&#8320; across many months &mdash; drag the line</span>
     </div>
 
-    <div class="panel">
-      <h2>Expected error vs. model complexity <span class="hint">averaged over the whole market</span></h2>
-      <canvas id="sweep" width="480" height="260"></canvas>
-      <div class="legend">
-        <span><i class="swatch" style="background:var(--accent)"></i> Bias&sup2;</span>
-        <span><i class="swatch" style="background:var(--accent2)"></i> Variance</span>
-        <span><i class="swatch" style="background:var(--ink)"></i> Bias&sup2; + Variance (expected test error, no noise)</span>
+    <div class="controls">
+      <div class="ctrl">
+        <label>Model complexity &mdash; polynomial degree <b id="v-degree"></b></label>
+        <input type="range" id="degree" min="1" max="9" step="1" value="3">
       </div>
-
-      <hr class="sep">
-
-      <h2>At x&#8320; = <span id="x0label"></span> sqft, degree = <span id="degreelabel"></span></h2>
-      <div class="numbers" id="numpanel"></div>
+      <div class="ctrl">
+        <label>Sample size &mdash; apartments surveyed, n <b id="v-n"></b></label>
+        <input type="range" id="n" min="12" max="50" step="1" value="18">
+      </div>
+      <div class="ctrl full">
+        <label>Market noise &mdash; &sigma; ($/mo around the true curve) <b id="v-sigma"></b></label>
+        <input type="range" id="sigma" min="20" max="250" step="5" value="120">
+      </div>
     </div>
-  </div>
+    <div class="presets">
+      <button class="preset" data-preset="underfit">Underfit (straight line)</button>
+      <button class="preset" data-preset="sweet">Sweet spot</button>
+      <button class="preset" data-preset="overfit">Overfit (degree 9)</button>
+      <button class="preset" data-preset="tiny">Tiny sample (n=12)</button>
+      <button class="preset" data-preset="big">Large sample (n=50)</button>
+      <button class="preset" data-preset="noisy">Noisy market</button>
+      <button class="preset" data-preset="reset">Reset</button>
+    </div>
+
+    <div class="two-col">
+      <div class="subpanel">
+        <h3>The numbers at x&#8320; = <span id="x0label"></span> sqft, degree <span id="degreelabel"></span></h3>
+        <div class="numbers" id="numpanel"></div>
+      </div>
+      <div class="subpanel">
+        <h3>What this means</h3>
+        <div class="readout" id="readout"></div>
+      </div>
+    </div>
+
+    <div class="eqbox">
+      <div class="label">In symbols</div>
+      <div class="eq-row">$$ \mathrm{MSE}(\hat\theta) = \mathbb{E}\big[(\hat\theta(\mathcal D) - \theta^*)^2\big] = \underbrace{\big(\mathbb{E}[\hat\theta(\mathcal D)] - \theta^*\big)^2}_{\text{Bias}^2} \;+\; \underbrace{\mathrm{Var}\big[\hat\theta(\mathcal D)\big]}_{\text{Variance}} $$</div>
+      <div class="eq-row">$$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] \;=\; \underbrace{\sigma^2}_{\text{irreducible noise}} \;+\; \underbrace{\big(\mathbb{E}[\hat f(x_0)] - f(x_0)\big)^2}_{\text{Bias}^2} \;+\; \underbrace{\mathrm{Var}\big[\hat f(x_0)\big]}_{\text{Variance}} $$</div>
+    </div>
+  </section>
+
+  <section class="block" id="sec-sweep">
+    <h2><span class="num">3</span>Why more flexibility isn't always better</h2>
+    <p class="lead">
+      Now zoom out: instead of one target apartment size, average the bias and variance across the
+      <em>entire</em> range of square footages, and repeat that for every polynomial degree from 1 to 9. As the
+      model gets more flexible (further right), it can represent the true curve more exactly, so
+      <b style="color:var(--bias)">Bias&sup2;</b> shrinks toward zero. But with only <code id="sweep-n-ref"></code>
+      apartments to learn from, a flexible model also has room to fit sampling noise instead of signal, so
+      <b style="color:var(--variance)">Variance</b> grows &mdash; and grows explosively once the degree gets close
+      to the sample size. <b>Total expected error</b> (black) is the sum of the two, tracing a U-shape: too simple
+      and bias kills you, too flexible and variance kills you, and the dip in between is the sweet spot.
+    </p>
+    <p class="lead hint">
+      Because variance can explode across many orders of magnitude, the vertical axis below uses a
+      <b>log scale</b> &mdash; each gridline is 10&times; the one before it &mdash; so the interesting low-degree
+      region stays visible instead of being flattened to zero by a few extreme high-degree outliers.
+    </p>
+    <canvas id="sweep" width="820" height="360"></canvas>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--bias)"></i> Bias&sup2; (averaged over all square footages)</span>
+      <span><i class="swatch" style="background:var(--variance)"></i> Variance (averaged over all square footages)</span>
+      <span><i class="swatch" style="background:var(--ink)"></i> Bias&sup2; + Variance = expected error (excl. noise)</span>
+      <span><i class="dot" style="background:var(--good)"></i> degree with the lowest expected error</span>
+    </div>
+  </section>
 
   <div class="foot">
     Built to accompany Murphy's <em>Probabilistic Machine Learning: An Introduction</em>, &sect;3.5 &amp; &sect;4.7.6
@@ -256,9 +236,10 @@
 </div>
 
 <script>
+// =================== shared math ===================
 const DOMAIN = { xMin: 400, xMax: 2000, xMid: 1200, xHalf: 800, yMin: 0, yMax: 2700 };
-const M_MAIN = 60;   // resamples for the main plot
-const M_SWEEP = 45;  // resamples per degree for the complexity sweep
+const M_MAIN = 60;
+const M_SWEEP = 45;
 const MAX_DEGREE = 9;
 
 function trueF(x) {
@@ -267,7 +248,7 @@ function trueF(x) {
 }
 
 let seed = 42;
-function rand() { // small deterministic-ish PRNG so re-renders during a drag don't flicker wildly
+function rand() {
   seed = (seed * 1103515245 + 12345) & 0x7fffffff;
   return (seed % 1000000) / 1000000;
 }
@@ -292,7 +273,6 @@ function sampleData(n, sigma) {
   return { xs, ys };
 }
 
-// solve a k x k linear system A*beta = b via Gaussian elimination w/ partial pivoting
 function solveLinear(A, b) {
   const k = b.length;
   for (let col = 0; col < k; col++) {
@@ -315,7 +295,6 @@ function solveLinear(A, b) {
   return x;
 }
 
-// fit y ~ sum beta_j * xc^j  (xc = centered/scaled x) via least squares, xc-space coefficients
 function fitPoly(xs, ys, degree) {
   const n = xs.length, k = degree + 1;
   const xc = xs.map(x => (x - DOMAIN.xMid) / DOMAIN.xHalf);
@@ -333,7 +312,7 @@ function fitPoly(xs, ys, degree) {
   const ATA = [];
   for (let r = 0; r < k; r++) {
     const row = new Array(k);
-    for (let c = 0; c < k; c++) row[c] = S[r + c] + (r === c ? 1e-6 : 0); // tiny ridge for numerical safety
+    for (let c = 0; c < k; c++) row[c] = S[r + c] + (r === c ? 1e-6 : 0);
     ATA.push(row);
   }
   return solveLinear(ATA, T);
@@ -393,10 +372,136 @@ function curvesFromBetas(betas, gridXs) {
 }
 
 function avg(arr) { return arr.reduce((a, b) => a + b, 0) / arr.length; }
-function fmt(x, d = 1) { return (Object.is(x, -0) ? 0 : x).toFixed(d); }
-function fmtMoney(x) { return '$' + fmt(x, 0); }
+function fmtMoney(x) {
+  const sign = x < 0 ? '-' : '';
+  const ax = Math.abs(x);
+  if (ax >= 1e6) return sign + '$' + (ax / 1e6).toFixed(2) + 'M';
+  if (ax >= 1e3) return sign + '$' + (ax / 1e3).toFixed(1) + 'k';
+  return sign + '$' + Math.round(ax);
+}
+function fmtMoneySq(x) { return fmtMoney(x) + '²'; }
+function fmtCompact(v) {
+  if (v >= 1e6) return (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + 'M';
+  if (v >= 1e3) return (v / 1e3).toFixed(v >= 1e4 ? 0 : 1) + 'k';
+  return String(Math.round(v));
+}
 
-// ---------------- state & UI wiring ----------------
+// =================== small deterministic RNG (for the target panel) ===================
+function makeRng(seedVal) {
+  let s = seedVal >>> 0;
+  return function () {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function rngRandn(rng) {
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+// =================== Section 1: archery target ===================
+const targetState = { tbias: 15, tvariance: 15 };
+const tEls = { tbias: document.getElementById('tbias'), tvariance: document.getElementById('tvariance') };
+const tLabels = { tbias: document.getElementById('v-tbias'), tvariance: document.getElementById('v-tvariance') };
+function syncTargetSliders() { tEls.tbias.value = targetState.tbias; tEls.tvariance.value = targetState.tvariance; }
+function updateTargetLabels() { tLabels.tbias.textContent = targetState.tbias + '%'; tLabels.tvariance.textContent = targetState.tvariance + '%'; }
+for (const key of ['tbias', 'tvariance']) {
+  tEls[key].addEventListener('input', () => { targetState[key] = parseFloat(tEls[key].value); updateTargetLabels(); renderTarget(); });
+}
+document.querySelectorAll('#sec-intuition .preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.preset;
+    if (p === 'ideal') Object.assign(targetState, { tbias: 10, tvariance: 10 });
+    else if (p === 'highbias') Object.assign(targetState, { tbias: 85, tvariance: 10 });
+    else if (p === 'highvariance') Object.assign(targetState, { tbias: 10, tvariance: 85 });
+    else if (p === 'both') Object.assign(targetState, { tbias: 80, tvariance: 80 });
+    syncTargetSliders(); updateTargetLabels(); renderTarget();
+  });
+});
+
+const targetCv = document.getElementById('target');
+const tctx = targetCv.getContext('2d');
+const BIAS_ANGLE = -1.0; // radians; fixed direction so "bias" always means a consistent, systematic offset
+const BIAS_DIR = { x: Math.cos(BIAS_ANGLE), y: Math.sin(BIAS_ANGLE) };
+
+function renderTarget() {
+  const bias = targetState.tbias / 100, variance = targetState.tvariance / 100;
+  const cx = targetCv.width / 2, cy = targetCv.height / 2;
+  const Rmax = Math.min(cx, cy) - 18;
+  const maxBiasPx = Rmax * 0.85;
+  const maxSpreadPx = Rmax * 0.55;
+
+  tctx.clearRect(0, 0, targetCv.width, targetCv.height);
+
+  // rings
+  const ringColors = ['#eef0f2', '#ffffff', '#eef0f2', '#ffffff'];
+  for (let i = 4; i >= 1; i--) {
+    tctx.beginPath();
+    tctx.arc(cx, cy, Rmax * i / 4, 0, 2 * Math.PI);
+    tctx.fillStyle = ringColors[i - 1];
+    tctx.fill();
+    tctx.strokeStyle = '#d8d8d8'; tctx.lineWidth = 1; tctx.stroke();
+  }
+
+  const aim = { x: cx + BIAS_DIR.x * bias * maxBiasPx, y: cy + BIAS_DIR.y * bias * maxBiasPx };
+  const spreadPx = variance * maxSpreadPx;
+
+  // spread ring (variance)
+  tctx.beginPath();
+  tctx.arc(aim.x, aim.y, Math.max(spreadPx, 1), 0, 2 * Math.PI);
+  tctx.fillStyle = 'rgba(58,111,177,0.18)';
+  tctx.fill();
+  tctx.strokeStyle = 'rgba(58,111,177,0.5)'; tctx.lineWidth = 1.5; tctx.stroke();
+
+  // individual arrows
+  const rng = makeRng(Math.round(bias * 1000) * 100003 + Math.round(variance * 1000) + 7);
+  tctx.fillStyle = 'rgba(120,120,120,0.75)';
+  for (let i = 0; i < 40; i++) {
+    const dx = rngRandn(rng) * spreadPx, dy = rngRandn(rng) * spreadPx;
+    tctx.beginPath();
+    tctx.arc(aim.x + dx, aim.y + dy, 3, 0, 2 * Math.PI);
+    tctx.fill();
+  }
+
+  // bias connector
+  const dist = Math.hypot(aim.x - cx, aim.y - cy);
+  if (dist > 4) {
+    tctx.strokeStyle = '#b1453a'; tctx.lineWidth = 2; tctx.setLineDash([5, 4]);
+    tctx.beginPath(); tctx.moveTo(cx, cy); tctx.lineTo(aim.x, aim.y); tctx.stroke();
+    tctx.setLineDash([]);
+  }
+
+  // average-of-arrows marker
+  tctx.beginPath(); tctx.arc(aim.x, aim.y, 7, 0, 2 * Math.PI);
+  tctx.fillStyle = '#3a6fb1'; tctx.fill();
+  tctx.strokeStyle = '#fff'; tctx.lineWidth = 2; tctx.stroke();
+
+  // truth marker (bullseye) drawn last so it's always visible
+  tctx.beginPath(); tctx.arc(cx, cy, 7, 0, 2 * Math.PI);
+  tctx.fillStyle = '#1c1c1e'; tctx.fill();
+  tctx.strokeStyle = '#fff'; tctx.lineWidth = 2; tctx.stroke();
+
+  // readout
+  const hi = 50;
+  let msg;
+  if (targetState.tbias < hi && targetState.tvariance < hi) {
+    msg = '<b style="color:var(--good)">Low bias, low variance &mdash; the ideal.</b> The average arrow lands on the bullseye, and every individual arrow lands close to that average.';
+  } else if (targetState.tbias < hi && targetState.tvariance >= hi) {
+    msg = '<b>Low bias, high variance.</b> On average the archer is aiming correctly, but any single arrow could land far from the bullseye. An estimator like this is "right on average" but unreliable on any one try.';
+  } else if (targetState.tbias >= hi && targetState.tvariance < hi) {
+    msg = '<b>High bias, low variance.</b> The arrows are tightly clustered &mdash; but consistently clustered in the wrong place. An estimator like this gives nearly the same answer every time, and that answer is reliably wrong.';
+  } else {
+    msg = '<b>High bias, high variance.</b> Clustered nowhere near the bullseye <em>and</em> scattered widely &mdash; the worst of both problems.';
+  }
+  document.getElementById('target-readout').innerHTML = msg;
+}
+
+// =================== Section 2: regression demo ===================
 const state = { degree: 3, n: 18, sigma: 120, x0: 1200, dragging: false };
 const els = { degree: document.getElementById('degree'), n: document.getElementById('n'), sigma: document.getElementById('sigma') };
 const labels = { degree: document.getElementById('v-degree'), n: document.getElementById('v-n'), sigma: document.getElementById('v-sigma') };
@@ -406,15 +511,12 @@ function updateLabels() {
   labels.degree.textContent = state.degree;
   labels.n.textContent = state.n;
   labels.sigma.textContent = fmtMoney(state.sigma);
+  document.getElementById('sweep-n-ref').textContent = state.n;
 }
 for (const key of ['degree', 'n', 'sigma']) {
-  els[key].addEventListener('input', () => {
-    state[key] = parseFloat(els[key].value);
-    updateLabels();
-    render();
-  });
+  els[key].addEventListener('input', () => { state[key] = parseFloat(els[key].value); updateLabels(); render(); });
 }
-document.querySelectorAll('.preset').forEach(btn => {
+document.querySelectorAll('#sec-regression .preset').forEach(btn => {
   btn.addEventListener('click', () => {
     const p = btn.dataset.preset;
     if (p === 'underfit') Object.assign(state, { degree: 1 });
@@ -428,7 +530,6 @@ document.querySelectorAll('.preset').forEach(btn => {
   });
 });
 
-// ---------------- canvas geometry ----------------
 const fitCv = document.getElementById('fitplot');
 const fctx = fitCv.getContext('2d');
 const M_ = { l: 55, r: 15, t: 15, b: 35 };
@@ -436,7 +537,7 @@ function px(x) { return M_.l + (x - DOMAIN.xMin) / (DOMAIN.xMax - DOMAIN.xMin) *
 function py(y) { return fitCv.height - M_.b - (y - DOMAIN.yMin) / (DOMAIN.yMax - DOMAIN.yMin) * (fitCv.height - M_.t - M_.b); }
 function invPx(px_) { return DOMAIN.xMin + (px_ - M_.l) / (fitCv.width - M_.l - M_.r) * (DOMAIN.xMax - DOMAIN.xMin); }
 
-function drawAxes(ctx, cv, m, xTicks, yTicks, xFmt, yFmt, xLabel, yLabel, xToPx, yToPx) {
+function drawAxes(ctx, cv, m, xTicks, yTicks, xFmt, yFmt, xToPx, yToPx) {
   ctx.strokeStyle = '#ccc'; ctx.fillStyle = '#888';
   ctx.font = '11px -apple-system, sans-serif';
   ctx.lineWidth = 1;
@@ -450,9 +551,11 @@ function drawAxes(ctx, cv, m, xTicks, yTicks, xFmt, yFmt, xLabel, yLabel, xToPx,
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   yTicks.forEach(v => {
     const y = yToPx(v);
-    ctx.fillText(yFmt(v), m.l - 6, y);
+    ctx.fillText(yFmt(v), m.l - 8, y);
   });
 }
+
+function hashJitter(i) { return (((i * 9301 + 49297) % 233280) / 233280 - 0.5) * 18; }
 
 function renderFitPlot() {
   const { degree, n, sigma, x0 } = state;
@@ -461,9 +564,7 @@ function renderFitPlot() {
   const { preds, mean, variance } = curvesFromBetas(betas, gridXs);
 
   fctx.clearRect(0, 0, fitCv.width, fitCv.height);
-  const xTicks = [400, 800, 1200, 1600, 2000];
-  const yTicks = [0, 500, 1000, 1500, 2000, 2500];
-  drawAxes(fctx, fitCv, M_, xTicks, yTicks, v => v, v => '$' + v, 'sqft', '$/mo', px, py);
+  drawAxes(fctx, fitCv, M_, [400, 800, 1200, 1600, 2000], [0, 500, 1000, 1500, 2000, 2500], v => v, v => '$' + v, px, py);
 
   fctx.save();
   fctx.beginPath();
@@ -478,7 +579,7 @@ function renderFitPlot() {
   fctx.fillStyle = 'rgba(58,111,177,0.15)';
   fctx.fill();
 
-  // a handful of individual "one month's survey" fits
+  // individual fits
   fctx.strokeStyle = 'rgba(150,150,150,0.55)'; fctx.lineWidth = 1;
   for (let t = 0; t < Math.min(14, preds.length); t++) {
     fctx.beginPath();
@@ -486,7 +587,7 @@ function renderFitPlot() {
     fctx.stroke();
   }
 
-  // true function, dashed
+  // true function
   fctx.strokeStyle = '#888'; fctx.lineWidth = 2; fctx.setLineDash([6, 4]);
   fctx.beginPath();
   gridXs.forEach((x, i) => { const p = { x: px(x), y: py(trueF(x)) }; i === 0 ? fctx.moveTo(p.x, p.y) : fctx.lineTo(p.x, p.y); });
@@ -505,18 +606,107 @@ function renderFitPlot() {
 
   fctx.restore();
 
-  // x0 marker
+  // ---- bias/variance annotation at x0 ----
+  const predsAtX0 = betas.map(b => evalPoly(b, x0));
+  const mean0 = avg(predsAtX0);
+  const var0 = avg(predsAtX0.map(p => (p - mean0) * (p - mean0)));
+  const std0 = Math.sqrt(var0);
+  const truth0 = trueF(x0);
   const xPix = px(x0);
-  fctx.strokeStyle = '#b1453a'; fctx.lineWidth = 1.5; fctx.setLineDash([3, 3]);
+
+  fctx.save();
+  fctx.beginPath();
+  fctx.rect(M_.l, M_.t, fitCv.width - M_.l - M_.r, fitCv.height - M_.t - M_.b);
+  fctx.clip();
+
+  // spread band behind the swarm
+  fctx.fillStyle = 'rgba(58,111,177,0.22)';
+  fctx.fillRect(xPix - 16, py(mean0 + std0), 32, py(mean0 - std0) - py(mean0 + std0));
+
+  // swarm of individual predictions at x0
+  fctx.fillStyle = 'rgba(58,111,177,0.75)';
+  predsAtX0.slice(0, 40).forEach((p, i) => {
+    fctx.beginPath();
+    fctx.arc(xPix + hashJitter(i), py(p), 2.4, 0, 2 * Math.PI);
+    fctx.fill();
+  });
+
+  // truth tick
+  fctx.strokeStyle = '#1c1c1e'; fctx.lineWidth = 2.5;
+  fctx.beginPath(); fctx.moveTo(xPix - 16, py(truth0)); fctx.lineTo(xPix + 16, py(truth0)); fctx.stroke();
+
+  // mean-prediction tick
+  fctx.strokeStyle = '#3a6fb1'; fctx.lineWidth = 2.5;
+  fctx.beginPath(); fctx.moveTo(xPix - 16, py(mean0)); fctx.lineTo(xPix + 16, py(mean0)); fctx.stroke();
+
+  fctx.restore();
+
+  // bias connector + label (drawn unclipped so the label can't get cut off)
+  const gapPx = Math.abs(py(truth0) - py(mean0));
+  const labelX = Math.min(xPix + 24, fitCv.width - 8);
+  if (gapPx > 3) {
+    fctx.strokeStyle = '#b1453a'; fctx.lineWidth = 1.5; fctx.setLineDash([3, 3]);
+    fctx.beginPath(); fctx.moveTo(xPix + 20, py(truth0)); fctx.lineTo(xPix + 20, py(mean0)); fctx.stroke();
+    fctx.setLineDash([]);
+    fctx.fillStyle = '#b1453a'; fctx.font = 'bold 11px -apple-system, sans-serif';
+    fctx.textAlign = labelX > fitCv.width - 70 ? 'right' : 'left';
+    fctx.textBaseline = 'middle';
+    fctx.fillText('bias', fctx.textAlign === 'right' ? xPix - 24 : labelX, (py(truth0) + py(mean0)) / 2);
+  }
+
+  // x0 vertical guide
+  fctx.strokeStyle = 'rgba(28,28,30,0.35)'; fctx.lineWidth = 1; fctx.setLineDash([2, 3]);
   fctx.beginPath(); fctx.moveTo(xPix, M_.t); fctx.lineTo(xPix, fitCv.height - M_.b); fctx.stroke();
   fctx.setLineDash([]);
 
-  return { gridXs, mean, variance, betas };
+  return { gridXs, mean, variance, betas, x0, mean0, var0, std0, truth0 };
 }
 
+function updateNumbers(fitResult) {
+  const { x0, mean0, var0, truth0, betas } = fitResult;
+  const bias2 = (mean0 - truth0) * (mean0 - truth0);
+  const sigma2 = state.sigma * state.sigma;
+  let mcMse = 0;
+  betas.forEach(b => { const d = evalPoly(b, x0) - truth0; mcMse += d * d; });
+  mcMse /= betas.length;
+
+  document.getElementById('x0label').textContent = Math.round(x0);
+  document.getElementById('degreelabel').textContent = state.degree;
+
+  const rows = [
+    ['True rent, f(x&#8320;)', fmtMoney(truth0), ''],
+    ['Average predicted rent, E[f&#770;(x&#8320;)]', fmtMoney(mean0), ''],
+    ['Bias&sup2;(x&#8320;) = (avg &minus; truth)&sup2;', fmtMoneySq(bias2), 'bias-row'],
+    ['Variance(x&#8320;) = spread around the avg', fmtMoneySq(var0), 'var-row'],
+    ['Bias&sup2; + Variance', fmtMoneySq(bias2 + var0), ''],
+    ['Irreducible noise, &sigma;&sup2;', fmtMoneySq(sigma2), ''],
+    ['Expected total error, &sigma;&sup2; + Bias&sup2; + Var', fmtMoneySq(sigma2 + bias2 + var0), ''],
+  ];
+  const html = ['<table>'];
+  rows.forEach(([label, val, cls]) => {
+    html.push(`<tr class="${cls}"><td class="formula-label">${label}</td><td class="result">${val}</td></tr>`);
+  });
+  html.push('</table>');
+  html.push(`<div class="check">&#10003; direct Monte-Carlo E[(pred&minus;truth)&sup2;] = ${fmtMoneySq(mcMse)} &mdash; matches Bias&sup2;+Variance above</div>`);
+  document.getElementById('numpanel').innerHTML = html.join('');
+
+  const readout = document.getElementById('readout');
+  let msg;
+  if (bias2 > var0 * 1.5) {
+    msg = `<b>Underfitting.</b> The black tick (truth) and blue tick (average prediction) are far apart even though the blue dots barely spread out &mdash; degree ${state.degree} is too rigid to bend to the true curve near ${Math.round(x0)} sqft, so it's <em>consistently</em> wrong here, no matter which apartments get surveyed.`;
+  } else if (var0 > bias2 * 1.5) {
+    msg = `<b>Overfitting.</b> The black and blue ticks are close together (little bias) but the blue dots are scattered widely &mdash; degree ${state.degree} has enough freedom to chase the noise in whichever ${state.n} apartments got surveyed, so the prediction at ${Math.round(x0)} sqft swings a lot month to month.`;
+  } else {
+    msg = `<b>Near the sweet spot.</b> At ${Math.round(x0)} sqft, the truth and average-prediction ticks are close together <em>and</em> the dots aren't too spread out &mdash; bias and variance are roughly balanced for degree ${state.degree}.`;
+  }
+  readout.innerHTML = msg;
+}
+
+// =================== Section 3: complexity sweep ===================
 const sweepCv = document.getElementById('sweep');
 const sctx = sweepCv.getContext('2d');
-const SM = { l: 45, r: 12, t: 12, b: 28 };
+const SM = { l: 62, r: 15, t: 15, b: 40 };
+
 function sweepData(n, sigma) {
   const gridXs = linspace(DOMAIN.xMin, DOMAIN.xMax, 60);
   const degrees = [], bias2s = [], vars = [], mses = [];
@@ -524,9 +714,9 @@ function sweepData(n, sigma) {
     const { betas } = runTrials(M_SWEEP, n, sigma, d);
     const c = curvesFromBetas(betas, gridXs);
     degrees.push(d);
-    bias2s.push(avg(c.bias2));
-    vars.push(avg(c.variance));
-    mses.push(avg(c.mse));
+    bias2s.push(Math.max(avg(c.bias2), 0.01));
+    vars.push(Math.max(avg(c.variance), 0.01));
+    mses.push(Math.max(avg(c.mse), 0.01));
   }
   return { degrees, bias2s, vars, mses };
 }
@@ -534,20 +724,38 @@ function sweepData(n, sigma) {
 function renderSweep(currentDegree) {
   const { n, sigma } = state;
   const { degrees, bias2s, vars, mses } = sweepData(n, sigma);
-  const yMax = Math.max(...mses, ...bias2s, ...vars) * 1.15 || 1;
+
+  const allVals = [...bias2s, ...vars, ...mses];
+  const minV = Math.max(Math.min(...allVals), 1);
+  const maxV = Math.max(...allVals);
+  const yFloor = Math.pow(10, Math.floor(Math.log10(minV)));
+  const yTop = Math.pow(10, Math.ceil(Math.log10(Math.max(maxV, yFloor * 10))));
+
   function sx(d) { return SM.l + (d - 1) / (MAX_DEGREE - 1) * (sweepCv.width - SM.l - SM.r); }
-  function sy(v) { return sweepCv.height - SM.b - v / yMax * (sweepCv.height - SM.t - SM.b); }
+  function sy(v) {
+    const vv = Math.max(v, yFloor);
+    const frac = (Math.log10(vv) - Math.log10(yFloor)) / (Math.log10(yTop) - Math.log10(yFloor));
+    return sweepCv.height - SM.b - frac * (sweepCv.height - SM.t - SM.b);
+  }
+
+  const yTicks = [];
+  for (let p = yFloor; p <= yTop * 1.0001; p *= 10) yTicks.push(p);
 
   sctx.clearRect(0, 0, sweepCv.width, sweepCv.height);
-  const xTicks = degrees;
-  const yTicks = linspace(0, yMax, 5);
-  drawAxes(sctx, sweepCv, SM, xTicks, yTicks, v => v, v => Math.round(v), 'degree', 'error', sx, sy);
+  drawAxes(sctx, sweepCv, SM, degrees, yTicks, v => v, v => '$' + fmtCompact(v) + '²', sx, sy);
+
+  // axis titles
+  sctx.fillStyle = '#888'; sctx.font = '11px -apple-system, sans-serif';
+  sctx.textAlign = 'center'; sctx.textBaseline = 'alphabetic';
+  sctx.fillText('polynomial degree (model complexity)', (SM.l + sweepCv.width - SM.r) / 2, sweepCv.height - 6);
 
   function line(vals, color, width) {
     sctx.strokeStyle = color; sctx.lineWidth = width;
     sctx.beginPath();
     degrees.forEach((d, i) => { const p = { x: sx(d), y: sy(vals[i]) }; i === 0 ? sctx.moveTo(p.x, p.y) : sctx.lineTo(p.x, p.y); });
     sctx.stroke();
+    sctx.fillStyle = color;
+    degrees.forEach((d, i) => { sctx.beginPath(); sctx.arc(sx(d), sy(vals[i]), 3, 0, 2 * Math.PI); sctx.fill(); });
   }
   line(bias2s, '#b1453a', 2);
   line(vars, '#3a6fb1', 2);
@@ -556,79 +764,32 @@ function renderSweep(currentDegree) {
   let bestIdx = 0;
   for (let i = 1; i < mses.length; i++) if (mses[i] < mses[bestIdx]) bestIdx = i;
   const bestDeg = degrees[bestIdx];
-  sctx.fillStyle = 'rgba(74,156,109,0.12)';
-  sctx.fillRect(sx(bestDeg) - 6, SM.t, 12, sweepCv.height - SM.t - SM.b);
-  sctx.fillStyle = '#4a9c6d'; sctx.font = 'bold 11px -apple-system, sans-serif'; sctx.textAlign = 'center';
-  sctx.fillText('sweet spot', sx(bestDeg), SM.t + 12);
+  sctx.fillStyle = 'rgba(63,145,66,0.10)';
+  sctx.fillRect(sx(bestDeg) - 10, SM.t, 20, sweepCv.height - SM.t - SM.b);
+  sctx.beginPath(); sctx.arc(sx(bestDeg), sy(mses[bestIdx]), 5, 0, 2 * Math.PI);
+  sctx.fillStyle = '#3f9142'; sctx.fill();
+  sctx.strokeStyle = '#fff'; sctx.lineWidth = 1.5; sctx.stroke();
+  sctx.fillStyle = '#3f9142'; sctx.font = 'bold 11px -apple-system, sans-serif';
+  const labelPx = sx(bestDeg);
+  sctx.textAlign = labelPx < 90 ? 'left' : (labelPx > sweepCv.width - 90 ? 'right' : 'center');
+  sctx.fillText(`sweet spot: degree ${bestDeg} (~$${fmtCompact(mses[bestIdx])}²)`, labelPx, Math.max(SM.t + 12, sy(mses[bestIdx]) - 12));
 
   const curXPix = sx(currentDegree);
   sctx.strokeStyle = '#b1453a'; sctx.lineWidth = 1; sctx.setLineDash([2, 3]);
   sctx.beginPath(); sctx.moveTo(curXPix, SM.t); sctx.lineTo(curXPix, sweepCv.height - SM.b); sctx.stroke();
   sctx.setLineDash([]);
-
-  return { degrees, bias2s, vars, mses, bestDeg };
 }
 
-function nearestIndex(gridXs, x0) {
-  let best = 0, bd = Infinity;
-  gridXs.forEach((x, i) => { const d = Math.abs(x - x0); if (d < bd) { bd = d; best = i; } });
-  return best;
-}
-
-function updateNumbers(fitResult) {
-  const { gridXs, mean, variance, betas } = fitResult;
-  const idx = nearestIndex(gridXs, state.x0);
-  const x0 = gridXs[idx];
-  const bias2 = Math.pow(mean[idx] - trueF(x0), 2);
-  const varAtX0 = variance[idx];
-  const sigma2 = state.sigma * state.sigma;
-  let mcMse = 0;
-  betas.forEach(b => { const d = evalPoly(b, x0) - trueF(x0); mcMse += d * d; });
-  mcMse /= betas.length;
-
-  document.getElementById('x0label').textContent = Math.round(x0);
-  document.getElementById('degreelabel').textContent = state.degree;
-
-  const rows = [
-    ['True rent, f(x&#8320;)', fmtMoney(trueF(x0))],
-    ['Average predicted rent, E[f&#770;(x&#8320;)]', fmtMoney(mean[idx])],
-    ['Bias&sup2;(x&#8320;)', fmtMoney(bias2)],
-    ['Variance(x&#8320;)', fmtMoney(varAtX0)],
-    ['Bias&sup2; + Variance', fmtMoney(bias2 + varAtX0)],
-    ['Irreducible noise, &sigma;&sup2;', fmtMoney(sigma2)],
-    ['Expected total error, &sigma;&sup2; + Bias&sup2; + Var', fmtMoney(sigma2 + bias2 + varAtX0)],
-  ];
-  const html = ['<table>'];
-  rows.forEach(([label, val]) => {
-    html.push(`<tr><td class="formula-label">${label}</td><td class="result">${val}</td></tr>`);
-  });
-  html.push('</table>');
-  html.push(`<div class="check">&#10003; direct Monte-Carlo E[(pred&minus;truth)&sup2;] = ${fmtMoney(mcMse)} &mdash; matches Bias&sup2;+Variance above</div>`);
-  document.getElementById('numpanel').innerHTML = html.join('');
-
-  const readout = document.getElementById('readout');
-  let msg;
-  if (bias2 > varAtX0 * 1.5) {
-    msg = `<b>Underfitting.</b> The degree-${state.degree} curve is too rigid to bend with the market's true shape near ${Math.round(x0)} sqft &mdash; almost every month's survey gives nearly the same, systematically wrong prediction. Bias dominates; variance is small.`;
-  } else if (varAtX0 > bias2 * 1.5) {
-    msg = `<b>Overfitting.</b> The degree-${state.degree} curve has enough freedom to chase the noise in whichever ${state.n} apartments got surveyed &mdash; refit on a different month's sample and the prediction at ${Math.round(x0)} sqft swings a lot. Variance dominates; bias is small.`;
-  } else {
-    msg = `<b>Near the sweet spot.</b> At ${Math.round(x0)} sqft, bias and variance are roughly balanced for degree ${state.degree} &mdash; adding more flexibility would trade a little bias for a lot more variance.`;
-  }
-  readout.innerHTML = msg;
-}
-
-let sweepResult = null;
+// =================== render everything ===================
 function render() {
   const fitResult = renderFitPlot();
-  sweepResult = renderSweep(state.degree);
+  renderSweep(state.degree);
   updateNumbers(fitResult);
   if (window.renderMathInElement) {
     renderMathInElement(document.body, { delimiters: [{ left: '$$', right: '$$', display: true }] });
   }
 }
 
-// --- dragging x0 on the main plot ---
 function setX0FromEvent(e) {
   const rect = fitCv.getBoundingClientRect();
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -645,9 +806,8 @@ fitCv.addEventListener('touchstart', e => { state.dragging = true; setX0FromEven
 fitCv.addEventListener('touchmove', e => { if (state.dragging) setX0FromEvent(e); }, { passive: true });
 window.addEventListener('touchend', () => { state.dragging = false; });
 
-syncSliders();
-updateLabels();
-render();
+syncTargetSliders(); updateTargetLabels(); renderTarget();
+syncSliders(); updateLabels(); render();
 window.addEventListener('load', () => {
   if (window.renderMathInElement) {
     renderMathInElement(document.body, { delimiters: [{ left: '$$', right: '$$', display: true }] });
