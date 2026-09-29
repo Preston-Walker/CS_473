@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ROC Curves as Bayesian Decisions</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --healthy: #2a78d6;
+    --diseased: #4a3aa7;
+    --good: #0ca30c;
+    --warn: #d9772e;
+    --bad: #c9302c;
+    --roc: #1c1c1e;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 30px 20px 70px; }
+  header h1 { font-size: 1.7rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  section.block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px 26px;
+    margin-top: 26px;
+  }
+  section.block h2 { font-size: 1.2rem; margin: 0 0 10px; }
+  section.block h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--ink); color: #fff; font-size: 0.78rem; margin-right: 8px;
+  }
+  p.lead { font-size: 0.96rem; margin: 0 0 16px; }
+  p.lead:last-of-type { margin-bottom: 0; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  canvas { display: block; width: 100%; height: auto; border-radius: 8px; background: #fff; touch-action: none; }
+  #density { cursor: ew-resize; margin-top: 14px; }
+  #roc { cursor: ew-resize; margin-top: 14px; max-width: 460px; }
+  .roc-wrap { display: flex; justify-content: center; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 10px; justify-content: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; flex: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+  .controls { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+  .ctrl { display: flex; flex-direction: column; gap: 3px; }
+  .ctrl.full { grid-column: 1 / -1; }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; }
+  .ctrl label b { color: var(--ink); font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--diseased); }
+  .presets { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  button.preset {
+    font-size: 0.78rem; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid var(--border); background: #fafaf9; cursor: pointer; color: var(--ink);
+  }
+  button.preset:hover { border-color: var(--diseased); color: var(--diseased); }
+  button.preset.wide { padding: 7px 14px; font-weight: 600; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+  .subpanel { background: #fafaf9; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .subpanel h3 { font-size: 0.88rem; margin: 0 0 8px; }
+  .numbers table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  .numbers td { padding: 3px 4px; vertical-align: middle; }
+  .numbers .formula-label { color: var(--muted); white-space: nowrap; }
+  .numbers .result { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+  .readout { font-size: 0.88rem; }
+  .readout b.hl { color: var(--diseased); }
+  .eqbox {
+    background: #fafaf9; border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 18px; margin-top: 18px; overflow-x: auto;
+  }
+  .eqbox .label { color: var(--muted); font-size: 0.76rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .eqbox .eq-row { margin: 6px 0; }
+  hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
+  .callout {
+    margin-top: 16px; padding: 10px 14px; border-radius: 8px;
+    background: #fbf3e8; border: 1px solid #ecd9b8; font-size: 0.85rem;
+  }
+
+  /* confusion matrix */
+  .cm-wrap { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; align-items: flex-start; }
+  table.cm { border-collapse: collapse; flex: 0 0 auto; }
+  table.cm th, table.cm td { border: 1px solid var(--border); padding: 10px 14px; text-align: center; font-size: 0.82rem; }
+  table.cm th { background: #fafaf9; color: var(--muted); font-weight: 600; }
+  table.cm td.cell { min-width: 120px; }
+  table.cm .big { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; display: block; }
+  table.cm .tag { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .03em; display: block; margin-bottom: 3px; }
+  td.tp { background: rgba(12,163,12,0.14); }
+  td.tn { background: rgba(12,163,12,0.14); }
+  td.fp { background: rgba(217,119,46,0.16); }
+  td.fn { background: rgba(201,48,44,0.14); }
+  .rates { flex: 1 1 220px; min-width: 220px; }
+  .rates table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  .rates td { padding: 5px 4px; border-bottom: 1px solid var(--border); }
+  .rates td.rlabel { color: var(--muted); }
+  .rates td.rval { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ROC Curves, Read as Bayesian Decisions</h1>
+    <div class="subtitle">A companion to &sect;5.1.3.2 of Murphy's <em>Probabilistic Machine Learning: An Introduction</em> &mdash; connecting the utility/cost framework from earlier in the chapter to the ROC curve &mdash; built for CS 473 self-study.</div>
+  </header>
+
+  <section class="block" id="sec-story">
+    <h2><span class="num">1</span>The story: a screening test with a threshold to choose</h2>
+    <p class="lead">
+      A blood test produces a continuous <b>risk score</b> for a disease. Patients who actually have the
+      disease tend to score higher, and healthy patients tend to score lower &mdash; but the two groups
+      <em>overlap</em>: no score perfectly separates them. A doctor has to turn this continuous score into a
+      binary decision by picking a <b>threshold</b> <code>t</code>: refer the patient for follow-up if their
+      score exceeds <code>t</code>, otherwise clear them. Every choice of <code>t</code> trades off two kinds
+      of mistakes differently. Drag the threshold line below (or the slider) and watch the four possible
+      outcomes shift.
+    </p>
+    <canvas id="density" width="820" height="280"></canvas>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--healthy)"></i> healthy patients&rsquo; scores</span>
+      <span><i class="swatch" style="border-top:2px dashed var(--diseased);height:0;background:none"></i> diseased patients&rsquo; scores</span>
+      <span><i class="dot" style="background:var(--good)"></i> correct decision (TP / TN)</span>
+      <span><i class="dot" style="background:var(--warn)"></i> false positive (FP)</span>
+      <span><i class="dot" style="background:var(--bad)"></i> false negative (FN)</span>
+    </div>
+    <div class="controls">
+      <div class="ctrl full">
+        <label>Decision threshold, t &mdash; refer if score &gt; t <b id="v-thresh"></b></label>
+        <input type="range" id="thresh" min="0" max="14" step="0.05" value="6.5">
+      </div>
+      <div class="ctrl full">
+        <label>Test quality &mdash; how well the score separates the two groups <b id="v-dsep"></b></label>
+        <input type="range" id="dsep" min="1" max="6" step="0.25" value="3">
+      </div>
+    </div>
+    <div class="presets">
+      <button class="preset" data-preset="weak">Weak test</button>
+      <button class="preset" data-preset="good">Good test</button>
+      <button class="preset" data-preset="excellent">Near-perfect test</button>
+      <button class="preset" data-preset="strict">Very strict threshold</button>
+      <button class="preset" data-preset="loose">Very loose threshold</button>
+    </div>
+  </section>
+
+  <section class="block" id="sec-rates">
+    <h2><span class="num">2</span>The confusion matrix, and its four rates</h2>
+    <p class="lead">
+      Out of every 1000 patients screened, here is how the threshold above sorts them &mdash; and the four
+      named rates that summarize it. These rates are exactly the quantities from the Bayesian decision-theory
+      setup: <code>TPR</code> and <code>FPR</code> together describe everything a threshold does to the
+      population, independent of how many patients there actually are.
+    </p>
+    <div class="cm-wrap">
+      <table class="cm">
+        <tr><th></th><th>Test: Positive</th><th>Test: Negative</th></tr>
+        <tr>
+          <th>Actual: Diseased</th>
+          <td class="cell tp"><span class="tag">True Positive</span><span class="big" id="cm-tp"></span></td>
+          <td class="cell fn"><span class="tag">False Negative</span><span class="big" id="cm-fn"></span></td>
+        </tr>
+        <tr>
+          <th>Actual: Healthy</th>
+          <td class="cell fp"><span class="tag">False Positive</span><span class="big" id="cm-fp"></span></td>
+          <td class="cell tn"><span class="tag">True Negative</span><span class="big" id="cm-tn"></span></td>
+        </tr>
+      </table>
+      <div class="rates">
+        <table>
+          <tr><td class="rlabel">TPR (sensitivity, recall) = TP/(TP+FN)</td><td class="rval" id="r-tpr"></td></tr>
+          <tr><td class="rlabel">FNR (miss rate) = FN/(FN+TP) = 1&minus;TPR</td><td class="rval" id="r-fnr"></td></tr>
+          <tr><td class="rlabel">FPR (fall-out) = FP/(FP+TN)</td><td class="rval" id="r-fpr"></td></tr>
+          <tr><td class="rlabel">TNR (specificity) = TN/(TN+FP) = 1&minus;FPR</td><td class="rval" id="r-tnr"></td></tr>
+        </table>
+      </div>
+    </div>
+    <p class="lead readout" id="rates-readout" style="margin-top:14px;"></p>
+  </section>
+
+  <section class="block" id="sec-utility">
+    <h2><span class="num">3</span>Bringing back utility: which threshold should the doctor pick?</h2>
+    <p class="lead">
+      Both mistakes have a cost, but they are rarely equal. A <b style="color:var(--bad)">false negative</b>
+      means a real disease goes untreated until it's worse &mdash; expensive and dangerous. A
+      <b style="color:var(--warn)">false positive</b> means an unnecessary follow-up procedure &mdash;
+      annoying and costly, but far less severe. There's also the disease's <b>prevalence</b>, &pi;: the
+      fraction of screened patients who actually have it. The Bayes-optimal threshold minimizes the
+      <em>expected cost per patient</em>, weighing all three.
+    </p>
+    <div class="controls">
+      <div class="ctrl full">
+        <label>Prevalence, &pi; &mdash; fraction of screened patients who have the disease <b id="v-prev"></b></label>
+        <input type="range" id="prev" min="0.01" max="0.5" step="0.01" value="0.05">
+      </div>
+      <div class="ctrl">
+        <label>Cost of a false negative (missed disease) <b id="v-lfn"></b></label>
+        <input type="range" id="lfn" min="5000" max="150000" step="5000" value="60000">
+      </div>
+      <div class="ctrl">
+        <label>Cost of a false positive (unnecessary follow-up) <b id="v-lfp"></b></label>
+        <input type="range" id="lfp" min="500" max="30000" step="500" value="3000">
+      </div>
+    </div>
+    <div class="presets">
+      <button class="preset" data-preset="rare-deadly">Rare &amp; costly-to-miss (e.g. early cancer)</button>
+      <button class="preset" data-preset="common-mild">Common &amp; mild (e.g. seasonal allergy check)</button>
+      <button class="preset" data-preset="equal">Equal costs, 50/50 prevalence</button>
+    </div>
+    <div class="two-col">
+      <div class="subpanel">
+        <h3>Expected cost per patient</h3>
+        <div class="numbers" id="cost-numbers"></div>
+      </div>
+      <div class="subpanel">
+        <h3>What this means</h3>
+        <div class="readout" id="cost-readout"></div>
+        <button class="preset wide" id="jump-optimal" style="margin-top:10px;">Jump to optimal threshold &rarr;</button>
+      </div>
+    </div>
+    <div class="eqbox">
+      <div class="label">In symbols</div>
+      <div class="eq-row">$$ \mathrm{EC}(t) = \pi \cdot \mathrm{FNR}(t) \cdot L_{FN} \;+\; (1-\pi) \cdot \mathrm{FPR}(t) \cdot L_{FP} $$</div>
+      <div class="eq-row">
+        Minimizing $\mathrm{EC}(t)$ means: refer the patient whenever the likelihood ratio exceeds a
+        critical value, $\dfrac{p(\text{score}\mid\text{diseased})}{p(\text{score}\mid\text{healthy})} > K$,
+        &nbsp; where &nbsp; $K = \dfrac{(1-\pi)\,L_{FP}}{\pi\,L_{FN}}$.
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="sec-roc">
+    <h2><span class="num">4</span>The ROC curve: every threshold, all at once</h2>
+    <p class="lead">
+      Instead of picking one threshold and reading off one (FPR, TPR) pair, sweep <code>t</code> across
+      every possible value and plot the resulting point at each one. That sweep traces the
+      <b>receiver operating characteristic (ROC) curve</b> &mdash; a picture of the entire menu of tradeoffs
+      the test offers. The dashed diagonal is what a coin flip would achieve (TPR = FPR, no information).
+      Drag the point on the curve itself, or use the threshold slider above &mdash; they move together.
+    </p>
+    <div class="roc-wrap">
+      <canvas id="roc" width="460" height="460"></canvas>
+    </div>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--roc)"></i> ROC curve (sweeping t)</span>
+      <span><i class="swatch" style="border-top:2px dashed #aaa;height:0;background:none"></i> chance line (TPR = FPR)</span>
+      <span><i class="dot" style="background:var(--diseased)"></i> current threshold</span>
+      <span><i class="dot" style="background:var(--good)"></i> Bayes-optimal threshold</span>
+      <span><i class="swatch" style="border-top:2px dashed var(--good);height:0;background:none"></i> iso-cost line (slope = K)</span>
+    </div>
+    <p class="lead" id="auc-readout" style="margin-top:12px;"></p>
+    <div class="callout">
+      Notice what moves and what doesn't: dragging the cost or prevalence sliders in Section&nbsp;3 slides
+      the <b style="color:var(--good)">optimal point</b> along the curve and tilts the iso-cost line, but the
+      <b>curve's shape never changes</b> &mdash; that shape depends only on the test itself (Section&nbsp;1's
+      &ldquo;test quality&rdquo; slider). Costs and prevalence tell you <em>where on the curve</em> to stand;
+      only a better test can push the whole curve up and to the left.
+    </div>
+  </section>
+
+  <div class="foot">
+    Built to accompany Murphy's <em>Probabilistic Machine Learning: An Introduction</em>, &sect;5.1.3.2
+    &mdash; for CS 473 self-study. The two score distributions are simulated as equal-variance Gaussians
+    (a simplification for clarity, not a claim about real biomarkers); everything else &mdash; rates, the
+    ROC curve, the Bayes-optimal threshold, and AUC &mdash; is computed live in the browser from those two
+    distributions. No data leaves your machine.
+  </div>
+</div>
+
+<script>
+// =================== shared math ===================
+const MU0 = 3.0, SIGMA = 1.3; // healthy mean fixed; diseased mean = MU0 + d
+const N_POP = 1000;
+const X_MIN = 0, X_MAX = 14;
+
+function erf(x) {
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  const a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=0.3275911;
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1) * t * Math.exp(-x*x);
+  return sign * y;
+}
+function normCDF(x) { return 0.5 * (1 + erf(x / Math.SQRT2)); }
+function pdf(x, mu, sigma) {
+  const z = (x - mu) / sigma;
+  return Math.exp(-0.5 * z * z) / (sigma * Math.sqrt(2 * Math.PI));
+}
+
+function mu1(d) { return MU0 + d; }
+function TPR(t, d) { return 1 - normCDF((t - mu1(d)) / SIGMA); }
+function FPR(t) { return 1 - normCDF((t - MU0) / SIGMA); }
+function dprime(d) { return d / SIGMA; }
+function AUC(d) { return normCDF(dprime(d) / Math.SQRT2); }
+
+function computeK(pi, lfn, lfp) { return ((1 - pi) * lfp) / (pi * lfn); }
+function optimalThreshold(d, pi, lfn, lfp) {
+  const dp = dprime(d);
+  const K = computeK(pi, lfn, lfp);
+  const tStd = dp / 2 + Math.log(K) / dp;
+  return MU0 + SIGMA * tStd;
+}
+function expectedCost(t, d, pi, lfn, lfp) {
+  return pi * (1 - TPR(t, d)) * lfn + (1 - pi) * FPR(t) * lfp;
+}
+// invert FPR(t) = target for a given t, via bisection (used when dragging on the ROC curve)
+function tFromFPR(target) {
+  let lo = MU0 - 8 * SIGMA, hi = MU0 + 8 * SIGMA;
+  for (let i = 0; i < 50; i++) {
+    const mid = (lo + hi) / 2;
+    if (FPR(mid) > target) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function pct(x) { return (x * 100).toFixed(1) + '%'; }
+function money(x) {
+  const r = Math.round(x);
+  if (Math.abs(r) >= 1000) return '$' + (r / 1000).toFixed(r % 1000 === 0 ? 0 : 1) + 'k';
+  return '$' + r;
+}
+
+// =================== state ===================
+const state = { t: 6.5, d: 3, pi: 0.05, lfn: 60000, lfp: 3000, dragTarget: null };
+
+const els = {
+  thresh: document.getElementById('thresh'),
+  dsep: document.getElementById('dsep'),
+  prev: document.getElementById('prev'),
+  lfn: document.getElementById('lfn'),
+  lfp: document.getElementById('lfp'),
+};
+const labels = {
+  thresh: document.getElementById('v-thresh'),
+  dsep: document.getElementById('v-dsep'),
+  prev: document.getElementById('v-prev'),
+  lfn: document.getElementById('v-lfn'),
+  lfp: document.getElementById('v-lfp'),
+};
+
+function syncSliders() {
+  els.thresh.value = state.t;
+  els.dsep.value = state.d;
+  els.prev.value = state.pi;
+  els.lfn.value = state.lfn;
+  els.lfp.value = state.lfp;
+}
+function updateLabels() {
+  labels.thresh.textContent = state.t.toFixed(2);
+  labels.dsep.textContent = state.d.toFixed(2) + '  (AUC ' + AUC(state.d).toFixed(3) + ')';
+  labels.prev.textContent = pct(state.pi);
+  labels.lfn.textContent = money(state.lfn);
+  labels.lfp.textContent = money(state.lfp);
+}
+for (const key of ['thresh', 'dsep', 'prev', 'lfn', 'lfp']) {
+  els[key].addEventListener('input', () => {
+    const map = { thresh: 't', dsep: 'd', prev: 'pi', lfn: 'lfn', lfp: 'lfp' };
+    state[map[key]] = parseFloat(els[key].value);
+    updateLabels();
+    render();
+  });
+}
+
+document.querySelectorAll('#sec-story .preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.preset;
+    if (p === 'weak') state.d = 1.5;
+    else if (p === 'good') state.d = 3;
+    else if (p === 'excellent') state.d = 5;
+    else if (p === 'strict') state.t = mu1(state.d) + 1.5 * SIGMA;
+    else if (p === 'loose') state.t = MU0 - 0.5 * SIGMA;
+    syncSliders(); updateLabels(); render();
+  });
+});
+document.querySelectorAll('#sec-utility .preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.preset;
+    if (p === 'rare-deadly') Object.assign(state, { pi: 0.02, lfn: 100000, lfp: 5000 });
+    else if (p === 'common-mild') Object.assign(state, { pi: 0.3, lfn: 15000, lfp: 12000 });
+    else if (p === 'equal') Object.assign(state, { pi: 0.5, lfn: 20000, lfp: 20000 });
+    syncSliders(); updateLabels(); render();
+  });
+});
+document.getElementById('jump-optimal').addEventListener('click', () => {
+  state.t = optimalThreshold(state.d, state.pi, state.lfn, state.lfp);
+  state.t = Math.max(X_MIN, Math.min(X_MAX, state.t));
+  syncSliders(); updateLabels(); render();
+});
+
+// =================== Section 1: density plot ===================
+const densCv = document.getElementById('density');
+const dctx = densCv.getContext('2d');
+const DM = { l: 20, r: 20, t: 16, b: 30 };
+function dx(x) { return DM.l + (x - X_MIN) / (X_MAX - X_MIN) * (densCv.width - DM.l - DM.r); }
+function invDx(px) { return X_MIN + (px - DM.l) / (densCv.width - DM.l - DM.r) * (X_MAX - X_MIN); }
+
+function renderDensity() {
+  const yMax = pdf(MU0, MU0, SIGMA) * 1.3;
+  function dy(v) { return densCv.height - DM.b - v / yMax * (densCv.height - DM.t - DM.b); }
+
+  dctx.clearRect(0, 0, densCv.width, densCv.height);
+
+  // x axis
+  dctx.strokeStyle = '#ccc'; dctx.lineWidth = 1;
+  dctx.beginPath(); dctx.moveTo(DM.l, densCv.height - DM.b); dctx.lineTo(densCv.width - DM.r, densCv.height - DM.b); dctx.stroke();
+  dctx.fillStyle = '#888'; dctx.font = '11px -apple-system, sans-serif';
+  dctx.textAlign = 'center'; dctx.textBaseline = 'top';
+  for (let v = 0; v <= X_MAX; v += 2) {
+    dctx.fillText(v, dx(v), densCv.height - DM.b + 6);
+  }
+  dctx.fillStyle = '#888'; dctx.textAlign = 'center';
+  dctx.fillText('risk score', (DM.l + densCv.width - DM.r) / 2, densCv.height - 2);
+
+  const t = state.t, d = state.d;
+  const N = 260;
+  function fillUnder(mu, xlo, xhi, color) {
+    if (xhi <= xlo) return;
+    dctx.beginPath();
+    dctx.moveTo(dx(xlo), dy(0));
+    for (let i = 0; i <= N; i++) {
+      const x = xlo + (xhi - xlo) * i / N;
+      dctx.lineTo(dx(x), dy(pdf(x, mu, SIGMA)));
+    }
+    dctx.lineTo(dx(xhi), dy(0));
+    dctx.closePath();
+    dctx.fillStyle = color;
+    dctx.fill();
+  }
+  const GOOD = 'rgba(12,163,12,0.5)', WARN = 'rgba(217,119,46,0.55)', BAD = 'rgba(201,48,44,0.5)';
+  // healthy: left of t = TN (good), right of t = FP (warn)
+  fillUnder(MU0, X_MIN, t, GOOD);
+  fillUnder(MU0, t, X_MAX, WARN);
+  // diseased: left of t = FN (bad), right of t = TP (good)
+  fillUnder(mu1(d), X_MIN, t, BAD);
+  fillUnder(mu1(d), t, X_MAX, GOOD);
+
+  function strokeCurve(mu, color, dashed) {
+    dctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const x = X_MIN + (X_MAX - X_MIN) * i / N;
+      const p = { x: dx(x), y: dy(pdf(x, mu, SIGMA)) };
+      i === 0 ? dctx.moveTo(p.x, p.y) : dctx.lineTo(p.x, p.y);
+    }
+    dctx.strokeStyle = color; dctx.lineWidth = 2;
+    dctx.setLineDash(dashed ? [6, 4] : []);
+    dctx.stroke();
+    dctx.setLineDash([]);
+  }
+  strokeCurve(MU0, '#2a78d6', false);
+  strokeCurve(mu1(d), '#4a3aa7', true);
+
+  // threshold line
+  const xt = dx(t);
+  dctx.strokeStyle = '#1c1c1e'; dctx.lineWidth = 2;
+  dctx.beginPath(); dctx.moveTo(xt, DM.t); dctx.lineTo(xt, densCv.height - DM.b); dctx.stroke();
+  dctx.fillStyle = '#1c1c1e';
+  dctx.beginPath(); dctx.moveTo(xt - 6, DM.t); dctx.lineTo(xt + 6, DM.t); dctx.lineTo(xt, DM.t + 9); dctx.closePath(); dctx.fill();
+  dctx.font = 'bold 11px -apple-system, sans-serif'; dctx.textAlign = xt > densCv.width - 60 ? 'right' : 'left';
+  dctx.textBaseline = 'alphabetic';
+  dctx.fillText('t = ' + t.toFixed(2), xt + (dctx.textAlign === 'right' ? -8 : 8), DM.t + 20);
+}
+
+function setThreshFromDensityEvent(e) {
+  const rect = densCv.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const cx = (clientX - rect.left) * (densCv.width / rect.width);
+  let x = invDx(cx);
+  x = Math.max(X_MIN, Math.min(X_MAX, x));
+  state.t = x;
+  syncSliders(); updateLabels(); render();
+}
+densCv.addEventListener('mousedown', e => { state.dragTarget = 'density'; setThreshFromDensityEvent(e); });
+densCv.addEventListener('touchstart', e => { state.dragTarget = 'density'; setThreshFromDensityEvent(e); }, { passive: true });
+
+// =================== Section 2: confusion matrix + rates ===================
+function renderConfusion() {
+  const t = state.t, d = state.d, pi = state.pi;
+  const tpr = TPR(t, d), fpr = FPR(t);
+  const nPos = pi * N_POP, nNeg = (1 - pi) * N_POP;
+  const TP = nPos * tpr, FN = nPos * (1 - tpr), FP = nNeg * fpr, TN = nNeg * (1 - fpr);
+
+  document.getElementById('cm-tp').textContent = Math.round(TP);
+  document.getElementById('cm-fn').textContent = Math.round(FN);
+  document.getElementById('cm-fp').textContent = Math.round(FP);
+  document.getElementById('cm-tn').textContent = Math.round(TN);
+
+  document.getElementById('r-tpr').textContent = pct(tpr);
+  document.getElementById('r-fnr').textContent = pct(1 - tpr);
+  document.getElementById('r-fpr').textContent = pct(fpr);
+  document.getElementById('r-tnr').textContent = pct(1 - fpr);
+
+  document.getElementById('rates-readout').innerHTML =
+    `At <b>t = ${t.toFixed(2)}</b>, the test catches <b style="color:var(--good)">${pct(tpr)}</b> of ` +
+    `diseased patients (TPR) but also flags <b style="color:var(--warn)">${pct(fpr)}</b> of healthy ` +
+    `patients for nothing (FPR) &mdash; and misses <b style="color:var(--bad)">${pct(1 - tpr)}</b> of the ` +
+    `disease cases it was meant to find (FNR).`;
+
+  return { tpr, fpr, TP, FN, FP, TN };
+}
+
+// =================== Section 3: cost panel ===================
+function renderCost() {
+  const { t, d, pi, lfn, lfp } = state;
+  const ec = expectedCost(t, d, pi, lfn, lfp);
+  const tStar = optimalThreshold(d, pi, lfn, lfp);
+  const ecStar = expectedCost(tStar, d, pi, lfn, lfp);
+  const K = computeK(pi, lfn, lfp);
+
+  const rows = [
+    ['Likelihood-ratio cutoff, K = (1&minus;&pi;)L<sub>FP</sub> / (&pi;L<sub>FN</sub>)', K.toFixed(3), ''],
+    ['Bayes-optimal threshold, t*', 't* = ' + tStar.toFixed(2), ''],
+    ['Expected cost per patient at your threshold, EC(t)', money(ec), 'cur'],
+    ['Expected cost per patient at t*, EC(t*)', money(ecStar), 'opt'],
+  ];
+  const html = ['<table>'];
+  rows.forEach(([label, val]) => {
+    html.push(`<tr><td class="formula-label">${label}</td><td class="result">${val}</td></tr>`);
+  });
+  html.push('</table>');
+  document.getElementById('cost-numbers').innerHTML = html.join('');
+
+  const gap = ec - ecStar;
+  const readout = document.getElementById('cost-readout');
+  let msg;
+  if (gap > Math.max(5, ecStar * 0.03)) {
+    msg = `Your current threshold costs <b class="hl">${money(gap)}</b> more per patient than necessary. ` +
+      (tStar < t
+        ? `Because a false negative costs ${(lfn / lfp).toFixed(1)}&times; a false positive here (and only ${pct(pi)} of patients are actually sick), the optimal threshold is <em>lower</em> than yours &mdash; refer more aggressively and accept more false alarms.`
+        : `Given these costs and this prevalence, the optimal threshold is <em>higher</em> than yours &mdash; you're currently flagging too many healthy patients for the disease's rarity and relative harmlessness.`);
+  } else {
+    msg = `You're already at (or essentially at) the <b class="hl">Bayes-optimal</b> threshold for this cost/prevalence combination &mdash; no other threshold does better on average.`;
+  }
+  readout.innerHTML = msg;
+  return { tStar, ecStar, K };
+}
+
+// =================== Section 4: ROC curve ===================
+const rocCv = document.getElementById('roc');
+const rctx = rocCv.getContext('2d');
+const RM = { l: 46, r: 14, t: 14, b: 40 };
+function rx(fpr) { return RM.l + fpr * (rocCv.width - RM.l - RM.r); }
+function ry(tpr) { return rocCv.height - RM.b - tpr * (rocCv.height - RM.t - RM.b); }
+function invRx(px) { return (px - RM.l) / (rocCv.width - RM.l - RM.r); }
+
+function renderROC(tStar) {
+  const d = state.d, t = state.t;
+  rctx.clearRect(0, 0, rocCv.width, rocCv.height);
+
+  // axes + gridlines
+  rctx.strokeStyle = '#eee'; rctx.lineWidth = 1;
+  for (let v = 0; v <= 1.0001; v += 0.2) {
+    rctx.beginPath(); rctx.moveTo(rx(v), RM.t); rctx.lineTo(rx(v), rocCv.height - RM.b); rctx.stroke();
+    rctx.beginPath(); rctx.moveTo(RM.l, ry(v)); rctx.lineTo(rocCv.width - RM.r, ry(v)); rctx.stroke();
+  }
+  rctx.strokeStyle = '#999'; rctx.lineWidth = 1;
+  rctx.beginPath(); rctx.moveTo(RM.l, RM.t); rctx.lineTo(RM.l, rocCv.height - RM.b); rctx.lineTo(rocCv.width - RM.r, rocCv.height - RM.b); rctx.stroke();
+  rctx.fillStyle = '#888'; rctx.font = '11px -apple-system, sans-serif';
+  rctx.textAlign = 'center'; rctx.textBaseline = 'top';
+  for (let v = 0; v <= 1.0001; v += 0.2) rctx.fillText(v.toFixed(1), rx(v), rocCv.height - RM.b + 6);
+  rctx.textAlign = 'right'; rctx.textBaseline = 'middle';
+  for (let v = 0; v <= 1.0001; v += 0.2) rctx.fillText(v.toFixed(1), RM.l - 8, ry(v));
+  rctx.save();
+  rctx.textAlign = 'center'; rctx.textBaseline = 'alphabetic';
+  rctx.fillText('FPR (false positive rate)', (RM.l + rocCv.width - RM.r) / 2, rocCv.height - 4);
+  rctx.translate(12, (RM.t + rocCv.height - RM.b) / 2);
+  rctx.rotate(-Math.PI / 2);
+  rctx.fillText('TPR (true positive rate)', 0, 0);
+  rctx.restore();
+
+  // chance diagonal
+  rctx.strokeStyle = '#aaa'; rctx.lineWidth = 1.5; rctx.setLineDash([5, 4]);
+  rctx.beginPath(); rctx.moveTo(rx(0), ry(0)); rctx.lineTo(rx(1), ry(1)); rctx.stroke();
+  rctx.setLineDash([]);
+
+  // ROC curve
+  rctx.beginPath();
+  const N = 200;
+  for (let i = 0; i <= N; i++) {
+    const tt = MU0 - 6 * SIGMA + (mu1(d) + 6 * SIGMA - (MU0 - 6 * SIGMA)) * i / N;
+    const p = { x: rx(FPR(tt)), y: ry(TPR(tt, d)) };
+    i === 0 ? rctx.moveTo(p.x, p.y) : rctx.lineTo(p.x, p.y);
+  }
+  rctx.strokeStyle = '#1c1c1e'; rctx.lineWidth = 2.5; rctx.stroke();
+
+  // iso-cost line through optimal point, slope K, clipped to unit box
+  const K = computeK(state.pi, state.lfn, state.lfp);
+  const fprStar = FPR(tStar), tprStar = TPR(tStar, d);
+  rctx.save();
+  rctx.beginPath();
+  rctx.rect(RM.l, RM.t, rocCv.width - RM.l - RM.r, rocCv.height - RM.t - RM.b);
+  rctx.clip();
+  rctx.strokeStyle = 'rgba(12,163,12,0.75)'; rctx.lineWidth = 1.5; rctx.setLineDash([4, 4]);
+  const x0 = -2, x1 = 2; // wide enough to cross the box after clipping
+  rctx.beginPath();
+  rctx.moveTo(rx(fprStar + x0), ry(tprStar + K * x0));
+  rctx.lineTo(rx(fprStar + x1), ry(tprStar + K * x1));
+  rctx.stroke();
+  rctx.setLineDash([]);
+  rctx.restore();
+
+  // optimal point
+  rctx.beginPath(); rctx.arc(rx(fprStar), ry(tprStar), 6, 0, 2 * Math.PI);
+  rctx.fillStyle = '#0ca30c'; rctx.fill(); rctx.strokeStyle = '#fff'; rctx.lineWidth = 2; rctx.stroke();
+
+  // current point
+  const fprCur = FPR(t), tprCur = TPR(t, d);
+  rctx.beginPath(); rctx.arc(rx(fprCur), ry(tprCur), 6, 0, 2 * Math.PI);
+  rctx.fillStyle = '#4a3aa7'; rctx.fill(); rctx.strokeStyle = '#fff'; rctx.lineWidth = 2; rctx.stroke();
+
+  document.getElementById('auc-readout').innerHTML =
+    `<b>AUC = ${AUC(d).toFixed(3)}</b> &mdash; the probability that a randomly chosen diseased patient ` +
+    `scores higher than a randomly chosen healthy patient. AUC = 0.5 is the diagonal (no better than a ` +
+    `coin flip); AUC = 1.0 is perfect separation.`;
+}
+
+function setThreshFromRocEvent(e) {
+  const rect = rocCv.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const cx = (clientX - rect.left) * (rocCv.width / rect.width);
+  let target = invRx(cx);
+  target = Math.max(0, Math.min(1, target));
+  state.t = tFromFPR(target);
+  state.t = Math.max(X_MIN, Math.min(X_MAX, state.t));
+  syncSliders(); updateLabels(); render();
+}
+rocCv.addEventListener('mousedown', e => { state.dragTarget = 'roc'; setThreshFromRocEvent(e); });
+rocCv.addEventListener('touchstart', e => { state.dragTarget = 'roc'; setThreshFromRocEvent(e); }, { passive: true });
+
+window.addEventListener('mousemove', e => {
+  if (state.dragTarget === 'density') setThreshFromDensityEvent(e);
+  else if (state.dragTarget === 'roc') setThreshFromRocEvent(e);
+});
+window.addEventListener('touchmove', e => {
+  if (state.dragTarget === 'density') setThreshFromDensityEvent(e);
+  else if (state.dragTarget === 'roc') setThreshFromRocEvent(e);
+}, { passive: true });
+window.addEventListener('mouseup', () => { state.dragTarget = null; });
+window.addEventListener('touchend', () => { state.dragTarget = null; });
+
+// =================== render everything ===================
+function render() {
+  renderDensity();
+  renderConfusion();
+  const { tStar } = renderCost();
+  renderROC(tStar);
+}
+
+syncSliders(); updateLabels(); render();
+window.addEventListener('load', () => {
+  if (window.renderMathInElement) {
+    renderMathInElement(document.body, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false },
+      ],
+    });
+  }
+});
+</script>
+</body>
+</html>
