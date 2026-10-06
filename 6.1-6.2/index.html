@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Forward vs Reverse KL</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --p: #2a78d6;        /* true distribution: where people live */
+    --q: #eb6834;        /* approximation: where the service operates */
+    --fwd: #4a3aa7;      /* forward KL / mail carrier */
+    --rev: #c0392b;      /* reverse KL / food truck */
+    --good: #0ca30c;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 30px 16px 70px; }
+  header h1 { font-size: 1.7rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  section.block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px 26px;
+    margin-top: 26px;
+  }
+  @media (max-width: 560px) { section.block { padding: 18px 14px 20px; } }
+  section.block h2 { font-size: 1.2rem; margin: 0 0 10px; }
+  section.block h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--ink); color: #fff; font-size: 0.78rem; margin-right: 8px;
+  }
+  p.lead { font-size: 0.96rem; margin: 0 0 14px; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  canvas { display: block; width: 100%; height: auto; border-radius: 8px; background: #fff; touch-action: none; }
+  #map { border: 1px solid var(--border); margin-top: 10px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 10px; justify-content: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 16px; height: 3px; border-radius: 2px; display: inline-block; flex: none; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+  .controls { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 18px; }
+  @media (max-width: 720px) { .controls { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 460px) { .controls { grid-template-columns: 1fr; } }
+  .ctrl { display: flex; flex-direction: column; gap: 3px; }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .ctrl label b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ctrl select { font-size: 0.82rem; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); background: #fafaf9; }
+  input[type=range] { width: 100%; accent-color: var(--q); }
+  .group-title { grid-column: 1 / -1; font-size: 0.74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 6px; border-bottom: 1px solid var(--border); padding-bottom: 3px; }
+  .actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+  button.act {
+    font-size: 0.84rem; padding: 8px 14px; border-radius: 999px; font-weight: 600;
+    border: 1.5px solid currentColor; background: #fff; cursor: pointer;
+  }
+  button.act.fwd { color: var(--fwd); }
+  button.act.rev { color: var(--rev); }
+  button.act:hover { background: #f5f4f2; }
+  button.act.running { background: currentColor; }
+  button.act.running span { color: #fff; }
+  button.preset {
+    font-size: 0.78rem; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid var(--border); background: #fafaf9; cursor: pointer; color: var(--ink);
+  }
+  button.preset:hover { border-color: var(--q); color: var(--q); }
+  .presets { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .presets .hint { margin-right: 2px; }
+  .score { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+  @media (max-width: 720px) { .score { grid-template-columns: 1fr 1fr; } }
+  .tile { background: #fafaf9; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .tile .t-label { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+  .tile .t-val { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .tile .t-sub { font-size: 0.72rem; color: var(--muted); }
+  .tile.fwd { border-left: 4px solid var(--fwd); }
+  .tile.rev { border-left: 4px solid var(--rev); }
+  .two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-top: 14px; align-items: start; }
+  @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+  .readout { font-size: 0.9rem; background: #fafaf9; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; min-height: 92px; }
+  .chart-box { background: #fafaf9; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  .chart-box .t-label { font-size: 0.74rem; color: var(--muted); }
+  #trace { background: transparent; border-radius: 0; }
+  .eqbox {
+    background: #fafaf9; border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 18px; margin-top: 16px; overflow-x: auto;
+  }
+  .eqbox .label { color: var(--muted); font-size: 0.76rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .callout {
+    margin-top: 16px; padding: 10px 14px; border-radius: 8px;
+    background: #fbf3e8; border: 1px solid #ecd9b8; font-size: 0.88rem;
+  }
+  .characters { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 6px; }
+  @media (max-width: 640px) { .characters { grid-template-columns: 1fr; } }
+  .char { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: #fafaf9; }
+  .char h3 { margin: 0 0 6px; font-size: 1rem; }
+  .char.fwd { border-top: 4px solid var(--fwd); }
+  .char.rev { border-top: 4px solid var(--rev); }
+  .char h3 .tag { font-size: 0.76rem; font-weight: 600; display: block; }
+  .char.fwd h3 .tag { color: var(--fwd); }
+  .char.rev h3 .tag { color: var(--rev); }
+  .char p { margin: 0 0 8px; font-size: 0.9rem; }
+  .char p:last-child { margin-bottom: 0; }
+  table.map-table { border-collapse: collapse; width: 100%; font-size: 0.86rem; margin-top: 12px; }
+  table.map-table td, table.map-table th { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  table.map-table th { color: var(--muted); font-weight: 600; font-size: 0.78rem; }
+  ol.tour { padding-left: 20px; margin: 8px 0 0; font-size: 0.9rem; }
+  ol.tour li { margin-bottom: 6px; }
+  .compare { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin-top: 12px; }
+  .compare th, .compare td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+  .compare th { background: #fafaf9; }
+  .compare th.fwd { color: var(--fwd); }
+  .compare th.rev { color: var(--rev); }
+  .scroll-x { overflow-x: auto; }
+  code { background: #f1f0ed; padding: 1px 4px; border-radius: 4px; font-size: 0.88em; }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Forward vs. Reverse KL: The Mail Carrier and the Food Truck</h1>
+    <div class="subtitle">A companion to &sect;6.2.6 of Murphy's <em>Probabilistic Machine Learning: An Introduction</em> &mdash; an interactive version of the bimodal contour figure &mdash; built for CS 473 self-study.</div>
+  </header>
+
+  <!-- ============ 1. STORY ============ -->
+  <section class="block" id="sec-story">
+    <h2><span class="num">1</span>The story: two towns, one van</h2>
+    <p class="lead">
+      A valley has two towns, <b>Westfield</b> and <b>Eastport</b>, with a big empty lake between them. Where
+      people live is a <b style="color:var(--p)">two-humped distribution <i>p</i></b>: dense in each town,
+      almost nobody on the lake. Two businesses each get <b>one van</b>, and the van can only work a single,
+      oval-shaped patch of the valley, a <b style="color:var(--q)">Gaussian <i>q</i></b>. Each business picks
+      the center, width, and tilt of its oval. The two businesses care about different mistakes, and that is
+      the whole difference between forward and reverse KL.
+    </p>
+    <div class="characters">
+      <div class="char fwd">
+        <h3><span class="tag">Minimizes forward KL, KL(p&nbsp;&#8214;&nbsp;q)</span>The mail carrier</h3>
+        <p>
+          By law, <b>every resident must get their mail</b>. The carrier's report card is graded
+          <em>at every resident's door</em>: for each person, &ldquo;how unlikely was the van to be
+          here?&rdquo; One neglected neighborhood is a disaster, because the penalty grows without limit as
+          <i>q</i>&nbsp;&rarr;&nbsp;0 anywhere people live.
+        </p>
+        <p>
+          Driving over an empty lake costs nothing, since nobody lives there to complain. So the carrier
+          <b>stretches one big oval over both towns</b>, lake and all.
+        </p>
+      </div>
+      <div class="char rev">
+        <h3><span class="tag">Minimizes reverse KL, KL(q&nbsp;&#8214;&nbsp;p)</span>The food truck</h3>
+        <p>
+          The truck pays for fuel and staff <b>every hour it's parked</b>, and it loses money badly when it
+          parks where nobody is. Its report card is graded <em>wherever the truck goes</em>: &ldquo;how few
+          customers are there?&rdquo; Parking over the lake is a disaster, because the penalty grows without
+          limit as <i>p</i>&nbsp;&rarr;&nbsp;0 anywhere the truck works.
+        </p>
+        <p>
+          Ignoring a whole town costs nothing, since the truck is never graded where it doesn't go. So the
+          truck <b>commits to one town and stays tight around it</b>. Which town it picks depends on where it
+          started.
+        </p>
+      </div>
+    </div>
+    <table class="map-table">
+      <tr><th>In the story</th><th>In the math</th></tr>
+      <tr><td>Where people actually live (blue contours)</td><td>the true distribution <i>p(x)</i>, a mixture of two Gaussians</td></tr>
+      <tr><td>Where the van operates (orange contours)</td><td>the approximation <i>q(x)</i>, one Gaussian with a mean, two widths, and a correlation</td></tr>
+      <tr><td>Graded at every resident's door</td><td>forward KL averages over <i>p</i>: $\mathbb{E}_{p}[\log p - \log q]$</td></tr>
+      <tr><td>Graded wherever the van goes</td><td>reverse KL averages over <i>q</i>: $\mathbb{E}_{q}[\log q - \log p]$</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ 2. INTERACTIVE FIGURE ============ -->
+  <section class="block" id="sec-map">
+    <h2><span class="num">2</span>The valley map (the textbook's contour figure, made live)</h2>
+    <p class="lead">
+      Blue contours show where people live (<i>p</i>), and orange contours show where the van works
+      (<i>q</i>). <b>Drag the town markers</b> to move the towns, and <b>drag the orange center</b> to put the
+      van somewhere. Then press a button to let that business optimize its oval by gradient descent, one
+      step at a time. Every finished run leaves a faint &ldquo;ghost&rdquo; oval behind, so you can compare
+      the answers each business finds.
+    </p>
+
+    <div class="actions">
+      <button class="act fwd" id="run-fwd"><span>&#9993; Mail carrier: minimize KL(p&#8214;q)</span></button>
+      <button class="act rev" id="run-rev"><span>&#9832; Food truck: minimize KL(q&#8214;p)</span></button>
+      <button class="preset" id="reset-q">Reset van</button>
+      <button class="preset" id="clear-ghosts">Clear ghosts</button>
+    </div>
+
+    <canvas id="map" width="860" height="560" aria-label="Contour map of the true two-town distribution p in blue and the single Gaussian approximation q in orange"></canvas>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--p)"></i> <i>p</i>: where people live</span>
+      <span><i class="swatch" style="background:var(--q)"></i> <i>q</i>: where the van works</span>
+      <span><i class="swatch" style="border-top:2px dashed var(--fwd);height:0;background:none"></i> ghost: a forward-KL answer</span>
+      <span><i class="swatch" style="border-top:2px dashed var(--rev);height:0;background:none"></i> ghost: a reverse-KL answer</span>
+      <span id="heat-legend" style="display:none"><i class="dot" style="background:rgba(214,60,50,.7)"></i> adds to the KL &nbsp;<i class="dot" style="background:rgba(27,175,122,.6)"></i> takes a little back</span>
+    </div>
+
+    <div class="score">
+      <div class="tile fwd"><div class="t-label">Forward KL(p&#8214;q)<br>mail carrier's score</div><div class="t-val" id="s-fwd"></div><div class="t-sub">nats &middot; lower is better</div></div>
+      <div class="tile rev"><div class="t-label">Reverse KL(q&#8214;p)<br>food truck's score</div><div class="t-val" id="s-rev"></div><div class="t-sub">nats &middot; lower is better</div></div>
+      <div class="tile"><div class="t-label">Residents inside the van's main zone</div><div class="t-val" id="s-cover"></div><div class="t-sub">share of <i>p</i> inside q's 2&sigma; oval</div></div>
+      <div class="tile"><div class="t-label">Van time spent where almost nobody lives</div><div class="t-val" id="s-waste"></div><div class="t-sub">share of <i>q</i> where p &lt; 2% of its peak</div></div>
+    </div>
+
+    <div class="two-col">
+      <div class="readout" id="readout"></div>
+      <div class="chart-box">
+        <div class="t-label" id="trace-label">Objective during the current run</div>
+        <canvas id="trace" width="360" height="130" aria-label="Objective value versus gradient descent step"></canvas>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="group-title">The valley (p)</div>
+      <div class="ctrl">
+        <label>Share of people in Westfield <b id="v-w"></b></label>
+        <input type="range" id="w" min="0.1" max="0.9" step="0.01" value="0.5">
+      </div>
+      <div class="ctrl">
+        <label>Town size (spread of each hump) <b id="v-s"></b></label>
+        <input type="range" id="s" min="0.4" max="1.6" step="0.02" value="0.8">
+      </div>
+      <div class="ctrl">
+        <label>Heat map of the KL integrand
+        </label>
+        <select id="heat">
+          <option value="none">Off</option>
+          <option value="fwd">Forward: p &middot; log(p/q)</option>
+          <option value="rev">Reverse: q &middot; log(q/p)</option>
+        </select>
+      </div>
+      <div class="group-title">The van's oval (q), set by hand or by the optimizer</div>
+      <div class="ctrl">
+        <label><span>Width east&ndash;west, &sigma;<sub>x</sub></span> <b id="v-sx"></b></label>
+        <input type="range" id="sx" min="0.2" max="5" step="0.01" value="1.2">
+      </div>
+      <div class="ctrl">
+        <label><span>Width north&ndash;south, &sigma;<sub>y</sub></span> <b id="v-sy"></b></label>
+        <input type="range" id="sy" min="0.2" max="5" step="0.01" value="1.2">
+      </div>
+      <div class="ctrl">
+        <label>Tilt (correlation &rho;) <b id="v-rho"></b></label>
+        <input type="range" id="rho" min="-0.95" max="0.95" step="0.01" value="0">
+      </div>
+    </div>
+    <div class="presets">
+      <span class="hint">Valley presets:</span>
+      <button class="preset" data-preset="book">Like the textbook figure</button>
+      <button class="preset" data-preset="far">Towns far apart</button>
+      <button class="preset" data-preset="close">Towns merging</button>
+      <button class="preset" data-preset="lopsided">Big city + small village</button>
+    </div>
+
+    <div class="callout">
+      <b>A guided tour.</b>
+      <ol class="tour">
+        <li>Run the <b style="color:var(--fwd)">mail carrier</b>. The oval swells to cover both towns, and its center lands on the lake, where nobody lives. Residents covered: almost everyone. Van time wasted: a lot.</li>
+        <li>Drag the van somewhere else and run the mail carrier again. <b>It lands on exactly the same oval.</b> Forward KL has one answer here: it matches the mean and covariance of <i>p</i> (moment matching).</li>
+        <li>Put the van near Westfield and run the <b style="color:var(--rev)">food truck</b>. It shrinks onto Westfield and ignores Eastport entirely. Now drag the van near Eastport and run it again. You get a <em>different</em> answer. These are the two panels on the right of the textbook figure: reverse KL has several local minima.</li>
+        <li>Turn on the <b>heat map</b>. For the forward integrand, the red sits on whichever town q neglects. For the reverse integrand, the red sits wherever q puts more van time than there are people, which is mostly the lake whenever q spills over it. Even a perfect fit on one town stays faintly red, because the van gives that town all its time while the town holds only half the residents: q/p&nbsp;&asymp;&nbsp;2 there, which is where the ln&nbsp;2 comes from. Each heat map shows where that business gets penalized.</li>
+        <li>Try <b>Towns merging</b>. When <i>p</i> is nearly one hump, both businesses agree. The asymmetry only matters when one Gaussian can't fit <i>p</i> well.</li>
+        <li>Try <b>Big city + small village</b>, then run the food truck from near the village. It can stay stuck on the village even though the city is the better minimum. Gradient descent on reverse KL only finds the nearest valley.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ 3. WHY ============ -->
+  <section class="block" id="sec-why">
+    <h2><span class="num">3</span>Why the two directions behave so differently</h2>
+    <p class="lead">
+      Both divergences compare the same two distributions, but each takes its average under a different
+      distribution. That choice decides where a mismatch gets punished.
+    </p>
+    <div class="eqbox">
+      <div class="label">Forward (inclusive) KL &mdash; the mail carrier</div>
+      $$ \mathrm{KL}(p\,\|\,q) = \int p(x)\,\log\frac{p(x)}{q(x)}\,dx $$
+      Weighted by $p$. Wherever $p(x) > 0$ but $q(x) \to 0$, the log ratio blows up, so $q$ is forced to
+      be non-zero everywhere $p$ is: <b>zero-avoiding</b>, or <b>mass-covering</b>. Where $p \approx 0$ the
+      integrand vanishes, so $q$ can waste mass there for free. For a Gaussian $q$ the minimizer has a
+      closed form, which is the mean and covariance of $p$ (an &ldquo;M-projection&rdquo;):
+      $$ \mu_q = \mathbb{E}_p[x], \qquad \Sigma_q = \mathrm{Cov}_p[x]. $$
+    </div>
+    <div class="eqbox">
+      <div class="label">Reverse (exclusive) KL &mdash; the food truck</div>
+      $$ \mathrm{KL}(q\,\|\,p) = \int q(x)\,\log\frac{q(x)}{p(x)}\,dx $$
+      Weighted by $q$. Wherever $q(x) > 0$ but $p(x) \to 0$, the log ratio blows up, so $q$ must shut
+      itself off wherever $p$ is tiny: <b>zero-forcing</b>, or <b>mode-seeking</b>. Where $q \approx 0$ the
+      integrand vanishes, so $q$ can ignore whole regions of $p$ for free. There is no closed form, and
+      the objective is non-convex, which is why the answer depends on the starting point (an
+      &ldquo;I-projection&rdquo;).
+    </div>
+    <div class="scroll-x">
+      <table class="compare">
+        <tr><th></th><th class="fwd">Forward KL(p&#8214;q)</th><th class="rev">Reverse KL(q&#8214;p)</th></tr>
+        <tr><td>Average taken under</td><td>the truth <i>p</i></td><td>the approximation <i>q</i></td></tr>
+        <tr><td>Catastrophic mistake</td><td>q &asymp; 0 where p &gt; 0 (missing real mass)</td><td>q &gt; 0 where p &asymp; 0 (inventing mass)</td></tr>
+        <tr><td>Free mistake</td><td>spreading q over empty space</td><td>ignoring part of p entirely</td></tr>
+        <tr><td>Typical result on multimodal p</td><td>broad, covers all modes, peak may sit between modes</td><td>narrow, locks onto one mode, underestimates spread</td></tr>
+        <tr><td>Nicknames</td><td>inclusive, zero-avoiding, mean-seeking, M-projection</td><td>exclusive, zero-forcing, mode-seeking, I-projection</td></tr>
+      </table>
+    </div>
+    <p class="hint" style="margin-top:12px;">
+      How the page computes the scores: $\mathrm{KL}(q\|p) = -\mathbb{H}(q) - \mathbb{E}_q[\log p]$ uses the
+      closed-form Gaussian entropy plus Gauss&ndash;Hermite quadrature under $q$.
+      $\mathrm{KL}(p\|q) = -\mathbb{H}(p) - \mathbb{E}_p[\log q]$ is closed form in $q$ (since $\log q$ is
+      quadratic), with $\mathbb{H}(p)$ from quadrature. The optimizer runs Adam on $(\mu_x, \mu_y, \log\sigma_x,
+      \log\sigma_y, \operatorname{atanh}\rho)$ with finite-difference gradients.
+    </p>
+  </section>
+
+  <!-- ============ 4. REAL ML ============ -->
+  <section class="block" id="sec-ml">
+    <h2><span class="num">4</span>Where you'll meet the mail carrier and the food truck in ML</h2>
+    <div class="characters">
+      <div class="char fwd">
+        <h3><span class="tag">Forward KL in practice</span>Maximum likelihood hedges</h3>
+        <p>
+          Fitting a model by maximum likelihood <em>is</em> minimizing forward KL from the data
+          distribution, because $\mathrm{KL}(p_{\text{data}}\|q_\theta) = \text{const} -
+          \mathbb{E}_{p_{\text{data}}}[\log q_\theta(x)]$. When the model family is too simple, it behaves
+          like the mail carrier: it covers everything and puts mass between the modes.
+        </p>
+        <p>
+          This is the classic explanation for <b>blurry samples</b> from likelihood-trained image models
+          such as VAEs, and for regression toward a <b>mean answer that no single real example looks
+          like</b>. If half the training photos show a dog facing left and half facing right, a model that
+          can't represent both may produce a ghostly average of the two.
+        </p>
+      </div>
+      <div class="char rev">
+        <h3><span class="tag">Reverse KL in practice</span>Variational inference is overconfident</h3>
+        <p>
+          Standard variational inference (maximizing the ELBO, which you'll meet later in the course)
+          minimizes $\mathrm{KL}(q\|p(\cdot\mid\mathcal{D}))$ against the true posterior. It behaves like
+          the food truck: the fitted posterior <b>locks onto one mode and is too narrow</b>, so it
+          underestimates uncertainty.
+        </p>
+        <p>
+          A related failure in generative models is <b>mode collapse</b>, where a model produces
+          convincing samples from only a few kinds of output and silently drops the rest. GAN training
+          isn't literally reverse-KL minimization, but it fails in the same mode-seeking way: every sample
+          looks real, and the variety is missing.
+        </p>
+      </div>
+    </div>
+    <div class="callout">
+      <b>The one-sentence takeaway:</b> pick the direction by which mistake is worse for you. If missing
+      real possibilities is unacceptable (coverage, safety, honest uncertainty), you want forward-KL
+      behavior. If generating impossible things is unacceptable (every sample must look real, every
+      parked hour must earn money), you get reverse-KL behavior, along with its blind spots.
+    </div>
+  </section>
+
+  <div class="foot">
+    Built to accompany Murphy's <em>Probabilistic Machine Learning: An Introduction</em>, &sect;6.2.6 &mdash;
+    for CS 473 self-study. The valley is a toy: <i>p</i> is an equal-spread mixture of two 2-D Gaussians and
+    <i>q</i> is a single full-covariance Gaussian. Westfield and Eastport are made up. Everything (contours,
+    both KL scores, the heat maps, and the gradient descent) is computed live in your browser.
+  </div>
+</div>
+
+<script>
+// =================== quadrature ===================
+// Gauss–Hermite nodes/weights for ∫ e^{-t²} f(t) dt (Numerical Recipes "gauher").
+function gaussHermite(n) {
+  const x = new Float64Array(n), w = new Float64Array(n);
+  const PIM4 = 0.7511255444649425;
+  const m = Math.floor((n + 1) / 2);
+  let z = 0, pp = 0;
+  for (let i = 0; i < m; i++) {
+    if (i === 0) z = Math.sqrt(2 * n + 1) - 1.85575 * Math.pow(2 * n + 1, -0.16667);
+    else if (i === 1) z -= 1.14 * Math.pow(n, 0.426) / z;
+    else if (i === 2) z = 1.86 * z - 0.86 * x[0];
+    else if (i === 3) z = 1.91 * z - 0.91 * x[1];
+    else z = 2.0 * z - x[i - 2];
+    for (let it = 0; it < 100; it++) {
+      let p1 = PIM4, p2 = 0;
+      for (let j = 0; j < n; j++) {
+        const p3 = p2; p2 = p1;
+        p1 = z * Math.sqrt(2 / (j + 1)) * p2 - Math.sqrt(j / (j + 1)) * p3;
+      }
+      pp = Math.sqrt(2 * n) * p2;
+      const z1 = z; z = z1 - p1 / pp;
+      if (Math.abs(z - z1) <= 1e-14) break;
+    }
+    x[i] = z; x[n - 1 - i] = -z;
+    w[i] = 2 / (pp * pp); w[n - 1 - i] = w[i];
+  }
+  return { x, w };
+}
+// 2-D product rule for E_{N(0,I)}[f(z)]: z = √2·t, weights w_i w_j / π
+const GH = (() => {
+  const { x, w } = gaussHermite(28);
+  const zx = [], zy = [], ww = [];
+  for (let i = 0; i < x.length; i++) for (let j = 0; j < x.length; j++) {
+    const wt = w[i] * w[j] / Math.PI;
+    if (wt < 1e-14) continue;
+    zx.push(Math.SQRT2 * x[i]); zy.push(Math.SQRT2 * x[j]); ww.push(wt);
+  }
+  return { zx: Float64Array.from(zx), zy: Float64Array.from(zy), w: Float64Array.from(ww), n: ww.length };
+})();
+
+// =================== distributions ===================
+const LOG2PI = Math.log(2 * Math.PI);
+// p = w·N(m1, s²I) + (1-w)·N(m2, s²I)
+const P = { m1: [-2.3, -1.2], m2: [2.3, 1.2], w: 0.5, s: 0.8 };
+// q = N(mu, Σ), Σ from sx, sy, rho
+const Q = { mu: [0, 2.6], sx: 1.2, sy: 1.2, rho: 0 };
+const Q_INIT = { mu: [0, 2.6], sx: 1.2, sy: 1.2, rho: 0 };
+
+function logp(x, y) {
+  const s2 = P.s * P.s;
+  const a = Math.log(P.w) - LOG2PI - Math.log(s2) - 0.5 * ((x - P.m1[0]) ** 2 + (y - P.m1[1]) ** 2) / s2;
+  const b = Math.log(1 - P.w) - LOG2PI - Math.log(s2) - 0.5 * ((x - P.m2[0]) ** 2 + (y - P.m2[1]) ** 2) / s2;
+  const m = Math.max(a, b);
+  return m + Math.log(Math.exp(a - m) + Math.exp(b - m));
+}
+function qParts(q) {
+  const sxx = q.sx * q.sx, syy = q.sy * q.sy, sxy = q.rho * q.sx * q.sy;
+  const det = sxx * syy - sxy * sxy;
+  return {
+    mu: q.mu, sxx, syy, sxy, det,
+    ixx: syy / det, iyy: sxx / det, ixy: -sxy / det,     // Σ⁻¹
+    lx: q.sx, ly1: q.rho * q.sy, ly2: q.sy * Math.sqrt(1 - q.rho * q.rho), // Cholesky
+    logNorm: -LOG2PI - 0.5 * Math.log(det),
+  };
+}
+function logqP(qp, x, y) {
+  const dx = x - qp.mu[0], dy = y - qp.mu[1];
+  return qp.logNorm - 0.5 * (qp.ixx * dx * dx + 2 * qp.ixy * dx * dy + qp.iyy * dy * dy);
+}
+
+// H(p) by quadrature under each component (depends only on p; cached)
+let Hp_cache = null;
+function entropyP() {
+  if (Hp_cache !== null) return Hp_cache;
+  let e = 0;
+  for (const [m, wk] of [[P.m1, P.w], [P.m2, 1 - P.w]]) {
+    let acc = 0;
+    for (let k = 0; k < GH.n; k++) acc += GH.w[k] * logp(m[0] + P.s * GH.zx[k], m[1] + P.s * GH.zy[k]);
+    e -= wk * acc;
+  }
+  return (Hp_cache = e);
+}
+// KL(p||q) = -H(p) - E_p[log q], E_p[log q] in closed form
+function klForward(q) {
+  const qp = qParts(q), s2 = P.s * P.s;
+  let elq = 0;
+  for (const [m, wk] of [[P.m1, P.w], [P.m2, 1 - P.w]]) {
+    const dx = m[0] - qp.mu[0], dy = m[1] - qp.mu[1];
+    const maha = qp.ixx * dx * dx + 2 * qp.ixy * dx * dy + qp.iyy * dy * dy;
+    const tr = s2 * (qp.ixx + qp.iyy);
+    elq += wk * (qp.logNorm - 0.5 * (tr + maha));
+  }
+  return -entropyP() - elq;
+}
+// KL(q||p) = -H(q) - E_q[log p], E_q by Gauss–Hermite
+function klReverse(q) {
+  const qp = qParts(q);
+  const Hq = 1 + LOG2PI + 0.5 * Math.log(qp.det);
+  let elp = 0;
+  for (let k = 0; k < GH.n; k++) {
+    const x = qp.mu[0] + qp.lx * GH.zx[k];
+    const y = qp.mu[1] + qp.ly1 * GH.zx[k] + qp.ly2 * GH.zy[k];
+    elp += GH.w[k] * logp(x, y);
+  }
+  return -Hq - elp;
+}
+
+// =================== optimizer ===================
+const LIM = { sMin: 0.15, sMax: 6, rMax: 0.95 };
+function toTheta(q) { return [q.mu[0], q.mu[1], Math.log(q.sx), Math.log(q.sy), Math.atanh(q.rho)]; }
+function fromTheta(t) {
+  return {
+    mu: [t[0], t[1]],
+    sx: Math.min(LIM.sMax, Math.max(LIM.sMin, Math.exp(t[2]))),
+    sy: Math.min(LIM.sMax, Math.max(LIM.sMin, Math.exp(t[3]))),
+    rho: Math.max(-LIM.rMax, Math.min(LIM.rMax, Math.tanh(t[4]))),
+  };
+}
+const opt = { kind: null, theta: null, m: null, v: null, step: 0, trace: [], path: [], still: 0 };
+const ADAM = { lr: 0.04, b1: 0.9, b2: 0.999, eps: 1e-8, maxSteps: 2500, stepsPerFrame: 8 };
+
+function startOpt(kind) {
+  if (opt.kind === kind) { stopOpt(false); return; }
+  const th = toTheta(Q);
+  // break exact symmetry so reverse KL can't balance on the saddle between the towns
+  if (kind === 'rev') { th[0] += (Math.random() - 0.5) * 1e-3; th[1] += (Math.random() - 0.5) * 1e-3; }
+  Object.assign(opt, { kind, theta: th, m: [0, 0, 0, 0, 0], v: [0, 0, 0, 0, 0], step: 0, trace: [], path: [[Q.mu[0], Q.mu[1]]], still: 0 });
+  opt.trace.push(objective(kind, Q));
+  updateButtons();
+  requestAnimationFrame(tick);
+}
+function stopOpt(converged) {
+  if (converged && opt.kind) ghosts.push({ kind: opt.kind, q: JSON.parse(JSON.stringify(Q)) });
+  opt.lastKind = opt.kind;
+  opt.lastConverged = converged;
+  opt.kind = null;
+  updateButtons();
+  render();
+}
+function objective(kind, q) { return kind === 'fwd' ? klForward(q) : klReverse(q); }
+function tick() {
+  if (!opt.kind) return;
+  const f = q => objective(opt.kind, q);
+  for (let s = 0; s < ADAM.stepsPerFrame; s++) {
+    const t = opt.theta, g = [0, 0, 0, 0, 0], h = 1e-4;
+    for (let i = 0; i < 5; i++) {
+      const tp = t.slice(), tm = t.slice();
+      tp[i] += h; tm[i] -= h;
+      g[i] = (f(fromTheta(tp)) - f(fromTheta(tm))) / (2 * h);
+    }
+    // precondition the mean by Σ (its natural gradient); otherwise the mean crawls along a stretched oval's long axis
+    const qq = qParts(Q);
+    [g[0], g[1]] = [qq.sxx * g[0] + qq.sxy * g[1], qq.sxy * g[0] + qq.syy * g[1]];
+    opt.step++;
+    let moved = 0;
+    for (let i = 0; i < 5; i++) {
+      opt.m[i] = ADAM.b1 * opt.m[i] + (1 - ADAM.b1) * g[i];
+      opt.v[i] = ADAM.b2 * opt.v[i] + (1 - ADAM.b2) * g[i] * g[i];
+      const mh = opt.m[i] / (1 - Math.pow(ADAM.b1, opt.step));
+      const vh = opt.v[i] / (1 - Math.pow(ADAM.b2, opt.step));
+      const d = ADAM.lr * mh / (Math.sqrt(vh) + ADAM.eps);
+      t[i] -= d; moved = Math.max(moved, Math.abs(d));
+    }
+    // keep θ inside the clamped box so Adam doesn't drift off
+    t[2] = Math.max(Math.log(LIM.sMin), Math.min(Math.log(LIM.sMax), t[2]));
+    t[3] = Math.max(Math.log(LIM.sMin), Math.min(Math.log(LIM.sMax), t[3]));
+    t[4] = Math.max(-Math.atanh(LIM.rMax), Math.min(Math.atanh(LIM.rMax), t[4]));
+    Object.assign(Q, fromTheta(t));
+    opt.trace.push(f(Q));
+    const gn = Math.hypot(...g);
+    opt.still = (gn < 2e-3 && moved < 2e-3) ? opt.still + 1 : 0;
+    if (opt.step % 3 === 0) opt.path.push([Q.mu[0], Q.mu[1]]);
+    if (opt.still > 25 || opt.step >= ADAM.maxSteps) {
+      syncQSliders();
+      stopOpt(true);
+      return;
+    }
+  }
+  syncQSliders();
+  render();
+  requestAnimationFrame(tick);
+}
+
+// =================== canvas setup ===================
+const map = document.getElementById('map');
+const ctx = map.getContext('2d');
+const CW = 860, CH = 560;
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+map.width = CW * DPR; map.height = CH * DPR;
+ctx.scale(DPR, DPR);
+const X_HALF = 6.2, Y_HALF = X_HALF * CH / CW;
+const sx = x => (x + X_HALF) / (2 * X_HALF) * CW;
+const sy = y => (Y_HALF - y) / (2 * Y_HALF) * CH;
+const wx = px => px / CW * 2 * X_HALF - X_HALF;
+const wy = py => Y_HALF - py / CH * 2 * Y_HALF;
+
+const LEVELS = [0.08, 0.25, 0.5, 0.75, 0.94];   // contours as fractions of each density's peak
+const ghosts = [];
+
+// ---- grid of log p (for p contours and heat map), cached until p changes ----
+const GX = 172, GY = 112;
+let pGrid = null, pMaxLog = 0;
+function buildPGrid() {
+  pGrid = new Float64Array((GX + 1) * (GY + 1));
+  pMaxLog = -Infinity;
+  for (let j = 0; j <= GY; j++) for (let i = 0; i <= GX; i++) {
+    const v = logp(wx(i / GX * CW), wy(j / GY * CH));
+    pGrid[j * (GX + 1) + i] = v;
+    if (v > pMaxLog) pMaxLog = v;
+  }
+}
+function invalidateP() { pGrid = null; Hp_cache = null; }
+
+// ---- marching squares on the p grid ----
+function contourSegments(grid, level) {
+  const segs = [];
+  const W = GX + 1;
+  const cw = CW / GX, ch = CH / GY;
+  const lerp = (a, b, va, vb) => a + (level - va) / (vb - va) * (b - a);
+  for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) {
+    const v0 = grid[j * W + i], v1 = grid[j * W + i + 1], v2 = grid[(j + 1) * W + i + 1], v3 = grid[(j + 1) * W + i];
+    const c = (v0 > level ? 1 : 0) | (v1 > level ? 2 : 0) | (v2 > level ? 4 : 0) | (v3 > level ? 8 : 0);
+    if (c === 0 || c === 15) continue;
+    const x0 = i * cw, y0 = j * ch, x1 = x0 + cw, y1 = y0 + ch;
+    const T = [lerp(x0, x1, v0, v1), y0], R = [x1, lerp(y0, y1, v1, v2)];
+    const B = [lerp(x0, x1, v3, v2), y1], L = [x0, lerp(y0, y1, v0, v3)];
+    switch (c) {
+      case 1: case 14: segs.push([L, T]); break;
+      case 2: case 13: segs.push([T, R]); break;
+      case 3: case 12: segs.push([L, R]); break;
+      case 4: case 11: segs.push([R, B]); break;
+      case 5: segs.push([L, T], [R, B]); break;
+      case 6: case 9: segs.push([T, B]); break;
+      case 7: case 8: segs.push([L, B]); break;
+      case 10: segs.push([T, R], [L, B]); break;
+    }
+  }
+  return segs;
+}
+
+// ---- q contours are ellipses: q = peak·exp(-r²/2) → r = √(-2 ln f) ----
+function ellipsePath(q, r) {
+  const qp = qParts(q);
+  ctx.beginPath();
+  for (let k = 0; k <= 72; k++) {
+    const a = k / 72 * 2 * Math.PI, u = Math.cos(a) * r, v = Math.sin(a) * r;
+    const x = qp.mu[0] + qp.lx * u, y = qp.mu[1] + qp.ly1 * u + qp.ly2 * v;
+    if (k === 0) ctx.moveTo(sx(x), sy(y)); else ctx.lineTo(sx(x), sy(y));
+  }
+  ctx.closePath();
+}
+
+// ---- heat map of the KL integrand ----
+const HX = 215, HY = 140;
+const heatCanvas = document.createElement('canvas');
+heatCanvas.width = HX; heatCanvas.height = HY;
+const hctx = heatCanvas.getContext('2d');
+function drawHeat(kind) {
+  const qp = qParts(Q);
+  const vals = new Float64Array(HX * HY);
+  let maxAbs = 1e-12;
+  for (let j = 0; j < HY; j++) for (let i = 0; i < HX; i++) {
+    const x = wx((i + 0.5) / HX * CW), y = wy((j + 0.5) / HY * CH);
+    const lp = logp(x, y), lq = logqP(qp, x, y);
+    const v = kind === 'fwd' ? Math.exp(lp) * (lp - lq) : Math.exp(lq) * (lq - lp);
+    vals[j * HX + i] = v;
+    if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
+  }
+  const img = hctx.createImageData(HX, HY);
+  for (let k = 0; k < vals.length; k++) {
+    const t = Math.min(1, Math.abs(vals[k]) / maxAbs);
+    const a = Math.pow(t, 0.6);
+    if (vals[k] >= 0) { img.data[4 * k] = 214; img.data[4 * k + 1] = 60; img.data[4 * k + 2] = 50; img.data[4 * k + 3] = 200 * a; }
+    else { img.data[4 * k] = 27; img.data[4 * k + 1] = 175; img.data[4 * k + 2] = 122; img.data[4 * k + 3] = 170 * a; }
+  }
+  hctx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(heatCanvas, 0, 0, CW, CH);
+}
+
+// ---- background: a lake between the towns, purely decorative ----
+function drawBackground() {
+  ctx.fillStyle = '#fbfaf6';
+  ctx.fillRect(0, 0, CW, CH);
+  // faint grid
+  ctx.strokeStyle = '#efeee9'; ctx.lineWidth = 1;
+  for (let g = -6; g <= 6; g++) {
+    ctx.beginPath(); ctx.moveTo(sx(g), 0); ctx.lineTo(sx(g), CH); ctx.stroke();
+    if (Math.abs(g) <= 4) { ctx.beginPath(); ctx.moveTo(0, sy(g)); ctx.lineTo(CW, sy(g)); ctx.stroke(); }
+  }
+  // the lake: shaded where p is very small, between the towns
+  const cx = (P.m1[0] + P.m2[0]) / 2, cy = (P.m1[1] + P.m2[1]) / 2;
+  const d = Math.hypot(P.m2[0] - P.m1[0], P.m2[1] - P.m1[1]);
+  const gap = d - 2.6 * P.s;
+  if (gap > 0.4) {
+    const ang = Math.atan2(P.m2[1] - P.m1[1], P.m2[0] - P.m1[0]);
+    ctx.save();
+    ctx.translate(sx(cx), sy(cy));
+    ctx.rotate(-ang);
+    const rx = gap / 2 / (2 * X_HALF) * CW, ry = Math.min(2.2, 0.9 + gap * 0.35) / (2 * X_HALF) * CW;
+    ctx.fillStyle = 'rgba(120, 170, 210, 0.13)';
+    ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, 2 * Math.PI); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(70, 120, 160, 0.55)';
+    ctx.font = 'italic 12px -apple-system, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const nearVan = Math.hypot(sx(Q.mu[0]) - sx(cx), sy(Q.mu[1]) - sy(cy)) < 40;
+    ctx.fillText('the lake', sx(cx), sy(cy) + (nearVan ? 26 : 0));
+  }
+}
+
+function drawHandle(x, y, color, label, filled, below) {
+  ctx.beginPath(); ctx.arc(sx(x), sy(y), 8, 0, 2 * Math.PI);
+  ctx.fillStyle = filled ? color : '#fff'; ctx.fill();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = filled ? '#fff' : color; ctx.stroke();
+  if (filled) { ctx.lineWidth = 1; ctx.strokeStyle = color; ctx.beginPath(); ctx.arc(sx(x), sy(y), 9.5, 0, 2 * Math.PI); ctx.stroke(); }
+  if (label) {
+    ctx.font = '600 12px -apple-system, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = below ? 'top' : 'bottom';
+    const ly = below ? sy(y) + 13 : sy(y) - 12;
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.strokeText(label, sx(x), ly);
+    ctx.fillStyle = '#1c1c1e'; ctx.fillText(label, sx(x), ly);
+  }
+}
+
+function renderMap() {
+  if (!pGrid) buildPGrid();
+  drawBackground();
+  const heat = document.getElementById('heat').value;
+  if (heat !== 'none') drawHeat(heat);
+
+  // p contours
+  ctx.strokeStyle = getCss('--p'); ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  for (const f of LEVELS) {
+    const segs = contourSegments(pGrid, pMaxLog + Math.log(f));
+    ctx.beginPath();
+    for (const [a, b] of segs) { ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+    ctx.stroke();
+  }
+
+  // ghosts of finished runs
+  ctx.setLineDash([6, 5]); ctx.lineWidth = 1.6;
+  for (const g of ghosts) {
+    ctx.strokeStyle = g.kind === 'fwd' ? 'rgba(74,58,167,0.55)' : 'rgba(192,57,43,0.55)';
+    ellipsePath(g.q, 2); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // optimizer path
+  if (opt.path.length > 1 && (opt.kind || opt.lastKind)) {
+    const k = opt.kind || opt.lastKind;
+    ctx.strokeStyle = k === 'fwd' ? 'rgba(74,58,167,0.5)' : 'rgba(192,57,43,0.5)';
+    ctx.lineWidth = 1.5; ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    opt.path.forEach(([x, y], i) => i ? ctx.lineTo(sx(x), sy(y)) : ctx.moveTo(sx(x), sy(y)));
+    ctx.lineTo(sx(Q.mu[0]), sy(Q.mu[1]));
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // q contours
+  ctx.strokeStyle = getCss('--q'); ctx.lineWidth = 2;
+  for (const f of LEVELS) { ellipsePath(Q, Math.sqrt(-2 * Math.log(f))); ctx.stroke(); }
+
+  // handles
+  drawHandle(P.m1[0], P.m1[1], getCss('--p'), 'Westfield', false);
+  drawHandle(P.m2[0], P.m2[1], getCss('--p'), 'Eastport', false);
+  // when the van parks on a town, put its label underneath so the two names don't collide
+  const vanOnTown = [P.m1, P.m2].some(m => Math.hypot(sx(m[0]) - sx(Q.mu[0]), sy(m[1]) - sy(Q.mu[1])) < 40);
+  drawHandle(Q.mu[0], Q.mu[1], getCss('--q'), 'van', true, vanOnTown);
+}
+
+// =================== scoreboard + readout ===================
+function coverageStats() {
+  // fraction of p inside q's 2σ ellipse; fraction of q where p < 2% of p's peak
+  const qp = qParts(Q);
+  let pIn = 0, pTot = 0;
+  for (const [m, wk] of [[P.m1, P.w], [P.m2, 1 - P.w]]) {
+    let acc = 0;
+    for (let k = 0; k < GH.n; k++) {
+      const x = m[0] + P.s * GH.zx[k], y = m[1] + P.s * GH.zy[k];
+      const dx = x - qp.mu[0], dy = y - qp.mu[1];
+      if (qp.ixx * dx * dx + 2 * qp.ixy * dx * dy + qp.iyy * dy * dy <= 4) acc += GH.w[k];
+    }
+    pIn += wk * acc; pTot += wk;
+  }
+  // Monte Carlo-free: dense grid in q's whitened coordinates
+  const thr = pMaxLog + Math.log(0.02);
+  let qWaste = 0, qTot = 0;
+  const N = 60, R = 4;
+  for (let a = 0; a < N; a++) for (let b = 0; b < N; b++) {
+    const u = -R + (a + 0.5) / N * 2 * R, v = -R + (b + 0.5) / N * 2 * R;
+    const wgt = Math.exp(-0.5 * (u * u + v * v));
+    const x = qp.mu[0] + qp.lx * u, y = qp.mu[1] + qp.ly1 * u + qp.ly2 * v;
+    qTot += wgt;
+    if (logp(x, y) < thr) qWaste += wgt;
+  }
+  return { cover: pIn / pTot, waste: qWaste / qTot };
+}
+
+function renderScore() {
+  const kf = klForward(Q), kr = klReverse(Q);
+  document.getElementById('s-fwd').textContent = kf.toFixed(3);
+  document.getElementById('s-rev').textContent = kr.toFixed(3);
+  const st = coverageStats();
+  document.getElementById('s-cover').textContent = (st.cover * 100).toFixed(0) + '%';
+  document.getElementById('s-waste').textContent = (st.waste * 100).toFixed(0) + '%';
+
+  // which town(s) does q sit on?
+  const qp = qParts(Q);
+  const mahaTo = m => { const dx = m[0] - qp.mu[0], dy = m[1] - qp.mu[1]; return qp.ixx * dx * dx + 2 * qp.ixy * dx * dy + qp.iyy * dy * dy; };
+  const onW = mahaTo(P.m1) < 1.5, onE = mahaTo(P.m2) < 1.5;
+  let where;
+  if (onW && onE) where = 'The van’s oval spans <b>both towns</b>.';
+  else if (onW) where = 'The van is working <b>Westfield only</b>; Eastport is ignored.';
+  else if (onE) where = 'The van is working <b>Eastport only</b>; Westfield is ignored.';
+  else where = 'The van isn’t centered on either town.';
+
+  let msg;
+  if (opt.kind === 'fwd') msg = `<b style="color:var(--fwd)">Mail carrier optimizing…</b> step ${opt.step}. ${where} Watch the oval grow to reach every resident.`;
+  else if (opt.kind === 'rev') msg = `<b style="color:var(--rev)">Food truck optimizing…</b> step ${opt.step}. ${where} Watch the oval pull out of empty space.`;
+  else if (opt.lastKind === 'fwd' && opt.lastConverged) {
+    const mm = momentMatch();
+    msg = `<b style="color:var(--fwd)">Mail carrier settled.</b> ${where} It covers ${(st.cover * 100).toFixed(0)}% of residents but spends ${(st.waste * 100).toFixed(0)}% of its time where almost nobody lives. ` +
+      `Compare with moment matching: the mean of p is (${mm.mu[0].toFixed(2)}, ${mm.mu[1].toFixed(2)}) and the van is at (${Q.mu[0].toFixed(2)}, ${Q.mu[1].toFixed(2)}). That is the same answer from any starting point.`;
+  } else if (opt.lastKind === 'rev' && opt.lastConverged) {
+    msg = `<b style="color:var(--rev)">Food truck settled.</b> ${where} Only ${(st.waste * 100).toFixed(0)}% of its time is wasted, but it serves just ${(st.cover * 100).toFixed(0)}% of residents. ` +
+      (onW !== onE && Math.abs(kr + Math.log(onW ? P.w : 1 - P.w)) < 0.15 ? `Its score, ${kr.toFixed(2)} nats, is close to \u2212ln(${(onW ? P.w : 1 - P.w).toFixed(2)}) = ${(-Math.log(onW ? P.w : 1 - P.w)).toFixed(2)}, the log of the share of residents it chose to serve. That is the whole price of ignoring the other town. ` : '') +
+      `Drag the van toward the other town and run it again to find the other local minimum.`;
+  } else {
+    msg = `${where} Forward KL is <b>${kf.toFixed(2)}</b> and reverse KL is <b>${kr.toFixed(2)}</b> nats. They are different numbers because KL is not symmetric. ` +
+      `Press a button to let one of the businesses optimize from here.`;
+  }
+  document.getElementById('readout').innerHTML = msg;
+}
+function momentMatch() {
+  const w = P.w, s2 = P.s * P.s;
+  const mu = [w * P.m1[0] + (1 - w) * P.m2[0], w * P.m1[1] + (1 - w) * P.m2[1]];
+  let cxx = s2, cyy = s2, cxy = 0;
+  for (const [m, wk] of [[P.m1, w], [P.m2, 1 - w]]) {
+    const dx = m[0] - mu[0], dy = m[1] - mu[1];
+    cxx += wk * dx * dx; cyy += wk * dy * dy; cxy += wk * dx * dy;
+  }
+  return { mu, sx: Math.sqrt(cxx), sy: Math.sqrt(cyy), rho: cxy / Math.sqrt(cxx * cyy) };
+}
+
+// ---- objective trace ----
+const trace = document.getElementById('trace');
+const tctx = trace.getContext('2d');
+const TW = 360, TH = 130;
+trace.width = TW * DPR; trace.height = TH * DPR; tctx.scale(DPR, DPR);
+function renderTrace() {
+  tctx.clearRect(0, 0, TW, TH);
+  const k = opt.kind || opt.lastKind;
+  const data = opt.trace;
+  const M = { l: 40, r: 8, t: 8, b: 20 };
+  tctx.strokeStyle = '#d9d8d4'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(M.l, TH - M.b); tctx.lineTo(TW - M.r, TH - M.b); tctx.stroke();
+  tctx.fillStyle = '#8a8a8f'; tctx.font = '10px -apple-system, sans-serif';
+  if (!k || data.length < 2) {
+    tctx.textAlign = 'center'; tctx.textBaseline = 'middle';
+    tctx.fillText('Run an optimizer to see its KL fall step by step', TW / 2, TH / 2 - 6);
+    document.getElementById('trace-label').textContent = 'Objective during the current run';
+    return;
+  }
+  document.getElementById('trace-label').textContent = k === 'fwd' ? 'Forward KL(p‖q) vs. step' : 'Reverse KL(q‖p) vs. step';
+  const lo = 0, hi = Math.max(...data) * 1.05 || 1;
+  const n = data.length;
+  const X = i => M.l + i / Math.max(1, n - 1) * (TW - M.l - M.r);
+  const Y = v => TH - M.b - (v - lo) / (hi - lo) * (TH - M.t - M.b);
+  tctx.textAlign = 'right'; tctx.textBaseline = 'middle';
+  for (const v of [0, hi / 2, hi]) {
+    tctx.fillText(v.toFixed(1), M.l - 5, Y(v));
+    tctx.strokeStyle = '#eeede9'; tctx.beginPath(); tctx.moveTo(M.l, Y(v)); tctx.lineTo(TW - M.r, Y(v)); tctx.stroke();
+  }
+  tctx.textAlign = 'center'; tctx.textBaseline = 'top';
+  tctx.fillText('step ' + (n - 1), TW - M.r - 20, TH - M.b + 4);
+  tctx.strokeStyle = k === 'fwd' ? getCss('--fwd') : getCss('--rev'); tctx.lineWidth = 2;
+  tctx.beginPath();
+  data.forEach((v, i) => i ? tctx.lineTo(X(i), Y(v)) : tctx.moveTo(X(i), Y(v)));
+  tctx.stroke();
+}
+
+// =================== controls ===================
+const cssCache = {};
+function getCss(name) { return cssCache[name] || (cssCache[name] = getComputedStyle(document.documentElement).getPropertyValue(name).trim()); }
+
+const sliders = ['w', 's', 'sx', 'sy', 'rho'].reduce((o, id) => (o[id] = document.getElementById(id), o), {});
+function updateLabels() {
+  document.getElementById('v-w').textContent = Math.round(P.w * 100) + '% / ' + Math.round((1 - P.w) * 100) + '%';
+  document.getElementById('v-s').textContent = P.s.toFixed(2);
+  document.getElementById('v-sx').textContent = Q.sx.toFixed(2);
+  document.getElementById('v-sy').textContent = Q.sy.toFixed(2);
+  document.getElementById('v-rho').textContent = Q.rho.toFixed(2);
+}
+function syncQSliders() {
+  sliders.sx.value = Q.sx; sliders.sy.value = Q.sy; sliders.rho.value = Q.rho;
+}
+function syncPSliders() { sliders.w.value = P.w; sliders.s.value = P.s; }
+
+sliders.w.addEventListener('input', () => { P.w = +sliders.w.value; invalidateP(); halt(); render(); });
+sliders.s.addEventListener('input', () => { P.s = +sliders.s.value; invalidateP(); halt(); render(); });
+for (const id of ['sx', 'sy', 'rho']) sliders[id].addEventListener('input', () => { Q[id] = +sliders[id].value; halt(); render(); });
+document.getElementById('heat').addEventListener('change', () => {
+  document.getElementById('heat-legend').style.display = document.getElementById('heat').value === 'none' ? 'none' : 'inline-flex';
+  render();
+});
+
+function halt() { if (opt.kind) { opt.kind = null; updateButtons(); } opt.lastKind = null; opt.path = []; opt.trace = []; }
+
+function updateButtons() {
+  const f = document.getElementById('run-fwd'), r = document.getElementById('run-rev');
+  f.classList.toggle('running', opt.kind === 'fwd');
+  r.classList.toggle('running', opt.kind === 'rev');
+  f.querySelector('span').innerHTML = opt.kind === 'fwd' ? '&#9632; Stop' : '&#9993; Mail carrier: minimize KL(p&#8214;q)';
+  r.querySelector('span').innerHTML = opt.kind === 'rev' ? '&#9632; Stop' : '&#9832; Food truck: minimize KL(q&#8214;p)';
+}
+document.getElementById('run-fwd').addEventListener('click', () => startOpt('fwd'));
+document.getElementById('run-rev').addEventListener('click', () => startOpt('rev'));
+document.getElementById('reset-q').addEventListener('click', () => { halt(); Object.assign(Q, JSON.parse(JSON.stringify(Q_INIT))); syncQSliders(); render(); });
+document.getElementById('clear-ghosts').addEventListener('click', () => { ghosts.length = 0; render(); });
+
+const PRESETS = {
+  book:     { m1: [-2.3, -1.2], m2: [2.3, 1.2], w: 0.5, s: 0.8 },
+  far:      { m1: [-3.6, 0], m2: [3.6, 0], w: 0.5, s: 0.7 },
+  close:    { m1: [-0.9, -0.3], m2: [0.9, 0.3], w: 0.5, s: 0.9 },
+  lopsided: { m1: [-2.8, 0.6], m2: [2.4, -0.8], w: 0.8, s: 0.75 },
+};
+document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+  const pr = PRESETS[b.dataset.preset];
+  P.m1 = pr.m1.slice(); P.m2 = pr.m2.slice(); P.w = pr.w; P.s = pr.s;
+  invalidateP(); halt(); ghosts.length = 0; syncPSliders(); render();
+}));
+
+// ---- dragging on the map ----
+let drag = null;
+function eventToWorld(e) {
+  const r = map.getBoundingClientRect();
+  return [wx((e.clientX - r.left) / r.width * CW), wy((e.clientY - r.top) / r.height * CH)];
+}
+function hit(e) {
+  const r = map.getBoundingClientRect();
+  const px = (e.clientX - r.left) / r.width * CW, py = (e.clientY - r.top) / r.height * CH;
+  const tol = 16 * CW / r.width;    // grow the hit target when the canvas is shrunk on phones
+  const cands = [['q', Q.mu], ['m1', P.m1], ['m2', P.m2]];
+  // the van wins ties: after a food-truck run it sits right on top of a town marker
+  for (const [k, m] of cands) if (Math.hypot(sx(m[0]) - px, sy(m[1]) - py) < tol) return k;
+  return null;
+}
+map.addEventListener('pointerdown', e => {
+  drag = hit(e);
+  if (drag) { map.setPointerCapture(e.pointerId); halt(); e.preventDefault(); }
+});
+map.addEventListener('pointermove', e => {
+  if (!drag) { map.style.cursor = hit(e) ? 'grab' : 'default'; return; }
+  map.style.cursor = 'grabbing';
+  let [x, y] = eventToWorld(e);
+  x = Math.max(-X_HALF + 0.2, Math.min(X_HALF - 0.2, x));
+  y = Math.max(-Y_HALF + 0.2, Math.min(Y_HALF - 0.2, y));
+  if (drag === 'q') Q.mu = [x, y];
+  else { P[drag] = [x, y]; invalidateP(); }
+  render();
+});
+const endDrag = () => { drag = null; };
+map.addEventListener('pointerup', endDrag);
+map.addEventListener('pointercancel', endDrag);
+
+// =================== render ===================
+function render() {
+  updateLabels();
+  renderMap();
+  renderScore();
+  renderTrace();
+}
+syncPSliders(); syncQSliders(); render();
+window.addEventListener('load', () => {
+  if (window.renderMathInElement) {
+    renderMathInElement(document.body, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false },
+      ],
+    });
+  }
+});
+</script>
+</body>
+</html>
