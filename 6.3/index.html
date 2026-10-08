@@ -1,0 +1,1241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mutual Information, Intuitively</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --soft: #fafaf9;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --gridline: #ecebe8;
+    --hx: #2a78d6;       /* H(X | Y): uncertainty only about X */
+    --hy: #eb6834;       /* H(Y | X): uncertainty only about Y */
+    --mi: #1baf7a;       /* I(X;Y): the shared part */
+    --pos: #4a3aa7;      /* positive pointwise contribution */
+    --neg: #e34948;      /* negative pointwise contribution */
+    --callout-bg: #fbf3e8;
+    --callout-border: #ecd9b8;
+    --code-bg: #f1f0ed;
+    --on-fill: #ffffff;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+      --border: #34342f; --gridline: #2a2a27;
+      --hx: #3987e5; --hy: #d95926; --mi: #199e70; --pos: #9085e9; --neg: #e66767;
+      --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+    --border: #34342f; --gridline: #2a2a27;
+    --hx: #3987e5; --hy: #d95926; --mi: #199e70; --pos: #9085e9; --neg: #e66767;
+    --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 30px 16px 70px; }
+  header h1 { font-size: 1.75rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  nav.toc { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a {
+    font-size: 0.78rem; text-decoration: none; color: var(--ink);
+    border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 3px 10px;
+  }
+  nav.toc a:hover { border-color: var(--mi); }
+  section.block {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px 24px 26px; margin-top: 26px;
+  }
+  @media (max-width: 560px) { section.block { padding: 18px 14px 20px; } }
+  section.block h2 { font-size: 1.22rem; margin: 0 0 4px; }
+  section.block h2 .num { color: var(--muted); font-weight: 600; font-size: 0.9rem; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .kicker { color: var(--muted); font-size: 0.86rem; margin-bottom: 12px; font-style: italic; }
+  h3 { font-size: 0.98rem; margin: 20px 0 6px; }
+  p { margin: 0 0 12px; font-size: 0.95rem; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  .eqbox {
+    background: var(--soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 18px; margin: 14px 0; overflow-x: auto;
+  }
+  .eqbox .label { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .terms { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 0.9rem; margin: 8px 0 14px; align-items: baseline; }
+  .terms .t { text-align: right; white-space: nowrap; }
+  @media (max-width: 560px) { .terms { grid-template-columns: 1fr; } .terms .t { text-align: left; } }
+  .callout {
+    margin: 16px 0 0; padding: 10px 14px; border-radius: 8px;
+    background: var(--callout-bg); border: 1px solid var(--callout-border); font-size: 0.9rem;
+  }
+  .callout b:first-child { margin-right: 4px; }
+  details { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); }
+  details summary { cursor: pointer; padding: 8px 14px; font-size: 0.88rem; font-weight: 600; }
+  details > div { padding: 0 14px 12px; overflow-x: auto; font-size: 0.9rem; }
+  code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; font-size: 0.88em; }
+  .demo { border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 14px; }
+  .demo-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  button.pill {
+    font-size: 0.8rem; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink);
+  }
+  button.pill:hover { border-color: var(--mi); }
+  button.pill.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .ctrl { display: flex; flex-direction: column; gap: 2px; min-width: 180px; flex: 1; }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .ctrl label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--mi); }
+  select { font-size: 0.84rem; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .tiles.three { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px) { .tiles, .tiles.three { grid-template-columns: 1fr 1fr; } }
+  .tile { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+  .tile .k { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+  .tile .v { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 0.72rem; color: var(--muted); }
+  .tile.mi { border-left: 4px solid var(--mi); }
+  .tile.hx { border-left: 4px solid var(--hx); }
+  .tile.hy { border-left: 4px solid var(--hy); }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  svg text { fill: var(--ink); font-family: inherit; }
+  svg .muted { fill: var(--muted); }
+  svg .axis { stroke: var(--border); }
+  svg .grid { stroke: var(--gridline); }
+  /* heat tables */
+  table.heat { border-collapse: separate; border-spacing: 2px; font-size: 0.8rem; margin: 0 auto; }
+  table.heat th { font-weight: 600; color: var(--muted); font-size: 0.72rem; padding: 2px 4px; }
+  table.heat th.rowh { text-align: right; }
+  table.heat td.cell {
+    width: 64px; height: 50px; text-align: center; border-radius: 4px; position: relative;
+    font-variant-numeric: tabular-nums; cursor: default; border: 1px solid var(--border);
+  }
+  table.heat td.cell.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
+  table.heat td.marg { color: var(--muted); font-size: 0.74rem; text-align: center; font-variant-numeric: tabular-nums; }
+  table.heat .nudges { display: flex; justify-content: center; gap: 4px; margin-top: 2px; }
+  table.heat .nudge {
+    width: 20px; height: 18px; line-height: 14px; padding: 0; font-size: 0.8rem; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel); color: var(--ink);
+  }
+  @media (max-width: 420px) { table.heat td.cell { width: 52px; } }
+  .heat-cap { text-align: center; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; }
+  .heat-cap .hint { display: block; font-weight: 400; }
+  .readout { font-size: 0.9rem; background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; min-height: 84px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  table.work { border-collapse: collapse; width: 100%; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+  table.work th, table.work td { border-bottom: 1px solid var(--border); padding: 4px 8px; text-align: right; }
+  table.work th { color: var(--muted); font-weight: 600; }
+  table.work td:first-child, table.work th:first-child, table.work td:nth-child(2), table.work th:nth-child(2) { text-align: left; }
+  table.work tr.total td { font-weight: 700; border-bottom: none; }
+  .scroll-x { overflow-x: auto; }
+  .ident { font-size: 0.95rem; }
+  .ident div { padding: 3px 0; overflow-x: auto; }
+  table.cheat { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+  table.cheat td { border-bottom: 1px solid var(--border); padding: 8px 8px; vertical-align: top; }
+  table.cheat td:first-child { white-space: nowrap; color: var(--muted); font-size: 0.78rem; }
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; display: none; max-width: 280px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 10px; font-size: 0.8rem; box-shadow: 0 4px 14px rgba(0,0,0,.12);
+  }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<div class="wrap">
+  <header>
+    <h1>Mutual Information, Intuitively</h1>
+    <div class="subtitle">A walk through every major equation in &sect;6.3 of Murphy's <em>Probabilistic Machine Learning: An Introduction</em>, with the intuition first and the equation second, and something to play with for each one. Built for CS 473 self-study.</div>
+    <nav class="toc">
+      <a href="#s0">The big idea</a>
+      <a href="#s1">6.3.1 Definition</a>
+      <a href="#s2">6.3.2 Interpretation</a>
+      <a href="#s3">6.3.3 Worked example</a>
+      <a href="#s4">6.3.4 Conditional MI</a>
+      <a href="#s5">6.3.5 Generalized correlation</a>
+      <a href="#s6">6.3.6 Normalized MI</a>
+      <a href="#s7">6.3.7 MIC</a>
+      <a href="#s8">6.3.8 Data processing</a>
+      <a href="#s9">6.3.9 Sufficient statistics</a>
+      <a href="#s10">6.3.10 Fano</a>
+      <a href="#cheat">Cheat sheet</a>
+    </nav>
+  </header>
+
+  <!-- ===================== 0 ===================== -->
+  <section class="block" id="s0">
+    <h2>The big idea, before any equations</h2>
+    <p>You share an apartment with a roommate. Every morning you'd like to guess what they will carry out the door: <b>nothing</b>, a <b>jacket</b>, or an <b>umbrella</b>. Call that $Y$. If you guess blind, you're fairly uncertain. Now you glance out the window and see the weather: <b>sunny</b>, <b>cloudy</b>, or <b>rainy</b>. Call that $X$. Your uncertainty about $Y$ drops.</p>
+    <p><b>Mutual information $I(X;Y)$ is the size of that drop, in bits.</b> It answers: <em>&ldquo;On average, how many yes/no questions does looking at $X$ save me when I try to pin down $Y$?&rdquo;</em> Every other equation in &sect;6.3 is either a different way to compute that number, or a rule about how it behaves.</p>
+    <p>You only need two tools from &sect;6.1&ndash;6.2:</p>
+    <div class="terms">
+      <div class="t">$H(Y) = -\sum_y p(y)\log p(y)$</div><div><b>Entropy</b>: how uncertain you are about $Y$. It is the average number of yes/no questions needed to identify it. A fair coin has 1 bit and a fair 8-sided die has 3 bits.</div>
+      <div class="t">$H(Y\mid X) = \sum_x p(x)\,H(Y\mid X{=}x)$</div><div><b>Conditional entropy</b>: how uncertain you <em>still</em> are about $Y$ after seeing $X$, averaged over what you might see.</div>
+      <div class="t">$\mathbb{KL}(p\,\|\,q) = \sum p\log\frac{p}{q}$</div><div><b>KL divergence</b>: how badly $q$ fails as a stand-in for $p$. It is never negative, and it is $0$ only when $q=p$.</div>
+    </div>
+    <p class="hint">All numbers on this page use $\log_2$, so the units are <b>bits</b>. The book often writes plain $\log$. With natural logs the same quantities come out in nats (1 nat ≈ 1.44 bits), and none of the conclusions change.</p>
+  </section>
+
+  <!-- ===================== 1 ===================== -->
+  <section class="block" id="s1">
+    <h2><span class="num">6.3.1</span>Definition: distance from independence</h2>
+    <div class="kicker">MI measures how far the real world is from a world where $X$ and $Y$ ignore each other.</div>
+    <p>If weather and roommate behavior were <em>unrelated</em>, you could build the joint table just by multiplying the margins: $p(x,y)=p(x)\,p(y)$. Call that the &ldquo;boring&rdquo; hypothesis. Mutual information is the KL divergence from reality to the boring hypothesis:</p>
+    <div class="eqbox">
+      <div class="label">Definition</div>
+      $$I(X;Y) \;\triangleq\; \mathbb{KL}\big(p(x,y)\,\big\|\,p(x)\,p(y)\big) \;=\; \sum_{x}\sum_{y} p(x,y)\,\log\frac{p(x,y)}{p(x)\,p(y)}$$
+    </div>
+    <div class="terms">
+      <div class="t">$p(x,y)$</div><div>How often the pair <em>actually</em> happens. It also weights the average, so common pairs count more.</div>
+      <div class="t">$p(x)\,p(y)$</div><div>How often the pair <em>would</em> happen if the variables were independent.</div>
+      <div class="t">$\log\frac{p(x,y)}{p(x)p(y)}$</div><div>The <b>surprise ratio</b>. If it is $&gt;0$, the pair happens more often than chance (rain and umbrella). If it is $&lt;0$, it happens less often than chance (sun and umbrella). If it is $=0$, the pair is right at chance.</div>
+      <div class="t">$\mathbb{KL}\ge 0$</div><div>So $I(X;Y)\ge 0$, and $I(X;Y)=0$ <b>exactly when</b> $X\perp Y$. Individual cells can be negative, but the weighted total never is.</div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Try it: edit the roommate's habits</div>
+      <div class="row"><span class="hint">Presets:</span>
+        <button class="pill preset" data-p="real">Realistic</button>
+        <button class="pill preset" data-p="indep">Independent</button>
+        <button class="pill preset" data-p="weak">Forgetful roommate</button>
+        <button class="pill preset" data-p="perfect">Perfectly predictable</button>
+        <button class="pill preset" data-p="contrarian">Contrarian</button>
+      </div>
+      <p class="hint" style="margin:0 0 8px">Use <b>+</b>/<b>&minus;</b> to change how often each combination happens. Hover over or tap a cell to see its surprise ratio.</p>
+      <div class="two">
+        <div>
+          <div class="heat-cap">Reality: $p(x,y)$<span class="hint">margins $p(x)$ and $p(y)$ in grey</span></div>
+          <div class="scroll-x"><div id="heatA"></div></div>
+        </div>
+        <div>
+          <div class="heat-cap">Boring hypothesis: $p(x)\,p(y)$<span class="hint">same margins, no link between them</span></div>
+          <div class="scroll-x"><div id="heatB"></div></div>
+        </div>
+        <div>
+          <div class="heat-cap">Each cell's term: $p(x,y)\log_2\frac{p(x,y)}{p(x)p(y)}$<span class="hint"><span style="color:var(--pos)">&#9632;</span> more than chance &nbsp; <span style="color:var(--neg)">&#9632;</span> less than chance</span></div>
+          <div class="scroll-x"><div id="heatC"></div></div>
+        </div>
+        <div>
+          <div class="tiles" style="grid-template-columns:1fr; margin-top:0">
+            <div class="tile mi"><div class="k">Sum of all nine terms</div><div class="v" id="miVal">&ndash;</div><div class="s">$= I(X;Y)$</div></div>
+          </div>
+          <div class="readout" id="pmiReadout" style="margin-top:10px">Hover over or tap a cell in any table.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Pointwise mutual information: the per-cell story</h3>
+    <p>The log inside the sum gets its own name. Rewriting it using $p(x,y)=p(x\mid y)p(y)$ shows what it means:</p>
+    <div class="eqbox">
+      $$\text{PMI}(x,y) \triangleq \log\frac{p(x,y)}{p(x)\,p(y)} = \log\frac{p(x\mid y)}{p(x)} = \log\frac{p(y\mid x)}{p(y)}$$
+    </div>
+    <p>Read it as: <em>&ldquo;How much did learning $x$ change my belief in $y$, compared to before?&rdquo;</em> Mutual information is just the <b>average PMI</b>: $I(X;Y)=\mathbb{E}_{p(x,y)}[\text{PMI}(x,y)]$.</p>
+    <div class="callout"><b>Takeaway.</b> MI is a KL divergence, so all the KL intuition carries over. It measures the cost of pretending $X$ and $Y$ are unrelated when they aren't.</div>
+  </section>
+
+  <!-- ===================== 2 ===================== -->
+  <section class="block" id="s2">
+    <h2><span class="num">6.3.2</span>Interpretation: uncertainty removed</h2>
+    <div class="kicker">The same number, rewritten with entropies, becomes &ldquo;bits saved by looking.&rdquo;</div>
+    <p>The KL definition is precise but abstract. Splitting the log turns it into the &ldquo;before minus after&rdquo; story from the top of the page:</p>
+    <div class="eqbox">
+      <div class="label">Key identities</div>
+      $$I(X;Y) = H(X) - H(X\mid Y) = H(Y) - H(Y\mid X)$$
+      $$I(X;Y) = H(X) + H(Y) - H(X,Y) = H(X,Y) - H(X\mid Y) - H(Y\mid X)$$
+    </div>
+    <details>
+      <summary>Show the 3-line derivation</summary>
+      <div>
+        $$\begin{aligned}
+        I(X;Y) &= \sum_{x,y} p(x,y)\log\frac{p(x\mid y)\,p(y)}{p(x)\,p(y)} = \sum_{x,y} p(x,y)\log\frac{p(x\mid y)}{p(x)}\\
+        &= \underbrace{-\sum_{x,y}p(x,y)\log p(x)}_{=\,-\sum_x p(x)\log p(x)\,=\,H(X)} \;+\; \underbrace{\sum_{x,y}p(x,y)\log p(x\mid y)}_{=\,-H(X\mid Y)}\\
+        &= H(X) - H(X\mid Y)
+        \end{aligned}$$
+        <p>By symmetry, the same argument gives $H(Y)-H(Y\mid X)$. Then substituting the chain rule $H(X,Y)=H(Y)+H(X\mid Y)$ gives the other two forms.</p>
+      </div>
+    </details>
+    <div class="terms">
+      <div class="t">$H(Y)$</div><div>Questions needed to guess the roommate's gear <b>without</b> looking outside.</div>
+      <div class="t">$H(Y\mid X)$</div><div>Questions <b>still</b> needed after seeing the weather.</div>
+      <div class="t">$H(Y)-H(Y\mid X)$</div><div>Questions <b>saved</b> by looking, which is $I(X;Y)$. Notice that it is symmetric. Weather tells you exactly as much about gear as gear tells you about weather.</div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">The information diagram (uses the same table as above)</div>
+      <div class="row"><span class="hint">Presets:</span>
+        <button class="pill preset" data-p="real">Realistic</button>
+        <button class="pill preset" data-p="indep">Independent</button>
+        <button class="pill preset" data-p="weak">Forgetful roommate</button>
+        <button class="pill preset" data-p="perfect">Perfectly predictable</button>
+      </div>
+      <svg id="infoDiag" viewBox="0 0 860 200" role="img" aria-label="Information diagram bars"></svg>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--hx)"></i>$H(X\mid Y)$: weather left uncertain after seeing gear</span>
+        <span><i class="sw" style="background:var(--mi)"></i>$I(X;Y)$: shared</span>
+        <span><i class="sw" style="background:var(--hy)"></i>$H(Y\mid X)$: gear left uncertain after seeing weather</span>
+      </div>
+      <div class="ident" id="identities" style="margin-top:12px"></div>
+      <div class="callout" id="storyLine"></div>
+    </div>
+    <p style="margin-top:14px">This is the bar version of the Venn diagram in the book (Fig. 6.4 there). $H(X)$ and $H(Y)$ are two overlapping bars, their union is $H(X,Y)$, and the overlap is the mutual information. Every identity above is just reading lengths off this picture.</p>
+  </section>
+
+  <!-- ===================== 3 ===================== -->
+  <section class="block" id="s3">
+    <h2><span class="num">6.3.3</span>A worked example, cell by cell</h2>
+    <div class="kicker">The definition is a sum of nine terms here. This table shows every one of them for whatever table you set above.</div>
+    <p>The book works through its own small example table. The arithmetic is identical for any table, so here it is live for the roommate table. Edit the table in 6.3.1 and watch every column update.</p>
+    <div class="scroll-x"><table class="work" id="workTable"></table></div>
+    <p class="hint" style="margin-top:8px">Check: the bottom-right total equals $H(X)+H(Y)-H(X,Y)$ computed separately (shown under the table). Two very different recipes give the same number.</p>
+    <div id="workCheck" class="ident"></div>
+  </section>
+
+  <!-- ===================== 4 ===================== -->
+  <section class="block" id="s4">
+    <h2><span class="num">6.3.4</span>Conditional mutual information</h2>
+    <div class="kicker">&ldquo;How related are $X$ and $Y$ once I already know $Z$?&rdquo; This can be bigger <em>or</em> smaller than $I(X;Y)$.</div>
+    <p>Fix the value of a third variable $Z$, measure the MI between $X$ and $Y$ inside that slice of the world, then average over slices:</p>
+    <div class="eqbox">
+      <div class="label">Definition</div>
+      $$I(X;Y\mid Z) \triangleq \mathbb{E}_{p(z)}\big[\,I(X;Y\mid Z{=}z)\,\big] = \mathbb{E}_{p(x,y,z)}\!\left[\log\frac{p(x,y\mid z)}{p(x\mid z)\,p(y\mid z)}\right]$$
+      $$= H(X\mid Z) + H(Y\mid Z) - H(X,Y\mid Z) \;=\; H(X\mid Z) - H(X\mid Y,Z) \;=\; I(Y;X,Z) - I(Y;Z)$$
+    </div>
+    <p>That last form, rearranged, is the <b>chain rule for mutual information</b>. What a pair of variables tells you about $Y$ is what the first tells you, plus what the second adds <em>on top</em>:</p>
+    <div class="eqbox">
+      $$I(Y;\,X,Z) = I(Y;Z) + I(Y;X\mid Z)$$
+      $$\text{and in general:}\qquad I(Z_1,\dots,Z_N;\,X) = \sum_{n=1}^{N} I(Z_n;\,X\mid Z_1,\dots,Z_{n-1})$$
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Two stories where conditioning flips the answer</div>
+      <div class="row">
+        <button class="pill cmiScen on" data-s="cause">Common cause: season &rarr; ice cream, pool</button>
+        <button class="pill cmiScen" data-s="xor">Hidden link: two coins + a &ldquo;did they match?&rdquo; referee</button>
+      </div>
+      <p id="cmiStory" class="hint"></p>
+      <div class="row" id="cmiSliders"></div>
+      <div class="two" style="margin-top:6px">
+        <div>
+          <svg id="cmiDag" viewBox="0 0 300 150" style="max-width:300px;margin:0 auto"></svg>
+          <div id="cmiTables" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px"></div>
+        </div>
+        <div>
+          <div class="tiles" style="grid-template-columns:1fr 1fr;margin-top:0">
+            <div class="tile mi"><div class="k">Ignoring $Z$: $I(X;Y)$</div><div class="v" id="cmiIxy"></div></div>
+            <div class="tile mi"><div class="k">Knowing $Z$: $I(X;Y\mid Z)$</div><div class="v" id="cmiIxyz"></div></div>
+          </div>
+          <div class="ident" id="cmiChain" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="callout"><b>Takeaway.</b> A <b>common cause</b> creates dependence that disappears once you condition on the cause, so $I(X;Y\mid Z) &lt; I(X;Y)$. A <b>shared effect</b> can hide dependence that only appears once you condition on it, so $I(X;Y\mid Z) &gt; I(X;Y)$. That is why there is no general inequality between the two.</div>
+  </section>
+
+  <!-- ===================== 5 ===================== -->
+  <section class="block" id="s5">
+    <h2><span class="num">6.3.5</span>MI as a &ldquo;generalized correlation coefficient&rdquo;</h2>
+    <div class="kicker">For Gaussians, MI and correlation carry the same information. Away from Gaussians, MI still sees dependence that correlation misses.</div>
+    <p>If $(X,Y)$ is bivariate Gaussian with correlation $\rho$, everything has a closed form:</p>
+    <div class="eqbox">
+      <div class="label">Jointly Gaussian</div>
+      $$I(X;Y) = -\tfrac{1}{2}\log\!\big(1-\rho^2\big)$$
+    </div>
+    <details>
+      <summary>Where it comes from (it uses the identity $I = H(X)+H(Y)-H(X,Y)$)</summary>
+      <div>
+        <p>A Gaussian's (differential) entropy is $\tfrac12\log\big((2\pi e)^D\det\Sigma\big)$. With variances $\sigma^2$ and $\Sigma=\sigma^2\left(\begin{smallmatrix}1&amp;\rho\\\rho&amp;1\end{smallmatrix}\right)$, we have $\det\Sigma=\sigma^4(1-\rho^2)$, so</p>
+        $$\begin{aligned}
+        I &= \underbrace{\tfrac12\log(2\pi e\sigma^2)}_{H(X)} + \underbrace{\tfrac12\log(2\pi e\sigma^2)}_{H(Y)} - \underbrace{\tfrac12\log\big((2\pi e)^2\sigma^4(1-\rho^2)\big)}_{H(X,Y)} = -\tfrac12\log(1-\rho^2).
+        \end{aligned}$$
+        <p>Everything about scale cancels, and only the &ldquo;squashing&rdquo; factor $1-\rho^2$ of the joint's area survives.</p>
+      </div>
+    </details>
+    <div class="terms">
+      <div class="t">$\rho = 0$</div><div>$I = -\tfrac12\log 1 = 0$. For Gaussians, uncorrelated means independent.</div>
+      <div class="t">$\rho\to\pm1$</div><div>$I\to\infty$. $Y$ becomes an exact (continuous) function of $X$, which would take infinitely many bits to specify.</div>
+      <div class="t">sign of $\rho$</div><div>Doesn't matter, because $\rho^2$ appears. MI measures <em>how much</em> dependence, not which direction.</div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">Drag the correlation $\rho$</div>
+      <div class="row"><div class="ctrl"><label><span>Correlation $\rho$</span> <b id="rhoLbl"></b></label><input type="range" id="rho" min="-0.99" max="0.99" step="0.01" value="0.6"></div></div>
+      <div class="two">
+        <svg id="gScatter" viewBox="0 0 320 320" style="max-width:320px;margin:0 auto" role="img" aria-label="Scatter of correlated Gaussian samples"></svg>
+        <svg id="gCurve" viewBox="0 0 380 320" role="img" aria-label="Mutual information as a function of rho"></svg>
+      </div>
+    </div>
+    <p style="margin-top:14px">So why call MI a <em>generalized</em> correlation? Correlation only detects <b>straight-line</b> dependence. MI detects <b>any</b> dependence. A circle, a parabola, or an X shape can all have $\rho\approx 0$ while $Y$ is tightly determined by $X$. Try the shapes in the <a href="#s7">MIC demo below</a> and compare the two tiles.</p>
+  </section>
+
+  <!-- ===================== 6 ===================== -->
+  <section class="block" id="s6">
+    <h2><span class="num">6.3.6</span>Normalized mutual information</h2>
+    <div class="kicker">Raw MI depends on how much there was to know in the first place. Normalizing puts it on a 0&ndash;1 scale.</div>
+    <p>A perfect copy of a fair coin shares 1 bit. A perfect copy of a fair 8-sided die shares 3 bits. Both are &ldquo;perfect dependence,&rdquo; yet the raw numbers differ. The fix comes from the information diagram: the overlap can never be longer than either bar.</p>
+    <div class="eqbox">
+      <div class="label">Bound and normalization</div>
+      $$0 \;\le\; I(X;Y) \;\le\; \min\big(H(X),\,H(Y)\big) \qquad\Longrightarrow\qquad \text{NMI}(X,Y) = \frac{I(X;Y)}{\min\big(H(X),\,H(Y)\big)} \in [0,1]$$
+    </div>
+    <div class="terms">
+      <div class="t">upper bound</div><div>$I = H(X) - H(X\mid Y)$ and $H(X\mid Y)\ge 0$ for discrete variables, so $I \le H(X)$. The same argument gives $I\le H(Y)$.</div>
+      <div class="t">$\text{NMI}=0$</div><div>$X\perp Y$.</div>
+      <div class="t">$\text{NMI}=1$</div><div>The less-uncertain variable is completely determined by the other one.</div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">NMI of the roommate table</div>
+      <div class="row"><span class="hint">Presets:</span>
+        <button class="pill preset" data-p="real">Realistic</button>
+        <button class="pill preset" data-p="indep">Independent</button>
+        <button class="pill preset" data-p="weak">Forgetful roommate</button>
+        <button class="pill preset" data-p="perfect">Perfectly predictable</button>
+        <button class="pill preset" data-p="coarse">Only umbrella / no umbrella</button>
+      </div>
+      <div class="tiles">
+        <div class="tile hx"><div class="k">$H(X)$ weather</div><div class="v" id="nHx"></div><div class="s">bits</div></div>
+        <div class="tile hy"><div class="k">$H(Y)$ gear</div><div class="v" id="nHy"></div><div class="s">bits</div></div>
+        <div class="tile mi"><div class="k">$I(X;Y)$</div><div class="v" id="nI"></div><div class="s">bits</div></div>
+        <div class="tile mi"><div class="k">$\text{NMI}$</div><div class="v" id="nN"></div><div class="s" id="nNs"></div></div>
+      </div>
+      <p class="hint" style="margin-top:8px">Try &ldquo;Only umbrella / no umbrella&rdquo;: the roommate never wears a jacket, so $H(Y)$ shrinks. Raw MI drops, but NMI can stay high because MI is now limited by the smaller bar.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 7 ===================== -->
+  <section class="block" id="s7">
+    <h2><span class="num">6.3.7</span>Maximal information coefficient (MIC)</h2>
+    <div class="kicker">For continuous data, chop the plane into a grid, compute discrete MI, normalize, and take the best grid.</div>
+    <p>For continuous scatter-plot data we don't know $p(x,y)$, and entropy in &ldquo;bits&rdquo; is slippery. MIC sidesteps both problems. Lay a $G_x\times G_y$ grid over the points, count points per cell to get a discrete joint table, compute its MI, and divide by the most it could possibly be, $\log\min(G_x,G_y)$. Then search for the grid that makes this ratio largest:</p>
+    <div class="eqbox">
+      <div class="label">MIC</div>
+      $$\text{MIC} \triangleq \max_{G:\;G_x G_y \,\le\, B(N)} \;\frac{I\big((X,Y)\big|_G\big)}{\log\min(G_x,\,G_y)}, \qquad B(N)\approx N^{0.6}$$
+    </div>
+    <div class="terms">
+      <div class="t">$(X,Y)|_G$</div><div>The data discretized by grid $G$: each point becomes a (column, row) pair.</div>
+      <div class="t">$\log\min(G_x,G_y)$</div><div>The largest MI a grid with that many rows and columns could show, so the ratio is like NMI and lands in $[0,1]$.</div>
+      <div class="t">$G_xG_y\le B(N)$</div><div>Caps the number of cells. Without the cap, a grid with one point per cell would make <em>anything</em> look perfectly dependent.</div>
+      <div class="t">characteristic matrix</div><div>$M(G_x,G_y)$ is the best normalized score for each grid shape. MIC is the largest entry.</div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">Pick a relationship. Hover over or tap the matrix to see each grid.</div>
+      <div class="row">
+        <label class="hint" for="micShape">Shape</label>
+        <select id="micShape">
+          <option value="line">Line</option>
+          <option value="parab">Parabola</option>
+          <option value="circle" selected>Circle</option>
+          <option value="sine">Sine wave</option>
+          <option value="xshape">X shape</option>
+          <option value="indep">No relationship</option>
+        </select>
+        <div class="ctrl"><label><span>Noise</span> <b id="micNoiseLbl"></b></label><input type="range" id="micNoise" min="0" max="1" step="0.05" value="0.1"></div>
+        <button class="pill" id="micResample">New sample</button>
+      </div>
+      <div class="two">
+        <div>
+          <svg id="micScatter" viewBox="0 0 320 320" style="max-width:340px;margin:0 auto" role="img" aria-label="Scatter with grid"></svg>
+          <div class="tiles three">
+            <div class="tile"><div class="k">Pearson $\rho$</div><div class="v" id="micRho"></div></div>
+            <div class="tile mi"><div class="k">MIC</div><div class="v" id="micVal"></div></div>
+            <div class="tile"><div class="k">Showing grid</div><div class="v" id="micGrid" style="font-size:1rem"></div><div class="s" id="micGridScore"></div></div>
+          </div>
+        </div>
+        <div>
+          <svg id="micMatrix" viewBox="0 0 340 340" role="img" aria-label="Characteristic matrix"></svg>
+          <p class="hint">Rows are $G_y$ and columns are $G_x$. Only shapes with $G_xG_y\le B(N)$ are allowed ($N=500$, so $B=41$). Darker means a higher normalized MI. The ringed cell is the maximum, which is the MIC.</p>
+        </div>
+      </div>
+      <p class="hint">Simplification: true MIC also searches over where the grid lines go (by dynamic programming). This demo places them at quantiles, so each column and row holds equal counts. That makes these values a slight underestimate. Small samples also give MI a small upward bias, which is why &ldquo;No relationship&rdquo; doesn't hit exactly 0.</p>
+    </div>
+    <div class="callout"><b>Takeaway.</b> On the circle or X shape, $\rho\approx 0$ but MIC is clearly high. That is the &ldquo;generalized correlation&rdquo; claim of 6.3.5 made concrete, and MIC is a practical way to rank many variable pairs by dependence strength.</div>
+  </section>
+
+  <!-- ===================== 8 ===================== -->
+  <section class="block" id="s8">
+    <h2><span class="num">6.3.8</span>The data processing inequality</h2>
+    <div class="kicker">You can't create information about $X$ by processing data. Every step can only keep it or lose it.</div>
+    <p>Think of the telephone game. A message $X$ is whispered to person $Y$, who whispers it to $Z$. $Z$ only hears $Y$, never $X$ directly, so $X\to Y\to Z$ is a <b>Markov chain</b>. However cleverly $Z$ processes what they heard, they can't know more about $X$ than $Y$ did:</p>
+    <div class="eqbox">
+      <div class="label">Data processing inequality</div>
+      $$X \to Y \to Z \quad\Longrightarrow\quad I(X;Y) \;\ge\; I(X;Z)$$
+    </div>
+    <details open>
+      <summary>Proof: the chain rule, applied in two orders</summary>
+      <div>
+        $$I(X;\,Y,Z) \;=\; I(X;Z) + I(X;Y\mid Z) \;=\; I(X;Y) + \underbrace{I(X;Z\mid Y)}_{=\,0\text{ (Markov)}}$$
+        <p>Given $Y$, $Z$ adds nothing about $X$, so the last term is 0. Therefore $I(X;Y)=I(X;Z)+I(X;Y\mid Z)\ge I(X;Z)$, because MI is never negative. Equality needs $I(X;Y\mid Z)=0$, which means $Z$ kept everything $Y$ knew about $X$.</p>
+      </div>
+    </details>
+    <div class="demo">
+      <div class="demo-title">A telephone game with a 4-letter message (A, B, C, D, each equally likely: $H(X)=2$ bits)</div>
+      <div class="row">
+        <div class="ctrl"><label><span>Hop 1 noise: chance $Y$ mishears</span> <b id="e1Lbl"></b></label><input type="range" id="dpE1" min="0" max="1" step="0.02" value="0.2"></div>
+        <div class="ctrl"><label><span>Hop 2 noise: chance $Z$ mishears</span> <b id="e2Lbl"></b></label><input type="range" id="dpE2" min="0" max="1" step="0.02" value="0.2"></div>
+      </div>
+      <div class="row">
+        <label class="hint" for="dpF">Final step: $W = f(Z)$, where $f$ is</label>
+        <select id="dpF">
+          <option value="id">do nothing</option>
+          <option value="swap">relabel (A&harr;B, C&harr;D)</option>
+          <option value="merge">merge to 2 groups ({A,B}, {C,D})</option>
+          <option value="const">always say &ldquo;A&rdquo;</option>
+        </select>
+      </div>
+      <svg id="dpChart" viewBox="0 0 860 210" role="img" aria-label="MI at each stage"></svg>
+      <p class="hint">&ldquo;Mishears&rdquo; means the letter is replaced by a uniformly random letter, so it may land on the right one by luck. The bars can stay level or step down but never step up. Relabeling is invertible, so it keeps everything (equality). Merging throws information away.</p>
+    </div>
+    <div class="callout"><b>Why ML cares.</b> Every feature extractor, preprocessing step, or network layer is a $Z=f(Y)$. It can make information <em>easier to use</em>, but it can't add information about the label that wasn't in the raw input.</div>
+  </section>
+
+  <!-- ===================== 9 ===================== -->
+  <section class="block" id="s9">
+    <h2><span class="num">6.3.9</span>Sufficient statistics</h2>
+    <div class="kicker">A statistic is sufficient when compressing the data with it loses <em>nothing</em> about the parameter, so the DPI holds with equality.</div>
+    <p>Apply the DPI with the parameter $\theta$ as the source. The world picks $\theta$, the data $\mathcal D$ is generated from it, and then you summarize the data with some statistic $s(\mathcal D)$:</p>
+    <div class="eqbox">
+      <div class="label">DPI for statistics</div>
+      $$\theta \to \mathcal{D} \to s(\mathcal{D}) \quad\Longrightarrow\quad I\big(\theta;\,s(\mathcal D)\big) \;\le\; I(\theta;\,\mathcal D)$$
+      $$s \text{ is \textbf{sufficient} for } \theta \iff I\big(\theta;\,s(\mathcal D)\big) = I(\theta;\,\mathcal D)$$
+    </div>
+    <div class="terms">
+      <div class="t">equality</div><div>Equivalently, $\theta\to s(\mathcal D)\to\mathcal D$ is <em>also</em> a Markov chain. Once you know $s(\mathcal D)$, the rest of the raw data tells you nothing more about $\theta$.</div>
+      <div class="t">minimal sufficient</div><div>A sufficient statistic that is a function of every other sufficient statistic. It compresses the data as far as possible without losing anything about $\theta$. The full dataset is always sufficient, just not minimal.</div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">Coin with unknown bias $\theta$: which summaries of $n$ flips are sufficient?</div>
+      <div class="row">
+        <div class="ctrl"><label><span>Number of flips $n$</span> <b id="ssNLbl"></b></label><input type="range" id="ssN" min="1" max="12" step="1" value="6"></div>
+      </div>
+      <svg id="ssChart" viewBox="0 0 860 250" role="img" aria-label="Information each statistic keeps about theta"></svg>
+      <p class="hint">$\theta$ is drawn uniformly from 19 values $\{0.05, 0.10, \dots, 0.95\}$. All $2^n$ flip sequences are enumerated, so these are exact MI values, not estimates. The dashed line is $I(\theta;\mathcal D)$, the most any summary could keep.</p>
+    </div>
+    <div class="callout"><b>Takeaway.</b> &ldquo;Number of heads&rdquo; reaches the dashed line exactly, at every $n$, while being an enormous compression ($n+1$ possible values instead of $2^n$). It is the minimal sufficient statistic for a Bernoulli parameter. That is why the likelihood $\theta^{N_1}(1-\theta)^{N_0}$ only depends on the counts.</div>
+  </section>
+
+  <!-- ===================== 10 ===================== -->
+  <section class="block" id="s10">
+    <h2><span class="num">6.3.10</span>Fano's inequality</h2>
+    <div class="kicker">If features $X$ leave a lot of uncertainty about the label $Y$, <em>no</em> classifier can be accurate. MI turns that into a hard floor on error.</div>
+    <p>Let $\hat Y=f(X)$ be any classifier's guess and let $E$ be the event that it is wrong, with $P_e=P(\hat Y\ne Y)$. Since $Y\to X\to\hat Y$ is a Markov chain, Fano's inequality says:</p>
+    <div class="eqbox">
+      <div class="label">Fano's inequality</div>
+      $$H(Y\mid X) \;\le\; H(Y\mid \hat Y) \;\le\; H(E) + P_e\log|\mathcal Y|$$
+      $$\Longrightarrow\qquad P_e \;\ge\; \frac{H(Y\mid X) - 1}{\log_2|\mathcal Y|} \qquad(\text{using } H(E)\le 1 \text{ bit})$$
+    </div>
+    <div class="terms">
+      <div class="t">$H(Y\mid X)\le H(Y\mid\hat Y)$</div><div>This is the DPI in entropy form. The guess is computed from $X$, so it can't leave you <em>less</em> uncertain than $X$ itself does.</div>
+      <div class="t">$H(E)$</div><div>Recovering $Y$ from $\hat Y$ takes one yes/no question first: &ldquo;was the guess right?&rdquo; That costs at most 1 bit.</div>
+      <div class="t">$P_e\log|\mathcal Y|$</div><div>If it was wrong (probability $P_e$), you still have to say which class it really was. That costs at most $\log|\mathcal Y|$ bits.</div>
+      <div class="t">the floor</div><div>Since $H(Y\mid X) = H(Y) - I(X;Y)$, choosing features with <b>higher MI with the label</b> lowers the floor on error. This is the theoretical case for MI-based feature selection.</div>
+    </div>
+    <p class="hint">A slightly sharper version replaces $\log|\mathcal Y|$ with $\log(|\mathcal Y|-1)$ and keeps $H(E)$ exactly: $H(Y\mid X)\le H_b(P_e)+P_e\log(|\mathcal Y|-1)$. Both are drawn below.</p>
+    <div class="demo">
+      <div class="demo-title">A noisy sensor reads one of $K$ equally likely classes</div>
+      <div class="row">
+        <div class="ctrl"><label><span>Classes $K=|\mathcal Y|$</span> <b id="fKLbl"></b></label><input type="range" id="fK" min="2" max="10" step="1" value="4"></div>
+        <div class="ctrl"><label><span>Sensor error rate $\varepsilon$</span> <b id="fELbl"></b></label><input type="range" id="fE" min="0" max="1" step="0.01" value="0.3"></div>
+        <label class="hint" for="fType">Errors go to</label>
+        <select id="fType">
+          <option value="uniform">any other class, equally</option>
+          <option value="neighbor">only a neighboring class</option>
+        </select>
+      </div>
+      <div class="two">
+        <svg id="fanoChart" viewBox="0 0 420 320" role="img" aria-label="Fano bound region"></svg>
+        <div>
+          <div class="tiles" style="grid-template-columns:1fr 1fr; margin-top:0">
+            <div class="tile"><div class="k">$H(Y\mid X)$</div><div class="v" id="fH"></div><div class="s">bits left after reading sensor</div></div>
+            <div class="tile mi"><div class="k">$I(X;Y)$</div><div class="v" id="fI"></div><div class="s">bits the sensor provides</div></div>
+            <div class="tile"><div class="k">Best possible error</div><div class="v" id="fPe"></div><div class="s">Bayes-optimal classifier</div></div>
+            <div class="tile"><div class="k">Fano floor (book form)</div><div class="v" id="fBound"></div><div class="s">no classifier can beat this</div></div>
+          </div>
+          <p class="hint" style="margin-top:10px">The dot is the best classifier for the current sensor. It always sits on or above the curves. With &ldquo;any other class, equally,&rdquo; it sits exactly on the sharp curve, so Fano is tight for symmetric noise.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== cheat sheet ===================== -->
+  <section class="block" id="cheat">
+    <h2>Cheat sheet: each equation in one line</h2>
+    <table class="cheat">
+      <tr><td>6.3.1</td><td>$I(X;Y)=\mathbb{KL}(p(x,y)\,\|\,p(x)p(y))$</td><td>How far reality is from independence.</td></tr>
+      <tr><td>6.3.1</td><td>$\text{PMI}(x,y)=\log\frac{p(x\mid y)}{p(x)}$</td><td>How much one specific observation changed the odds of another. MI is its average.</td></tr>
+      <tr><td>6.3.2</td><td>$I = H(Y)-H(Y\mid X)$</td><td>Bits of uncertainty about $Y$ removed by seeing $X$ (symmetric).</td></tr>
+      <tr><td>6.3.2</td><td>$I = H(X)+H(Y)-H(X,Y)$</td><td>The overlap of the two entropy bars.</td></tr>
+      <tr><td>6.3.4</td><td>$I(X;Y\mid Z)=\mathbb{E}_z[I(X;Y\mid z)]$</td><td>Dependence within each slice of $Z$. It can go up (shared effect) or down (common cause).</td></tr>
+      <tr><td>6.3.4</td><td>$I(Y;X,Z)=I(Y;Z)+I(Y;X\mid Z)$</td><td>Chain rule: information adds up one variable at a time.</td></tr>
+      <tr><td>6.3.5</td><td>$I=-\tfrac12\log(1-\rho^2)$</td><td>For Gaussians MI is a function of $\rho$. In general it also catches nonlinear dependence.</td></tr>
+      <tr><td>6.3.6</td><td>$\text{NMI}=\frac{I}{\min(H(X),H(Y))}$</td><td>MI rescaled to $[0,1]$, because the overlap can't exceed the smaller bar.</td></tr>
+      <tr><td>6.3.7</td><td>$\text{MIC}=\max_G \frac{I(G)}{\log\min(G_x,G_y)}$</td><td>NMI for scatter plots, using the best grid.</td></tr>
+      <tr><td>6.3.8</td><td>$X\to Y\to Z\Rightarrow I(X;Y)\ge I(X;Z)$</td><td>Processing never adds information.</td></tr>
+      <tr><td>6.3.9</td><td>$I(\theta;s(\mathcal D))=I(\theta;\mathcal D)$</td><td>A sufficient statistic loses nothing about the parameter.</td></tr>
+      <tr><td>6.3.10</td><td>$P_e\ge\frac{H(Y\mid X)-1}{\log|\mathcal Y|}$</td><td>Leftover uncertainty puts a floor on classification error.</td></tr>
+    </table>
+    <div class="foot">Companion to &sect;6.3 of K. P. Murphy, <em>Probabilistic Machine Learning: An Introduction</em> (MIT Press, 2022). The roommate, telephone, coin and sensor examples are this page's own, not the book's. MIC is due to Reshef et al., &ldquo;Detecting novel associations in large data sets,&rdquo; <em>Science</em> 2011.</div>
+  </section>
+</div>
+
+<script>
+// ---------- shared helpers ----------
+const lg = x => Math.log(x) / Math.LN2;
+const H = ps => { let h = 0; for (const p of ps) if (p > 0) h -= p * lg(p); return h; };
+const tex = s => katex.renderToString(s, { throwOnError: false });
+const f2 = (v, d = 2) => (Math.abs(v) < 5e-10 ? 0 : v).toFixed(d);
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function normalize2(W) {
+  const s = W.flat().reduce((a, b) => a + b, 0) || 1;
+  return W.map(r => r.map(v => v / s));
+}
+function margins(P) {
+  const px = P.map(r => r.reduce((a, b) => a + b, 0));
+  const py = P[0].map((_, j) => P.reduce((a, r) => a + r[j], 0));
+  return { px, py };
+}
+function miJoint(P) {
+  const { px, py } = margins(P);
+  let I = 0;
+  P.forEach((r, i) => r.forEach((p, j) => { if (p > 0) I += p * lg(p / (px[i] * py[j])); }));
+  return Math.max(0, I);
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gaussPair(rng) {
+  const u = Math.max(rng(), 1e-12), v = rng();
+  const r = Math.sqrt(-2 * Math.log(u));
+  return [r * Math.cos(2 * Math.PI * v), r * Math.sin(2 * Math.PI * v)];
+}
+// tooltip
+const tip = document.getElementById('tip');
+function showTip(e, html) {
+  tip.innerHTML = html; tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + w > window.innerWidth - 8) x = e.clientX - w - 14;
+  if (y + h > window.innerHeight - 8) y = e.clientY - h - 14;
+  tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+function bindTip(node, fn) {
+  node.addEventListener('pointermove', e => showTip(e, fn()));
+  node.addEventListener('pointerleave', hideTip);
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+// ====================================================================
+// 6.3.1 - 6.3.3 + 6.3.6 : the shared roommate table
+// ====================================================================
+const XL = ['Sunny', 'Cloudy', 'Rainy'];
+const YL = ['Nothing', 'Jacket', 'Umbrella'];
+const PRESETS = {
+  real:       [[30, 8, 2], [10, 15, 5], [2, 8, 20]],
+  indep:      [[17, 12, 11], [13, 9, 8], [13, 9, 8]],
+  weak:       [[22, 11, 7], [12, 11, 7], [8, 10, 12]],
+  perfect:    [[40, 0, 0], [0, 30, 0], [0, 0, 30]],
+  contrarian: [[2, 6, 32], [8, 14, 8], [24, 4, 2]],
+  coarse:     [[38, 0, 2], [26, 0, 4], [2, 0, 28]],
+};
+let W = PRESETS.real.map(r => r.slice());
+let selCell = null; // [i,j]
+
+function stats() {
+  const P = normalize2(W);
+  const { px, py } = margins(P);
+  const Hx = H(px), Hy = H(py), Hxy = H(P.flat());
+  const I = Math.max(0, Hx + Hy - Hxy);
+  return { P, px, py, Hx, Hy, Hxy, I, HxGy: Hxy - Hy, HyGx: Hxy - Hx };
+}
+
+function heatTable(container, P, opts) {
+  // opts: {value(i,j)->number, color(i,j)->[cssColor, alpha], text(i,j), editable, margins:{px,py}}
+  let h = '<table class="heat"><tr><th></th>';
+  YL.forEach(y => h += `<th>${y}</th>`);
+  if (opts.margins) h += '<th>p(x)</th>';
+  h += '</tr>';
+  for (let i = 0; i < 3; i++) {
+    h += `<tr><th class="rowh">${XL[i]}</th>`;
+    for (let j = 0; j < 3; j++) {
+      const [col, a] = opts.color(i, j);
+      const bg = `color-mix(in srgb, ${col} ${Math.round(a * 100)}%, transparent)`;
+      const fg = a > 0.55 ? 'var(--on-fill)' : 'var(--ink)';
+      const sel = selCell && selCell[0] === i && selCell[1] === j ? ' sel' : '';
+      h += `<td class="cell${sel}" tabindex="0" data-i="${i}" data-j="${j}" style="background:${bg};color:${fg}">${opts.text(i, j)}`;
+      if (opts.editable) h += `<div class="nudges"><button class="nudge" data-i="${i}" data-j="${j}" data-d="-1" aria-label="less">&minus;</button><button class="nudge" data-i="${i}" data-j="${j}" data-d="1" aria-label="more">+</button></div>`;
+      h += '</td>';
+    }
+    if (opts.margins) h += `<td class="marg">${f2(opts.margins.px[i])}</td>`;
+    h += '</tr>';
+  }
+  if (opts.margins) {
+    h += '<tr><th class="rowh">p(y)</th>';
+    for (let j = 0; j < 3; j++) h += `<td class="marg">${f2(opts.margins.py[j])}</td>`;
+    h += '<td></td></tr>';
+  }
+  container.innerHTML = h + '</table>';
+}
+
+function pmiText(i, j, s) {
+  const p = s.P[i][j], pi = s.px[i] * s.py[j];
+  const pyx = s.px[i] > 0 ? p / s.px[i] : 0;
+  const x = XL[i].toLowerCase(), y = YL[j].toLowerCase();
+  if (p === 0) return `<b>${XL[i]} &amp; ${YL[j]}</b> never happens, so it adds <b>0</b> to the sum (by convention ${tex('0\\log 0 = 0')}). Note that independence would predict it ${f2(pi * 100, 1)}% of the time.`;
+  const pmi = lg(p / pi), ratio = p / pi;
+  const dir = pmi > 0.005 ? `<b>${f2(ratio, 1)}&times; more</b> likely than usual` : pmi < -0.005 ? `<b>${f2(1 / ratio, 1)}&times; less</b> likely than usual` : 'exactly as likely as usual';
+  return `<b>${XL[i]} &amp; ${YL[j]}</b>: happens ${f2(p * 100, 1)}% of days. Independence predicts ${f2(pi * 100, 1)}%.<br>`
+    + tex(`\\text{PMI} = \\log_2\\frac{p(${y}\\mid ${x})}{p(${y})} = \\log_2\\frac{${f2(pyx)}}{${f2(s.py[j])}} = ${f2(pmi)}\\text{ bits}`)
+    + `<br>Seeing ${x} makes ${y} ${dir}. Weighted by how often the pair happens, it contributes <b>${f2(p * pmi, 3)}</b> bits.`;
+}
+
+function renderTable() {
+  const s = stats();
+  const maxP = Math.max(...s.P.flat(), ...s.px.flatMap(a => s.py.map(b => a * b)));
+  const C = s.P.map((r, i) => r.map((p, j) => p > 0 ? p * lg(p / (s.px[i] * s.py[j])) : 0));
+  const maxC = Math.max(1e-9, ...C.flat().map(Math.abs));
+  heatTable(document.getElementById('heatA'), s.P, {
+    color: (i, j) => ['var(--hx)', 0.08 + 0.85 * s.P[i][j] / maxP],
+    text: (i, j) => f2(s.P[i][j]), editable: true, margins: s,
+  });
+  heatTable(document.getElementById('heatB'), s.P, {
+    color: (i, j) => ['var(--hx)', 0.08 + 0.85 * s.px[i] * s.py[j] / maxP],
+    text: (i, j) => f2(s.px[i] * s.py[j]), margins: s,
+  });
+  heatTable(document.getElementById('heatC'), s.P, {
+    color: (i, j) => [C[i][j] >= 0 ? 'var(--pos)' : 'var(--neg)', 0.05 + 0.85 * Math.abs(C[i][j]) / maxC],
+    text: (i, j) => (C[i][j] > 0 ? '+' : '') + f2(C[i][j], 3),
+  });
+  document.getElementById('miVal').textContent = f2(s.I, 3) + ' bits';
+  if (selCell) document.getElementById('pmiReadout').innerHTML = pmiText(selCell[0], selCell[1], s);
+  renderInfoDiag(s);
+  renderWork(s, C);
+  renderNMI(s);
+}
+
+document.getElementById('heatA').addEventListener('click', e => {
+  const b = e.target.closest('.nudge'); if (!b) return;
+  const i = +b.dataset.i, j = +b.dataset.j, d = +b.dataset.d;
+  W[i][j] = Math.max(0, W[i][j] + 2 * d);
+  if (W.flat().every(v => v === 0)) W[i][j] = 2;
+  selCell = [i, j];
+  renderTable();
+});
+['heatA', 'heatB', 'heatC'].forEach(id => {
+  const root = document.getElementById(id);
+  const pick = e => {
+    const td = e.target.closest('td.cell'); if (!td) return;
+    const i = +td.dataset.i, j = +td.dataset.j;
+    if (selCell && selCell[0] === i && selCell[1] === j) return;
+    selCell = [i, j];
+    document.getElementById('pmiReadout').innerHTML = pmiText(i, j, stats());
+    document.querySelectorAll('td.cell').forEach(c => c.classList.toggle('sel', +c.dataset.i === i && +c.dataset.j === j));
+  };
+  root.addEventListener('pointerover', pick);
+  root.addEventListener('focusin', pick);
+  root.addEventListener('click', pick);
+});
+document.querySelectorAll('.preset').forEach(b => b.addEventListener('click', () => {
+  W = PRESETS[b.dataset.p].map(r => r.slice()); renderTable();
+}));
+
+// ---- 6.3.2 information diagram ----
+function renderInfoDiag(s) {
+  const svg = document.getElementById('infoDiag'); svg.innerHTML = '';
+  const L = 92, R = 840, maxB = lg(9), sx = v => L + (R - L) * v / maxB;
+  for (let t = 0; t <= 3; t += 0.5) {
+    el('line', { x1: sx(t), x2: sx(t), y1: 8, y2: 164, class: 'grid' }, svg);
+    el('text', { x: sx(t), y: 182, 'text-anchor': 'middle', 'font-size': 11, class: 'muted' }, svg, t + (t === 3 ? ' bits' : ''));
+  }
+  el('text', { x: sx(maxB), y: 196, 'text-anchor': 'end', 'font-size': 10, class: 'muted' }, svg, 'axis max = log₂9 = 3.17 bits, the most two 3-valued variables can have');
+  const a = s.HxGy, b = a + s.I, c = s.Hxy;
+  const segs = { hx: [0, a, 'var(--hx)', 'H(X|Y)', 'Weather uncertainty left after seeing gear'],
+                 mi: [a, b, 'var(--mi)', 'I(X;Y)', 'Shared: bits each variable tells you about the other'],
+                 hy: [b, c, 'var(--hy)', 'H(Y|X)', 'Gear uncertainty left after seeing weather'] };
+  const rows = [['H(X,Y)', 18, ['hx', 'mi', 'hy'], s.Hxy], ['H(X)', 68, ['hx', 'mi'], s.Hx], ['H(Y)', 118, ['mi', 'hy'], s.Hy]];
+  rows.forEach(([lab, y, keys, tot]) => {
+    el('text', { x: L - 10, y: y + 18, 'text-anchor': 'end', 'font-size': 13, 'font-weight': 600 }, svg, lab);
+    keys.forEach(k => {
+      const [u, v, col, name, desc] = segs[k];
+      const w = sx(v) - sx(u);
+      if (w <= 0.5) return;
+      const r = el('rect', { x: sx(u) + 1, y, width: Math.max(0.5, w - 2), height: 28, rx: 4, fill: col }, svg);
+      bindTip(r, () => `<b>${name}</b> = ${f2(v - u, 3)} bits<br>${desc}`);
+      if (w > 64) el('text', { x: sx(u) + w / 2, y: y + 18, 'text-anchor': 'middle', 'font-size': 11.5, fill: '#fff', 'pointer-events': 'none', style: 'fill:#fff' }, svg, `${name} ${f2(v - u)}`);
+    });
+    el('text', { x: sx(keys[0] === 'mi' ? c : (keys.length === 2 ? b : c)) + 6, y: y + 18, 'font-size': 11.5, class: 'muted' }, svg, '= ' + f2(tot));
+  });
+  [a, b].forEach(v => el('line', { x1: sx(v), x2: sx(v), y1: 10, y2: 152, stroke: 'var(--muted)', 'stroke-dasharray': '3 3', 'stroke-width': 1 }, svg));
+
+  const n = v => f2(v, 3);
+  document.getElementById('identities').innerHTML = [
+    `I(X;Y) = H(X) - H(X\\mid Y) = ${n(s.Hx)} - ${n(s.HxGy)} = ${n(s.I)}`,
+    `I(X;Y) = H(Y) - H(Y\\mid X) = ${n(s.Hy)} - ${n(s.HyGx)} = ${n(s.I)}`,
+    `I(X;Y) = H(X) + H(Y) - H(X,Y) = ${n(s.Hx)} + ${n(s.Hy)} - ${n(s.Hxy)} = ${n(s.I)}`,
+    `I(X;Y) = H(X,Y) - H(X\\mid Y) - H(Y\\mid X) = ${n(s.Hxy)} - ${n(s.HxGy)} - ${n(s.HyGx)} = ${n(s.I)}`,
+  ].map(t => `<div>${tex(t)}</div>`).join('');
+  const pct = s.Hy > 0 ? 100 * s.I / s.Hy : 0;
+  document.getElementById('storyLine').innerHTML =
+    `<b>In words:</b> guessing the roommate's gear blind takes about <b>${f2(s.Hy)}</b> yes/no questions. After a glance out the window it takes only <b>${f2(s.HyGx)}</b>. The glance saves <b>${f2(s.I)} bits</b>, which is ${f2(pct, 0)}% of the uncertainty.`;
+}
+
+// ---- 6.3.3 worked table ----
+function renderWork(s, C) {
+  let h = '<tr><th>x</th><th>y</th><th>p(x,y)</th><th>p(x)p(y)</th><th>ratio</th><th>log₂ ratio (PMI)</th><th>p · log₂ ratio</th></tr>';
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    const p = s.P[i][j], q = s.px[i] * s.py[j];
+    h += `<tr><td>${XL[i]}</td><td>${YL[j]}</td><td>${f2(p, 3)}</td><td>${f2(q, 3)}</td>`
+       + (p > 0 ? `<td>${f2(p / q, 2)}</td><td>${f2(lg(p / q), 3)}</td>` : '<td>0</td><td>&minus;&infin; (skipped)</td>')
+       + `<td style="color:${C[i][j] >= 0 ? 'var(--pos)' : 'var(--neg)'};font-weight:600">${(C[i][j] > 0 ? '+' : '') + f2(C[i][j], 4)}</td></tr>`;
+  }
+  h += `<tr class="total"><td colspan="6" style="text-align:right">Sum = I(X;Y)</td><td>${f2(s.I, 4)} bits</td></tr>`;
+  document.getElementById('workTable').innerHTML = h;
+  document.getElementById('workCheck').innerHTML = `<div>${tex(`H(X)+H(Y)-H(X,Y) = ${f2(s.Hx, 4)} + ${f2(s.Hy, 4)} - ${f2(s.Hxy, 4)} = ${f2(s.I, 4)}\\ \\text{bits}\\ \\checkmark`)}</div>`;
+}
+
+// ---- 6.3.6 NMI ----
+function renderNMI(s) {
+  document.getElementById('nHx').textContent = f2(s.Hx, 3);
+  document.getElementById('nHy').textContent = f2(s.Hy, 3);
+  document.getElementById('nI').textContent = f2(s.I, 3);
+  const m = Math.min(s.Hx, s.Hy);
+  document.getElementById('nN').textContent = m > 0 ? f2(s.I / m, 3) : '—';
+  document.getElementById('nNs').innerHTML = `${f2(s.I, 2)} / min(${f2(s.Hx, 2)}, ${f2(s.Hy, 2)})`;
+}
+
+// ====================================================================
+// 6.3.4 conditional MI
+// ====================================================================
+let cmiScen = 'cause';
+const cmiParams = { a: 0.1, b: 0.15, e: 0.0 };
+const CMI_TEXT = {
+  cause: '<b>Z</b> = season (summer/winter). <b>X</b> = "ice-cream shop busy". <b>Y</b> = "public pool open". Both depend on the season but have nothing to do with each other directly.',
+  xor: '<b>X</b> and <b>Y</b> are two independent fair coin flips. <b>Z</b> is a referee who announces whether they matched (and lies with probability ε).',
+};
+const CMI_NAMES = { cause: ['ice cream', 'pool', 'season'], xor: ['coin 1', 'coin 2', 'match?'] };
+function cmiJoint() { // returns P[z][x][y]
+  const P = [[[0, 0], [0, 0]], [[0, 0], [0, 0]]];
+  for (let z = 0; z < 2; z++) for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) {
+    if (cmiScen === 'cause') {
+      const { a, b } = cmiParams;
+      P[z][x][y] = 0.5 * (x === z ? 1 - a : a) * (y === z ? 1 - b : b);
+    } else {
+      const e = cmiParams.e;
+      P[z][x][y] = 0.25 * (z === ((x ^ y) ^ 1) ? 1 - e : e); // z=1 means "matched"
+    }
+  }
+  return P;
+}
+function renderCMISliders() {
+  const box = document.getElementById('cmiSliders');
+  const defs = cmiScen === 'cause'
+    ? [['a', 'Chance ice-cream sales ignore the season'], ['b', 'Chance pool status ignores the season']]
+    : [['e', 'Chance the referee lies (ε)']];
+  box.innerHTML = defs.map(([k, lab]) => `<div class="ctrl"><label><span>${lab}</span> <b id="cl_${k}">${f2(cmiParams[k])}</b></label><input type="range" min="0" max="0.5" step="0.01" value="${cmiParams[k]}" data-k="${k}"></div>`).join('');
+  box.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => {
+    cmiParams[inp.dataset.k] = +inp.value; document.getElementById('cl_' + inp.dataset.k).textContent = f2(+inp.value); renderCMI();
+  }));
+  document.getElementById('cmiStory').innerHTML = CMI_TEXT[cmiScen];
+}
+function miTable2(P2) { return miJoint(P2); }
+function renderCMI() {
+  const P = cmiJoint();
+  const pz = P.map(m => m.flat().reduce((a, b) => a + b, 0));
+  const Pxy = [[0, 0], [0, 0]];
+  for (let z = 0; z < 2; z++) for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) Pxy[x][y] += P[z][x][y];
+  const Ixy = miTable2(Pxy);
+  const condI = [0, 1].map(z => pz[z] > 0 ? miTable2(normalize2(P[z])) : 0);
+  const Ixyz = pz[0] * condI[0] + pz[1] * condI[1];
+  // I(Y;Z), I(Y;X,Z), I(Y; Z | X)
+  const Pyz = [[0, 0], [0, 0]]; // [z][y]
+  const Pxz = [[0, 0], [0, 0]]; // [x][z]
+  const Pxz_y = [[0, 0], [0, 0], [0, 0], [0, 0]]; // [(x,z)][y]
+  for (let z = 0; z < 2; z++) for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) {
+    Pyz[z][y] += P[z][x][y]; Pxz[x][z] += P[z][x][y]; Pxz_y[2 * x + z][y] += P[z][x][y];
+  }
+  const Iyz = miJoint(Pyz), IyXZ = miJoint(Pxz_y);
+  const IyzGx = Math.max(0, IyXZ - Ixy);
+  document.getElementById('cmiIxy').textContent = f2(Ixy, 3) + ' bits';
+  document.getElementById('cmiIxyz').textContent = f2(Ixyz, 3) + ' bits';
+  const n = v => f2(v, 3);
+  document.getElementById('cmiChain').innerHTML = [
+    `I(X;Y\\mid Z) = \\textstyle\\sum_z p(z)\\,I(X;Y\\mid z) = ${f2(pz[0])}\\cdot${n(condI[0])} + ${f2(pz[1])}\\cdot${n(condI[1])} = ${n(Ixyz)}`,
+    `\\underbrace{I(Y;X,Z)}_{${n(IyXZ)}} = \\underbrace{I(Y;Z)}_{${n(Iyz)}} + \\underbrace{I(Y;X\\mid Z)}_{${n(Ixyz)}}`,
+    `\\underbrace{I(Y;X,Z)}_{${n(IyXZ)}} = \\underbrace{I(Y;X)}_{${n(Ixy)}} + \\underbrace{I(Y;Z\\mid X)}_{${n(IyzGx)}}`,
+  ].map(t => `<div>${tex(t)}</div>`).join('') + `<p class="hint" style="margin-top:6px">Both chain-rule orders give the same total, which is what the information about $Y$ held jointly by $X$ and $Z$ must be.</p>`;
+  renderMathInElement(document.getElementById('cmiChain'), { delimiters: [{ left: '$', right: '$', display: false }] });
+
+  // mini tables
+  const [nx, ny, nz] = CMI_NAMES[cmiScen];
+  const zLab = cmiScen === 'cause' ? ['winter', 'summer'] : ['no match', 'matched'];
+  const xyLab = cmiScen === 'cause' ? ['no', 'yes'] : ['T', 'H'];
+  const mini = (title, M, I) => {
+    const tot = M.flat().reduce((a, b) => a + b, 0) || 1;
+    const N = M.map(r => r.map(v => v / tot));
+    let h = `<div><div class="heat-cap" style="font-size:0.78rem">${title}<span class="hint">I = ${f2(I, 3)} bits</span></div><table class="heat"><tr><th></th><th>${ny}: ${xyLab[0]}</th><th>${xyLab[1]}</th></tr>`;
+    for (let x = 0; x < 2; x++) {
+      h += `<tr><th class="rowh">${nx}: ${xyLab[x]}</th>`;
+      for (let y = 0; y < 2; y++) {
+        const a = 0.08 + 0.85 * N[x][y] / 0.5;
+        h += `<td class="cell" style="width:52px;height:34px;background:color-mix(in srgb, var(--hx) ${Math.round(Math.min(1, a) * 100)}%, transparent);color:${a > 0.55 ? 'var(--on-fill)' : 'var(--ink)'}">${f2(N[x][y])}</td>`;
+      }
+      h += '</tr>';
+    }
+    return h + '</table></div>';
+  };
+  document.getElementById('cmiTables').innerHTML =
+    mini(`Ignoring ${nz}`, Pxy, Ixy) + mini(`Given ${nz} = ${zLab[0]}`, P[0], condI[0]) + mini(`Given ${nz} = ${zLab[1]}`, P[1], condI[1]);
+
+  // DAG
+  const svg = document.getElementById('cmiDag'); svg.innerHTML = '';
+  const defs = el('defs', {}, svg);
+  const mk = el('marker', { id: 'arr', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, defs);
+  el('path', { d: 'M0,0 L10,5 L0,10 z', fill: 'var(--muted)' }, mk);
+  const pos = cmiScen === 'cause' ? { Z: [150, 30], X: [60, 120], Y: [240, 120] } : { Z: [150, 120], X: [60, 30], Y: [240, 30] };
+  const edges = cmiScen === 'cause' ? [['Z', 'X'], ['Z', 'Y']] : [['X', 'Z'], ['Y', 'Z']];
+  edges.forEach(([u, v]) => {
+    const [x1, y1] = pos[u], [x2, y2] = pos[v], d = Math.hypot(x2 - x1, y2 - y1);
+    const ux = (x2 - x1) / d, uy = (y2 - y1) / d;
+    el('line', { x1: x1 + ux * 24, y1: y1 + uy * 24, x2: x2 - ux * 26, y2: y2 - uy * 26, stroke: 'var(--muted)', 'stroke-width': 2, 'marker-end': 'url(#arr)' }, svg);
+  });
+  const names = { X: nx, Y: ny, Z: nz };
+  for (const k in pos) {
+    const [x, y] = pos[k];
+    el('circle', { cx: x, cy: y, r: 22, fill: k === 'Z' ? 'var(--soft)' : 'var(--panel)', stroke: k === 'Z' ? 'var(--ink)' : 'var(--border)', 'stroke-width': k === 'Z' ? 2 : 1.5 }, svg);
+    el('text', { x, y: y + 5, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 700 }, svg, k);
+    el('text', { x, y: y + (y < 75 ? -28 : 40), 'text-anchor': 'middle', 'font-size': 11, class: 'muted' }, svg, names[k]);
+  }
+}
+document.querySelectorAll('.cmiScen').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.cmiScen').forEach(o => o.classList.toggle('on', o === b));
+  cmiScen = b.dataset.s; renderCMISliders(); renderCMI();
+}));
+
+// ====================================================================
+// 6.3.5 Gaussian
+// ====================================================================
+const gRng = mulberry32(7);
+const gPts = Array.from({ length: 350 }, () => gaussPair(gRng));
+function renderGauss() {
+  const rho = +document.getElementById('rho').value;
+  document.getElementById('rhoLbl').textContent = f2(rho);
+  const I = -0.5 * lg(1 - rho * rho);
+  // scatter
+  const sv = document.getElementById('gScatter'); sv.innerHTML = '';
+  const S = 320, pad = 24, sc = v => pad + (S - 2 * pad) * (v + 3.2) / 6.4;
+  el('rect', { x: pad, y: pad, width: S - 2 * pad, height: S - 2 * pad, fill: 'none', class: 'axis' }, sv);
+  el('line', { x1: sc(0), x2: sc(0), y1: pad, y2: S - pad, class: 'grid' }, sv);
+  el('line', { y1: sc(0), y2: sc(0), x1: pad, x2: S - pad, class: 'grid' }, sv);
+  const c = Math.sqrt(1 - rho * rho);
+  gPts.forEach(([u, v]) => {
+    const x = u, y = rho * u + c * v;
+    if (Math.abs(x) < 3.2 && Math.abs(y) < 3.2) el('circle', { cx: sc(x), cy: S - sc(y), r: 2.6, fill: 'var(--hx)', 'fill-opacity': 0.55 }, sv);
+  });
+  el('text', { x: S / 2, y: S - 4, 'text-anchor': 'middle', 'font-size': 12, class: 'muted' }, sv, 'X');
+  el('text', { x: 8, y: S / 2, 'font-size': 12, class: 'muted' }, sv, 'Y');
+  el('text', { x: pad + 6, y: pad + 16, 'font-size': 12 }, sv, `ρ = ${f2(rho)}`);
+  // curve
+  const cv = document.getElementById('gCurve'); cv.innerHTML = '';
+  const L = 46, R = 366, T = 16, B = 282, maxI = 3;
+  const xs = r => L + (R - L) * (r + 1) / 2, ys = v => B - (B - T) * Math.min(v, maxI) / maxI;
+  for (let t = 0; t <= 3; t++) { el('line', { x1: L, x2: R, y1: ys(t), y2: ys(t), class: 'grid' }, cv); el('text', { x: L - 6, y: ys(t) + 4, 'text-anchor': 'end', 'font-size': 11, class: 'muted' }, cv, t); }
+  [-1, -0.5, 0, 0.5, 1].forEach(r => el('text', { x: xs(r), y: B + 16, 'text-anchor': 'middle', 'font-size': 11, class: 'muted' }, cv, r));
+  el('text', { x: (L + R) / 2, y: B + 34, 'text-anchor': 'middle', 'font-size': 12, class: 'muted' }, cv, 'correlation ρ');
+  el('text', { x: 12, y: (T + B) / 2, 'font-size': 12, class: 'muted', transform: `rotate(-90 12 ${(T + B) / 2})`, 'text-anchor': 'middle' }, cv, 'I(X;Y) in bits');
+  let d = '';
+  for (let k = 0; k <= 400; k++) {
+    const r = -0.995 + 1.99 * k / 400;
+    d += (k ? 'L' : 'M') + xs(r).toFixed(1) + ',' + ys(-0.5 * lg(1 - r * r)).toFixed(1);
+  }
+  el('path', { d, fill: 'none', stroke: 'var(--mi)', 'stroke-width': 2 }, cv);
+  el('line', { x1: xs(rho), x2: xs(rho), y1: B, y2: ys(I), stroke: 'var(--muted)', 'stroke-dasharray': '3 3' }, cv);
+  el('circle', { cx: xs(rho), cy: ys(I), r: 6, fill: 'var(--mi)', stroke: 'var(--panel)', 'stroke-width': 2 }, cv);
+  el('text', { x: xs(rho) + (rho > 0.5 ? -10 : 10), y: ys(I) - 10, 'text-anchor': rho > 0.5 ? 'end' : 'start', 'font-size': 12, 'font-weight': 600 }, cv, `I = ${f2(I, 3)} bits`);
+  el('text', { x: (L + R) / 2, y: T + 4, 'text-anchor': 'middle', 'font-size': 11.5, class: 'muted' }, cv, '−½ log₂(1 − ρ²)');
+}
+document.getElementById('rho').addEventListener('input', renderGauss);
+
+// ====================================================================
+// 6.3.7 MIC
+// ====================================================================
+const MIC_N = 500, MIC_B = Math.floor(Math.pow(MIC_N, 0.6)), MIC_GMAX = Math.floor(MIC_B / 2);
+let micSeed = 11, micData = null, micM = null, micBest = null, micShow = null;
+function genMic() {
+  const rng = mulberry32(micSeed), shape = document.getElementById('micShape').value;
+  const noise = +document.getElementById('micNoise').value;
+  const pts = [];
+  for (let k = 0; k < MIC_N; k++) {
+    const [g1, g2] = gaussPair(rng);
+    let x = rng() * 2 - 1, y;
+    switch (shape) {
+      case 'line': y = x; break;
+      case 'parab': y = 2 * x * x - 1; break;
+      case 'circle': { const t = rng() * 2 * Math.PI; x = Math.cos(t); y = Math.sin(t); break; }
+      case 'sine': y = Math.sin(3 * Math.PI * x); break;
+      case 'xshape': y = rng() < 0.5 ? x : -x; break;
+      default: y = rng() * 2 - 1;
+    }
+    const s = 0.35 * noise;
+    pts.push([x + (shape === 'circle' ? s * g2 : 0), y + s * g1]);
+  }
+  return pts;
+}
+function ranks(arr) {
+  const idx = arr.map((v, i) => i).sort((a, b) => arr[a] - arr[b]);
+  const r = new Array(arr.length); idx.forEach((k, pos) => r[k] = pos); return r;
+}
+function computeMic() {
+  micData = genMic();
+  const rx = ranks(micData.map(p => p[0])), ry = ranks(micData.map(p => p[1]));
+  micData.rx = rx; micData.ry = ry;
+  micM = {}; micBest = null;
+  for (let gx = 2; gx <= MIC_GMAX; gx++) for (let gy = 2; gx * gy <= MIC_B; gy++) {
+    const cnt = new Float64Array(gx * gy);
+    for (let k = 0; k < MIC_N; k++) cnt[Math.floor(rx[k] * gx / MIC_N) * gy + Math.floor(ry[k] * gy / MIC_N)]++;
+    const P = []; for (let i = 0; i < gx; i++) { P.push([]); for (let j = 0; j < gy; j++) P[i].push(cnt[i * gy + j] / MIC_N); }
+    const v = miJoint(P) / lg(Math.min(gx, gy));
+    micM[gx + ',' + gy] = v;
+    if (!micBest || v > micBest[2]) micBest = [gx, gy, v];
+  }
+  // pearson
+  const mx = micData.reduce((a, p) => a + p[0], 0) / MIC_N, my = micData.reduce((a, p) => a + p[1], 0) / MIC_N;
+  let sxy = 0, sxx = 0, syy = 0;
+  micData.forEach(([x, y]) => { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; });
+  micData.rho = sxy / Math.sqrt(sxx * syy);
+  micShow = null;
+}
+function renderMic() {
+  const shown = micShow || micBest;
+  const sv = document.getElementById('micScatter'); sv.innerHTML = '';
+  const S = 320, pad = 16;
+  const xsV = micData.map(p => p[0]), ysV = micData.map(p => p[1]);
+  const x0 = Math.min(...xsV), x1 = Math.max(...xsV), y0 = Math.min(...ysV), y1 = Math.max(...ysV);
+  const sx = v => pad + (S - 2 * pad) * (v - x0) / (x1 - x0 || 1), sy = v => S - pad - (S - 2 * pad) * (v - y0) / (y1 - y0 || 1);
+  el('rect', { x: pad, y: pad, width: S - 2 * pad, height: S - 2 * pad, fill: 'none', class: 'axis' }, sv);
+  // quantile grid lines
+  const sortedX = xsV.slice().sort((a, b) => a - b), sortedY = ysV.slice().sort((a, b) => a - b);
+  for (let i = 1; i < shown[0]; i++) { const q = sortedX[Math.ceil(i * MIC_N / shown[0]) - 1]; el('line', { x1: sx(q), x2: sx(q), y1: pad, y2: S - pad, stroke: 'var(--mi)', 'stroke-opacity': 0.55 }, sv); }
+  for (let j = 1; j < shown[1]; j++) { const q = sortedY[Math.ceil(j * MIC_N / shown[1]) - 1]; el('line', { y1: sy(q), y2: sy(q), x1: pad, x2: S - pad, stroke: 'var(--mi)', 'stroke-opacity': 0.55 }, sv); }
+  micData.forEach(([x, y]) => el('circle', { cx: sx(x), cy: sy(y), r: 2.3, fill: 'var(--hx)', 'fill-opacity': 0.6 }, sv));
+  document.getElementById('micRho').textContent = f2(micData.rho);
+  document.getElementById('micVal').textContent = f2(micBest[2]);
+  document.getElementById('micGrid').textContent = `${shown[0]} × ${shown[1]}`;
+  document.getElementById('micGridScore').textContent = `score ${f2(shown[2], 3)}` + (shown === micBest ? ' (the max)' : '');
+  // matrix
+  const mv = document.getElementById('micMatrix'); mv.innerHTML = '';
+  const L = 36, T = 10, cs = (340 - L - 10) / (MIC_GMAX - 1);
+  for (let gx = 2; gx <= MIC_GMAX; gx++) {
+    if (gx % 2 === 0 || gx === 2) el('text', { x: L + (gx - 2) * cs + cs / 2, y: T + (MIC_GMAX - 1) * cs + 14, 'text-anchor': 'middle', 'font-size': 10, class: 'muted' }, mv, gx);
+  }
+  for (let gy = 2; gy <= MIC_GMAX; gy++) {
+    if (gy % 2 === 0) el('text', { x: L - 6, y: T + (MIC_GMAX - gy) * cs + cs / 2 + 3, 'text-anchor': 'end', 'font-size': 10, class: 'muted' }, mv, gy);
+  }
+  el('text', { x: L + (MIC_GMAX - 1) * cs / 2, y: T + (MIC_GMAX - 1) * cs + 28, 'text-anchor': 'middle', 'font-size': 11, class: 'muted' }, mv, 'Gx (columns)');
+  el('text', { x: 10, y: T + (MIC_GMAX - 1) * cs / 2, 'text-anchor': 'middle', 'font-size': 11, class: 'muted', transform: `rotate(-90 10 ${T + (MIC_GMAX - 1) * cs / 2})` }, mv, 'Gy (rows)');
+  for (const key in micM) {
+    const [gx, gy] = key.split(',').map(Number), v = micM[key];
+    const x = L + (gx - 2) * cs, y = T + (MIC_GMAX - gy) * cs;
+    const r = el('rect', { x: x + 1, y: y + 1, width: cs - 2, height: cs - 2, rx: 2, fill: `color-mix(in srgb, var(--mi) ${Math.round((0.06 + 0.94 * Math.max(0, v)) * 100)}%, var(--soft))`, style: 'cursor:pointer' }, mv);
+    const isBest = gx === micBest[0] && gy === micBest[1], isShown = gx === shown[0] && gy === shown[1];
+    if (isBest) el('rect', { x: x - 0.5, y: y - 0.5, width: cs + 1, height: cs + 1, rx: 3, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 2, 'pointer-events': 'none' }, mv);
+    else if (isShown) el('rect', { x: x, y: y, width: cs, height: cs, rx: 3, fill: 'none', stroke: 'var(--muted)', 'stroke-width': 1.5, 'pointer-events': 'none' }, mv);
+    const set = () => { if (!micShow || micShow[0] !== gx || micShow[1] !== gy) { micShow = [gx, gy, v]; renderMic(); } };
+    r.addEventListener('pointerenter', set); r.addEventListener('click', set);
+    bindTip(r, () => `<b>${gx} × ${gy} grid</b><br>normalized MI = ${f2(v, 3)}`);
+  }
+}
+const micRefresh = () => { document.getElementById('micNoiseLbl').textContent = f2(+document.getElementById('micNoise').value); computeMic(); renderMic(); };
+document.getElementById('micShape').addEventListener('change', micRefresh);
+document.getElementById('micNoise').addEventListener('input', micRefresh);
+document.getElementById('micResample').addEventListener('click', () => { micSeed++; micRefresh(); });
+document.getElementById('micMatrix').addEventListener('pointerleave', () => { micShow = null; hideTip(); renderMic(); });
+
+// ====================================================================
+// 6.3.8 DPI
+// ====================================================================
+function hop(e) { return [0, 1, 2, 3].map(i => [0, 1, 2, 3].map(j => (i === j ? 1 - e : 0) + e / 4)); }
+function matmul(A, B) { return A.map(r => B[0].map((_, j) => r.reduce((s, v, k) => s + v * B[k][j], 0))); }
+const FMAPS = { id: [0, 1, 2, 3], swap: [1, 0, 3, 2], merge: [0, 0, 1, 1], const: [0, 0, 0, 0] };
+function horizBars(svgId, items, opts) {
+  // items: [{label, value, color, note}] ; opts: {max, ref, refLabel, unit, height}
+  const svg = document.getElementById(svgId); svg.innerHTML = '';
+  const L = opts.left || 210, R = 680, rowH = opts.rowH || 38, T = 14;
+  const sx = v => L + (R - L) * v / opts.max;
+  const bottom = T + items.length * rowH;
+  for (let t = 0; t <= opts.max + 1e-9; t += opts.step) {
+    el('line', { x1: sx(t), x2: sx(t), y1: T - 4, y2: bottom, class: 'grid' }, svg);
+    el('text', { x: sx(t), y: bottom + 16, 'text-anchor': 'middle', 'font-size': 11, class: 'muted' }, svg, f2(t, opts.step < 1 ? 1 : 0));
+  }
+  el('text', { x: R, y: bottom + 32, 'text-anchor': 'end', 'font-size': 11, class: 'muted' }, svg, 'bits');
+  items.forEach((it, k) => {
+    const y = T + k * rowH;
+    el('text', { x: L - 10, y: y + rowH / 2 + 4, 'text-anchor': 'end', 'font-size': 13, 'font-weight': it.bold ? 700 : 500 }, svg, it.label);
+    const w = Math.max(0, sx(it.value) - L);
+    const r = el('rect', { x: L, y: y + 6, width: Math.max(w, 1), height: rowH - 14, rx: 4, fill: it.color }, svg);
+    bindTip(r, () => `<b>${it.label}</b><br>${f2(it.value, 4)} bits${it.note ? '<br>' + it.note : ''}`);
+    el('text', { x: Math.max(L + w, opts.ref != null ? sx(opts.ref) : 0) + 6, y: y + rowH / 2 + 4, 'font-size': 12, 'font-weight': 600 }, svg, f2(it.value, 3) + (it.tag ? '  ' + it.tag : ''));
+  });
+  if (opts.ref != null) {
+    el('line', { x1: sx(opts.ref), x2: sx(opts.ref), y1: T - 8, y2: bottom, stroke: 'var(--ink)', 'stroke-dasharray': '5 4', 'stroke-width': 1.5 }, svg);
+    el('text', { x: sx(opts.ref) - 4, y: T - 8 + 0, 'text-anchor': 'end', 'font-size': 11, class: 'muted' }, svg, opts.refLabel);
+  }
+  svg.setAttribute('viewBox', `0 0 860 ${bottom + 40}`);
+}
+function renderDPI() {
+  const e1 = +document.getElementById('dpE1').value, e2 = +document.getElementById('dpE2').value;
+  document.getElementById('e1Lbl').textContent = f2(e1 * 100, 0) + '%';
+  document.getElementById('e2Lbl').textContent = f2(e2 * 100, 0) + '%';
+  const fm = FMAPS[document.getElementById('dpF').value];
+  const T1 = hop(e1), T12 = matmul(T1, hop(e2));
+  const J = T => T.map(r => r.map(v => v / 4));
+  const Ixy = miJoint(J(T1)), Ixz = miJoint(J(T12));
+  const Jw = [0, 1, 2, 3].map(() => [0, 0, 0, 0]);
+  for (let x = 0; x < 4; x++) for (let z = 0; z < 4; z++) Jw[x][fm[z]] += T12[x][z] / 4;
+  const Ixw = miJoint(Jw);
+  horizBars('dpChart', [
+    { label: 'I(X;X) = H(X)', value: 2, color: 'var(--border)', note: 'The original message: 2 bits' },
+    { label: 'I(X;Y)  after hop 1', value: Ixy, color: 'var(--mi)' },
+    { label: 'I(X;Z)  after hop 2', value: Ixz, color: 'var(--mi)', tag: Ixz <= Ixy + 1e-12 ? '≤ previous ✓' : '' },
+    { label: 'I(X;W)  after f', value: Ixw, color: 'var(--mi)', tag: Ixw >= Ixz - 1e-9 ? '= previous (nothing lost)' : '≤ previous ✓' },
+  ], { max: 2, step: 0.5 });
+}
+['dpE1', 'dpE2'].forEach(id => document.getElementById(id).addEventListener('input', renderDPI));
+document.getElementById('dpF').addEventListener('change', renderDPI);
+
+// ====================================================================
+// 6.3.9 sufficient statistics
+// ====================================================================
+const THETAS = Array.from({ length: 19 }, (_, i) => 0.05 * (i + 1));
+function renderSS() {
+  const n = +document.getElementById('ssN').value;
+  document.getElementById('ssNLbl').textContent = n;
+  const half = Math.ceil(n / 2), M = 1 << n;
+  const popc = m => { let c = 0; while (m) { c += m & 1; m >>= 1; } return c; };
+  const stats = [
+    { label: 'Full data 𝒟 (all flips)', f: m => m, size: M },
+    { label: 'Number of heads', f: m => popc(m), size: n + 1 },
+    { label: 'Heads in first half only', f: m => popc(m & ((1 << half) - 1)), size: half + 1 },
+    { label: 'First flip only', f: m => m & 1, size: 2 },
+    { label: 'Is the head count even?', f: m => popc(m) & 1, size: 2 },
+  ];
+  const pT = 1 / THETAS.length;
+  const kOf = new Uint8Array(M); for (let m = 0; m < M; m++) kOf[m] = popc(m);
+  const res = stats.map(st => {
+    const J = THETAS.map(() => new Float64Array(st.size));
+    THETAS.forEach((t, i) => {
+      const pk = Array.from({ length: n + 1 }, (_, k) => Math.pow(t, k) * Math.pow(1 - t, n - k));
+      for (let m = 0; m < M; m++) J[i][st.f(m)] += pT * pk[kOf[m]];
+    });
+    return miJoint(J.map(r => Array.from(r)));
+  });
+  const full = res[0];
+  horizBars('ssChart', stats.map((st, k) => ({
+    label: st.label, value: res[k], color: k === 0 ? 'var(--border)' : 'var(--mi)', bold: k === 1,
+    tag: k === 0 ? `(${M} possible values)` : (Math.abs(res[k] - full) < 1e-9 ? `= I(θ;𝒟): sufficient (${st.size} values)` : `< I(θ;𝒟): loses ${f2(full - res[k], 3)} bits`),
+  })), { max: 2, step: 0.5, ref: full, refLabel: 'I(θ;𝒟)', left: 230 });
+}
+document.getElementById('ssN').addEventListener('input', renderSS);
+
+// ====================================================================
+// 6.3.10 Fano
+// ====================================================================
+const Hb = p => (p <= 0 || p >= 1) ? 0 : -p * lg(p) - (1 - p) * lg(1 - p);
+function renderFano() {
+  const K = +document.getElementById('fK').value;
+  const eIn = document.getElementById('fE');
+  const e = +eIn.value, type = document.getElementById('fType').value;
+  document.getElementById('fKLbl').textContent = K;
+  document.getElementById('fELbl').textContent = f2(e * 100, 0) + '%';
+  // joint p(y, x): y uniform
+  const J = [];
+  for (let y = 0; y < K; y++) {
+    const row = new Array(K).fill(0);
+    row[y] += 1 - e;
+    if (type === 'uniform') { for (let x = 0; x < K; x++) if (x !== y) row[x] += e / (K - 1); }
+    else { row[(y + 1) % K] += e / 2; row[(y - 1 + K) % K] += e / 2; }
+    J.push(row.map(v => v / K));
+  }
+  const I = miJoint(J), HY = lg(K), HYgX = HY - I;
+  let correct = 0;
+  for (let x = 0; x < K; x++) { let m = 0; for (let y = 0; y < K; y++) m = Math.max(m, J[y][x]); correct += m; }
+  const Pe = 1 - correct;
+  const bookB = Math.max(0, (HYgX - 1) / lg(K));
+  document.getElementById('fH').textContent = f2(HYgX, 3);
+  document.getElementById('fI').textContent = f2(I, 3);
+  document.getElementById('fPe').textContent = f2(Pe * 100, 1) + '%';
+  document.getElementById('fBound').textContent = f2(bookB * 100, 1) + '%';
+  // plot
+  const svg = document.getElementById('fanoChart'); svg.innerHTML = '';
+  const L = 50, R = 404, T = 16, B = 270;
+  const sx = h => L + (R - L) * h / HY, sy = p => B - (B - T) * p;
+  for (let p = 0; p <= 1.001; p += 0.25) { el('line', { x1: L, x2: R, y1: sy(p), y2: sy(p), class: 'grid' }, svg); el('text', { x: L - 6, y: sy(p) + 4, 'text-anchor': 'end', 'font-size': 11, class: 'muted' }, svg, f2(p * 100, 0) + '%'); }
+  const hStep = HY > 2.5 ? 1 : 0.5;
+  for (let h = 0; h <= HY + 1e-9; h += hStep) el('text', { x: sx(h), y: B + 16, 'text-anchor': 'middle', 'font-size': 11, class: 'muted' }, svg, f2(h, hStep < 1 ? 1 : 0));
+  el('text', { x: (L + R) / 2, y: B + 34, 'text-anchor': 'middle', 'font-size': 12, class: 'muted' }, svg, `H(Y|X) in bits (max log₂${K} = ${f2(HY, 2)})`);
+  el('text', { x: 12, y: (T + B) / 2, 'text-anchor': 'middle', 'font-size': 12, class: 'muted', transform: `rotate(-90 12 ${(T + B) / 2})` }, svg, 'error rate Pₑ');
+  // sharp curve: minimal Pe with Hb(Pe)+Pe log2(K-1) >= h
+  const g = p => Hb(p) + p * lg(K - 1);
+  const pmax = (K - 1) / K;
+  const invert = h => { let lo = 0, hi = pmax; for (let k = 0; k < 50; k++) { const m = (lo + hi) / 2; if (g(m) >= h) hi = m; else lo = m; } return hi; };
+  let dS = `M${sx(0)},${sy(0)}`, area = `M${sx(0)},${sy(0)}`;
+  for (let k = 1; k <= 200; k++) { const h = HY * k / 200; const p = invert(h); dS += `L${sx(h).toFixed(1)},${sy(p).toFixed(1)}`; area += `L${sx(h).toFixed(1)},${sy(p).toFixed(1)}`; }
+  area += `L${sx(HY)},${sy(0)}Z`;
+  el('path', { d: area, fill: 'var(--neg)', 'fill-opacity': 0.12 }, svg);
+  el('text', { x: sx(HY * 0.72), y: sy(0.06), 'text-anchor': 'middle', 'font-size': 11.5, fill: 'var(--neg)', style: 'fill:var(--neg)' }, svg, 'impossible region');
+  el('path', { d: dS, fill: 'none', stroke: 'var(--neg)', 'stroke-width': 2 }, svg);
+  const b0 = Math.min(HY, 1);
+  el('path', { d: `M${sx(0)},${sy(0)}L${sx(b0)},${sy(0)}L${sx(HY)},${sy(Math.max(0, (HY - 1) / HY))}`, fill: 'none', stroke: 'var(--muted)', 'stroke-width': 2, 'stroke-dasharray': '6 4' }, svg);
+  el('text', { x: sx(HY) - 4, y: sy(Math.max(0, (HY - 1) / HY)) + 16, 'text-anchor': 'end', 'font-size': 11, class: 'muted' }, svg, 'book form');
+  el('text', { x: sx(HY) - 4, y: sy(pmax) - 8, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--neg)', style: 'fill:var(--neg)' }, svg, 'sharp form');
+  const dot = el('circle', { cx: sx(HYgX), cy: sy(Pe), r: 7, fill: 'var(--mi)', stroke: 'var(--panel)', 'stroke-width': 2 }, svg);
+  bindTip(dot, () => `<b>Bayes-optimal classifier</b><br>H(Y|X) = ${f2(HYgX, 3)} bits<br>error = ${f2(Pe * 100, 1)}%`);
+  el('text', { x: sx(HYgX) + (HYgX > HY * 0.6 ? -12 : 12), y: sy(Pe) - 10, 'text-anchor': HYgX > HY * 0.6 ? 'end' : 'start', 'font-size': 12, 'font-weight': 600 }, svg, 'your sensor');
+}
+['fK', 'fE'].forEach(id => document.getElementById(id).addEventListener('input', renderFano));
+document.getElementById('fType').addEventListener('change', renderFano);
+
+// ---------- boot ----------
+function boot() {
+  renderMathInElement(document.body, {
+    delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
+    ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg'],
+    throwOnError: false,
+  });
+  renderTable();
+  renderCMISliders(); renderCMI();
+  renderGauss();
+  micRefresh();
+  renderDPI();
+  renderSS();
+  renderFano();
+}
+if (window.renderMathInElement) boot(); else window.addEventListener('load', boot);
+</script>
+</body>
+</html>
