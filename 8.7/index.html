@@ -1,0 +1,1330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EM, One Step at a Time</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --soft: #fafaf9;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --gridline: #ecebe8;
+    --a: #2a78d6;        /* Hillside orchard (component 1) */
+    --b: #eb6834;        /* Valley orchard (component 2) */
+    --q: #1baf7a;        /* the lower bound Q / ELBO */
+    --gap: #e34948;      /* the gap LL - ELBO = KL */
+    --mle: #4a3aa7;      /* MLE run in the MAP demo */
+    --seq: #4a3aa7;      /* sequential ramp for the likelihood surface */
+    --callout-bg: #fbf3e8;
+    --callout-border: #ecd9b8;
+    --code-bg: #f1f0ed;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+      --border: #34342f; --gridline: #2a2a27;
+      --a: #3987e5; --b: #d95926; --q: #199e70; --gap: #e66767; --mle: #9085e9; --seq: #9085e9;
+      --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+    --border: #34342f; --gridline: #2a2a27;
+    --a: #3987e5; --b: #d95926; --q: #199e70; --gap: #e66767; --mle: #9085e9; --seq: #9085e9;
+    --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 30px 16px 70px; }
+  header h1 { font-size: 1.75rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  nav.toc { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a {
+    font-size: 0.78rem; text-decoration: none; color: var(--ink);
+    border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 3px 10px;
+  }
+  nav.toc a:hover { border-color: var(--q); }
+  section.block {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px 24px 26px; margin-top: 26px; overflow-x: clip; position: relative;
+  }
+  @media (max-width: 560px) { section.block { padding: 18px 14px 20px; } }
+  section.block h2 { font-size: 1.22rem; margin: 0 0 4px; }
+  section.block h2 .num { color: var(--muted); font-weight: 600; font-size: 0.9rem; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .kicker { color: var(--muted); font-size: 0.86rem; margin-bottom: 12px; font-style: italic; }
+  h3 { font-size: 0.98rem; margin: 20px 0 6px; }
+  p { margin: 0 0 12px; font-size: 0.95rem; }
+  ol, ul { font-size: 0.95rem; margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  .eqbox {
+    background: var(--soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 18px; margin: 14px 0; overflow-x: auto;
+  }
+  .eqbox .label { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .terms { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 0.9rem; margin: 8px 0 14px; align-items: baseline; }
+  .terms .t { text-align: right; white-space: nowrap; }
+  @media (max-width: 560px) { .terms { grid-template-columns: 1fr; } .terms .t { text-align: left; } }
+  .callout {
+    margin: 16px 0 0; padding: 10px 14px; border-radius: 8px;
+    background: var(--callout-bg); border: 1px solid var(--callout-border); font-size: 0.9rem;
+  }
+  details { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); }
+  details summary { cursor: pointer; padding: 8px 14px; font-size: 0.88rem; font-weight: 600; }
+  details > div { padding: 0 14px 12px; overflow-x: auto; font-size: 0.9rem; }
+  code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; font-size: 0.88em; }
+  pre.algo { background: var(--code-bg); border-radius: 8px; padding: 12px 16px; font-size: 0.84rem; overflow-x: auto; line-height: 1.6; margin: 12px 0; }
+  .demo { border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 14px; }
+  .demo-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .two.wide-left { grid-template-columns: 3fr 2fr; }
+  @media (max-width: 720px) { .two, .two.wide-left { grid-template-columns: 1fr; } }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  button.pill {
+    font-size: 0.8rem; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink);
+  }
+  button.pill:hover { border-color: var(--q); }
+  button.pill.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button.pill.primary { border-color: var(--q); font-weight: 600; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 6px 0 10px; }
+  .ctrl { display: flex; flex-direction: column; gap: 2px; min-width: 150px; flex: 1; }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .ctrl label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .ctrl.a label > span:first-child { border-left: 3px solid var(--a); padding-left: 5px; }
+  .ctrl.b label > span:first-child { border-left: 3px solid var(--b); padding-left: 5px; }
+  input[type=range] { width: 100%; accent-color: var(--q); }
+  label.check { font-size: 0.82rem; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .tiles.three { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px) { .tiles, .tiles.three { grid-template-columns: 1fr 1fr; } }
+  .tile { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+  .tile .k { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+  .tile .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 0.72rem; color: var(--muted); }
+  .tile.a { border-left: 4px solid var(--a); }
+  .tile.b { border-left: 4px solid var(--b); }
+  .tile.q { border-left: 4px solid var(--q); }
+  .tile.gap { border-left: 4px solid var(--gap); }
+  svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: manipulation; }
+  svg text { fill: var(--ink); font-family: inherit; font-size: 12px; }
+  svg .muted { fill: var(--muted); }
+  svg .axis { stroke: var(--border); }
+  svg .grid { stroke: var(--gridline); }
+  .readout { font-size: 0.88rem; background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-variant-numeric: tabular-nums; }
+  .readout .ln { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; border-bottom: 1px dotted var(--border); }
+  .readout .ln:last-child { border-bottom: none; }
+  .readout .ln b { white-space: nowrap; }
+  .chain { font-size: 0.9rem; font-variant-numeric: tabular-nums; background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-top: 10px; overflow-x: auto; white-space: nowrap; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+  .legend > span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw.line { height: 3px; border-radius: 2px; width: 16px; }
+  table.work { border-collapse: collapse; width: 100%; font-size: 0.84rem; font-variant-numeric: tabular-nums; }
+  table.work th, table.work td { border-bottom: 1px solid var(--border); padding: 5px 8px; text-align: right; }
+  table.work th { color: var(--muted); font-weight: 600; font-size: 0.78rem; }
+  table.work td:first-child, table.work th:first-child { text-align: left; }
+  table.story { border-collapse: collapse; width: 100%; font-size: 0.88rem; margin: 10px 0; }
+  table.story td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+  table.story td:first-child { white-space: nowrap; width: 1%; }
+  @media (max-width: 560px) { table.story td:first-child { white-space: normal; width: 34%; } }
+  table.cheat { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+  table.cheat td { border-bottom: 1px solid var(--border); padding: 8px 8px; vertical-align: top; }
+  table.cheat td:first-child { white-space: nowrap; color: var(--muted); font-size: 0.78rem; }
+  .scroll-x { overflow-x: auto; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
+  .card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--soft); font-size: 0.9rem; }
+  .card h4 { margin: 0 0 6px; font-size: 0.92rem; }
+  .status { font-size: 0.84rem; margin-top: 8px; min-height: 1.4em; }
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; display: none; max-width: 300px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 10px; font-size: 0.8rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); font-variant-numeric: tabular-nums;
+  }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<div class="wrap">
+  <header>
+    <h1>EM, One Step at a Time</h1>
+    <div class="subtitle">A visual companion to &sect;8.7 (bound optimization and the EM algorithm) of Murphy's <em>Probabilistic Machine Learning: An Introduction</em>. It builds the algorithm the way the chapter does: first a general hill-climbing trick, then the lower bound, then the E step and the M step, then the full Gaussian-mixture version and its pitfalls. One story runs through the whole page. Built for CS 473 self-study.</div>
+    <nav class="toc">
+      <a href="#story">The story</a>
+      <a href="#s1">8.7.1 Bound optimization</a>
+      <a href="#s2">8.7.2 EM setup</a>
+      <a href="#s21">8.7.2.1 Lower bound</a>
+      <a href="#s22">8.7.2.2 E step</a>
+      <a href="#s23">8.7.2.3 M step</a>
+      <a href="#s3">8.7.3 EM for a GMM</a>
+      <a href="#s33">8.7.3.3 2-D example</a>
+      <a href="#s34">8.7.3.4 MAP</a>
+      <a href="#s35">8.7.3.5 Nonconvexity</a>
+      <a href="#cheat">Cheat sheet</a>
+    </nav>
+  </header>
+
+  <!-- ===================== STORY ===================== -->
+  <section class="block" id="story">
+    <h2>The story: the apple bin mix-up</h2>
+    <div class="kicker">Two orchards, one bin, and nobody kept track of whose apple is whose.</div>
+    <p>Two orchards sell at the same farmers' market. <b style="color:var(--a)">Hillside</b> grows small apples and <b style="color:var(--b)">Valley</b> grows big ones. This morning a helper tipped both crates into a single bin. You weigh all 40 apples, and you would like to know three things about each orchard:</p>
+    <ul>
+      <li>its <b>typical weight</b> (a mean $\mu_k$),</li>
+      <li>how <b>consistent</b> its apples are (a spread $\sigma_k$),</li>
+      <li>its <b>share</b> of the bin (a mixing weight $\pi_k$).</li>
+    </ul>
+    <p>You would also like a best guess of which orchard each apple came from. Unfortunately, that is exactly the information that got lost.</p>
+
+    <div class="demo">
+      <div class="demo-title">The bin. Each dot is an apple, placed at its weight.</div>
+      <div class="row">
+        <button class="pill on" id="introHide">What you actually see</button>
+        <button class="pill" id="introPeek">Peek at the truth (you never get this)</button>
+      </div>
+      <svg id="introSvg" viewBox="0 0 820 230" aria-label="Dot plot of apple weights"></svg>
+      <div class="tiles three" id="introTiles"></div>
+    </div>
+
+    <h3>Why this is hard: a chicken-and-egg problem</h3>
+    <div class="cards">
+      <div class="card"><h4>If you knew each apple's orchard&hellip;</h4>Estimating each orchard's recipe would be easy. Split the bin into two piles, then average each pile for $\mu_k$, take each pile's spread for $\sigma_k$, and count each pile for $\pi_k$.</div>
+      <div class="card"><h4>If you knew each orchard's recipe&hellip;</h4>Guessing each apple's orchard would also be easy. Use Bayes' rule: a 200 g apple is much more likely under Valley's bell curve than under Hillside's.</div>
+    </div>
+    <p>You know neither. <b>EM breaks the loop by guessing one half, solving for the other, and repeating.</b> Guess the recipes, then softly assign apples to orchards (the <b>E step</b>). Re-estimate the recipes from those soft assignments (the <b>M step</b>). Repeat. The rest of this page shows why that loop always goes uphill, following the same order as the chapter.</p>
+
+    <div class="scroll-x"><table class="story">
+      <tr><td>an apple's weight</td><td>$y_n$, the observed data ($n = 1,\dots,N$, with $N=40$)</td></tr>
+      <tr><td>its orchard</td><td>$z_n \in \{\text{H},\text{V}\}$, the <b>hidden (latent) variable</b></td></tr>
+      <tr><td>the orchards' recipes</td><td>$\theta = (\pi_k, \mu_k, \sigma_k)$, the parameters we want</td></tr>
+      <tr><td>how plausible a recipe is</td><td>$\text{LL}(\theta) = \sum_n \log p(y_n\mid\theta)$, the log likelihood we want to climb</td></tr>
+      <tr><td>&ldquo;how much I blame orchard $k$ for apple $n$&rdquo;</td><td>$q_n(z_n{=}k)$, which equals the <b>responsibility</b> $r_{nk}$ after an E step</td></tr>
+      <tr><td>a safety net under the hill</td><td>$Q(\theta,\theta^t)$, the lower bound (the ELBO) that EM climbs instead</td></tr>
+    </table></div>
+  </section>
+
+  <!-- ===================== 8.7.1 ===================== -->
+  <section class="block" id="s1">
+    <h2><span class="num">8.7.1</span>The general algorithm: climb a safety net</h2>
+    <div class="kicker">If a hill is awkward to climb directly, climb a simpler shape that sits under it and touches it where you stand.</div>
+    <p>Suppose you want to climb a hill $\text{LL}(\theta)$, but the hill has a messy shape. <b>Bound optimization</b> (also called <b>MM</b>, for minorize-maximize) says to build a simpler surface $Q(\theta,\theta^t)$ that obeys two rules, and then jump to the top of $Q$:</p>
+    <div class="eqbox">
+      <div class="label">The two rules for the surrogate</div>
+      $$Q(\theta,\theta^t) \le \text{LL}(\theta)\ \text{ for every } \theta \qquad\text{and}\qquad Q(\theta^t,\theta^t) = \text{LL}(\theta^t)$$
+      <div class="label" style="margin-top:8px">The update</div>
+      $$\theta^{t+1} = \arg\max_\theta\ Q(\theta,\theta^t)$$
+    </div>
+    <div class="terms">
+      <div class="t">$Q \le \text{LL}$</div><div>The net lies <b>everywhere under</b> the hill. It <em>minorizes</em> LL.</div>
+      <div class="t">$Q(\theta^t,\theta^t)=\text{LL}(\theta^t)$</div><div>The net <b>touches</b> the hill exactly where you stand now (it is <em>tight</em>).</div>
+      <div class="t">$\arg\max Q$</div><div>Walk to the top of the net, which is easy when $Q$ has a nice shape (here it is a parabola).</div>
+    </div>
+    <p>Why can't this ever make things worse? Read the chain of inequalities left to right:</p>
+    <div class="eqbox">
+      $$\text{LL}(\theta^{t+1}) \;\ge\; Q(\theta^{t+1},\theta^t) \;\ge\; Q(\theta^t,\theta^t) \;=\; \text{LL}(\theta^t)$$
+    </div>
+    <p>The first $\ge$ holds because the net is under the hill. The second holds because $\theta^{t+1}$ is the top of the net, so it is at least as high as any other point on it, including $\theta^t$. The final $=$ is the touching rule. <b>So every step goes uphill (or stays put).</b></p>
+
+    <div class="demo">
+      <div class="demo-title">Try it on the apples. Only Valley's mean $\mu_V$ is unknown here; the other recipe numbers are fixed at the truth.</div>
+      <p class="hint">The black curve is the real hill, LL($\mu_V$). The green curve is the net built at your current position (it is the exact bound EM builds, which the next sections derive). <b>Click anywhere on the plot</b> to choose a starting point, then press Step.</p>
+      <svg id="mmSvg" viewBox="0 0 820 330" aria-label="Log likelihood and lower bound"></svg>
+      <div class="legend">
+        <span><i class="sw line" style="background:var(--ink)"></i>LL($\mu_V$), the true objective</span>
+        <span><i class="sw line" style="background:var(--q)"></i>$Q(\mu_V, \mu_V^t)$, the net at the current point</span>
+        <span><i class="sw" style="background:var(--ink);border-radius:50%"></i>current $\theta^t$</span>
+        <span><i class="sw" style="border:2px solid var(--q);border-radius:50%"></i>top of the net, $\theta^{t+1}$</span>
+      </div>
+      <div class="row">
+        <button class="pill primary" id="mmStep">Step (jump to top of net)</button>
+        <button class="pill" id="mmRun">Run to convergence</button>
+        <button class="pill" id="mmReset">Reset</button>
+        <span class="hint" id="mmIter"></span>
+      </div>
+      <div class="chain" id="mmChain"></div>
+    </div>
+    <div class="callout"><b>What to notice.</b> Far from the peak the net is a poor fit, but it still points uphill. Close to the peak it hugs the hill and the steps shrink, so MM slows down near the top. Here every start reaches the same peak, but MM only promises &ldquo;never downhill&rdquo;, not &ldquo;the highest peak&rdquo;. When the hill has several peaks, you end up on whichever one you started near (see 8.7.3.5).</div>
+  </section>
+
+  <!-- ===================== 8.7.2 ===================== -->
+  <section class="block" id="s2">
+    <h2><span class="num">8.7.2</span>The EM algorithm: where does the net come from?</h2>
+    <div class="kicker">EM is MM for models with hidden variables. Its net is built from guesses about the hidden variables.</div>
+    <p>Each apple's probability under a recipe is a sum over the orchard it <em>might</em> have come from:</p>
+    <div class="eqbox">
+      $$\text{LL}(\theta) = \sum_{n=1}^{N}\log p(y_n\mid\theta) = \sum_{n=1}^{N}\log\Big[\sum_{z_n} p(y_n, z_n\mid\theta)\Big]$$
+    </div>
+    <div class="terms">
+      <div class="t">$p(y_n, z_n\mid\theta)$</div><div>&ldquo;Apple $n$ came from orchard $z_n$ <b>and</b> weighs $y_n$.&rdquo; For us that is $\pi_k\,\mathcal{N}(y_n\mid\mu_k,\sigma_k^2)$, a simple expression.</div>
+      <div class="t">$\log\sum$</div><div>The trouble spot. The log sits <b>outside</b> a sum, so it cannot break the expression into simple pieces. Setting the gradient to zero gives no closed form.</div>
+    </div>
+    <p>If we knew $z_n$, we would have $\log p(y_n, z_n\mid\theta)$ with no sum inside the log, and the problem would be easy (that is the first card in the story). EM's idea is to <b>replace the unknown $z_n$ with a distribution of guesses $q_n(z_n)$</b> and push the log through the sum, at the cost of an inequality. The next three subsections do exactly that.</p>
+  </section>
+
+  <!-- ===================== 8.7.2.1 ===================== -->
+  <section class="block" id="s21">
+    <h2><span class="num">8.7.2.1</span>The lower bound: Jensen's inequality</h2>
+    <div class="kicker">The log of an average is never smaller than the average of the logs.</div>
+    <p>Pick any blame distribution $q_n$ over the two orchards for each apple. Multiply and divide by it (which changes nothing), then use the fact that $\log$ is concave:</p>
+    <div class="eqbox">
+      $$\text{LL}(\theta) = \sum_n \log \sum_{z_n} q_n(z_n)\,\frac{p(y_n,z_n\mid\theta)}{q_n(z_n)} \;\ge\; \sum_n \sum_{z_n} q_n(z_n)\log\frac{p(y_n,z_n\mid\theta)}{q_n(z_n)}$$
+      $$= \sum_n \Big(\underbrace{\mathbb{E}_{q_n}\!\big[\log p(y_n,z_n\mid\theta)\big]}_{\text{expected complete-data log lik.}} + \underbrace{\mathbb{H}(q_n)}_{\text{entropy of the guess}}\Big) \;=\; \mathcal{L}\big(\theta,\{q_n\}\mid\mathcal{D}\big)$$
+    </div>
+    <div class="terms">
+      <div class="t">$\sum_{z} q(z)\,\frac{p(y,z)}{q(z)}$</div><div>An <b>average</b> (weighted by $q$) of the values $a_z = p(y,z)/q(z)$. It always equals $p(y)$.</div>
+      <div class="t">$\log \mathbb{E}[a] \ge \mathbb{E}[\log a]$</div><div><b>Jensen's inequality</b> for the concave $\log$: a chord drawn between two points on a log curve lies <em>under</em> the curve.</div>
+      <div class="t">$\mathcal{L}(\theta,q)$</div><div>The <b>evidence lower bound (ELBO)</b>. This is the net. The log now sits <em>inside</em> the sum, on $p(y,z)$, which is the easy quantity.</div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Jensen's inequality for one apple</div>
+      <p class="hint">Click an apple to select it. The orchards' recipes are the current guess from the E-step demo below, so changing that guess changes this picture too. Slide $q(\text{H})$, how much you blame Hillside for this apple, and watch the gap.</p>
+      <svg id="jPick" viewBox="0 0 820 80" aria-label="Pick an apple"></svg>
+      <div class="two wide-left" style="margin-top:8px">
+        <div>
+          <svg id="jSvg" viewBox="0 0 520 320" aria-label="Jensen inequality on the log curve"></svg>
+        </div>
+        <div>
+          <div class="ctrl"><label><span>blame on Hillside, $q(\text{H})$</span><b id="jqv"></b></label><input type="range" id="jq" min="0.01" max="0.99" step="0.01" value="0.15"></div>
+          <div class="row"><button class="pill primary" id="jPost">Set q to the posterior</button></div>
+          <div class="readout" id="jRead"></div>
+        </div>
+      </div>
+      <p class="hint" style="margin-top:8px">To keep the picture readable, every value is divided by $p(y_n)$. The weighted average of the two points then always lands at $x=1$, where the true $\log p(y_n)$ sits at height $0$. The chord's height at $x=1$ is the ELBO term, and the red gap between them turns out to be exactly $\mathbb{KL}\big(q_n\,\|\,p(z_n\mid y_n,\theta)\big)$.</p>
+    </div>
+    <div class="callout"><b>What to notice.</b> The gap closes completely at one value of $q$, where both points merge into one. That happens when your blame matches the posterior $p(z\mid y,\theta)$, because then every ratio $a_z = p(y,z)/q(z)$ equals $p(y)$, and averaging identical numbers costs nothing. That observation is the E step.</div>
+  </section>
+
+  <!-- ===================== 8.7.2.2 ===================== -->
+  <section class="block" id="s22">
+    <h2><span class="num">8.7.2.2</span>The E step: make the net touch</h2>
+    <div class="kicker">Choose the blame that closes the gap, which turns out to be Bayes' rule.</div>
+    <p>Rewrite one apple's ELBO term using $p(y,z) = p(z\mid y)\,p(y)$:</p>
+    <div class="eqbox">
+      $$\mathcal{L}(\theta,q_n\mid y_n) = \sum_{z_n} q_n(z_n)\log\frac{p(z_n\mid y_n,\theta)\,p(y_n\mid\theta)}{q_n(z_n)} = \log p(y_n\mid\theta)\;-\;\mathbb{KL}\big(q_n(z_n)\,\|\,p(z_n\mid y_n,\theta)\big)$$
+    </div>
+    <div class="terms">
+      <div class="t">$\log p(y_n\mid\theta)$</div><div>This apple's true contribution to LL. It does <b>not</b> depend on $q$.</div>
+      <div class="t">$\mathbb{KL}(q_n\,\|\,\cdot)$</div><div>The <b>gap</b>. It is $\ge 0$, and it is $0$ only when $q_n$ equals the posterior.</div>
+    </div>
+    <div class="eqbox">
+      <div class="label">So the best blame is the posterior</div>
+      $$q_n^*(z_n) = p(z_n\mid y_n,\theta^t) \quad\Longrightarrow\quad \mathcal{L}(\theta^t,\{q_n^*\}) = \text{LL}(\theta^t)$$
+      <div class="label" style="margin-top:8px">and that defines EM's net</div>
+      $$Q(\theta,\theta^t) = \mathcal{L}\big(\theta,\{p(z_n\mid y_n,\theta^t)\}\big)$$
+    </div>
+    <p>So the net from 8.7.1 is the ELBO with the blame <b>frozen</b> at what the old recipe $\theta^t$ believed. The touching rule holds because the gap is zero at $\theta^t$. The under-the-hill rule holds because $\text{KL} \ge 0$ everywhere else.</p>
+
+    <div class="demo">
+      <div class="demo-title">Your current guess at the recipes. This guess is shared by the Jensen, E-step and M-step demos.</div>
+      <div class="ctrls">
+        <div class="ctrl a"><label><span>Hillside mean $\mu_H$</span><b id="gMuHv"></b></label><input type="range" id="gMuH" min="90" max="270" step="1"></div>
+        <div class="ctrl a"><label><span>Hillside spread $\sigma_H$</span><b id="gSdHv"></b></label><input type="range" id="gSdH" min="4" max="50" step="0.5"></div>
+        <div class="ctrl b"><label><span>Valley mean $\mu_V$</span><b id="gMuVv"></b></label><input type="range" id="gMuV" min="90" max="270" step="1"></div>
+        <div class="ctrl b"><label><span>Valley spread $\sigma_V$</span><b id="gSdVv"></b></label><input type="range" id="gSdV" min="4" max="50" step="0.5"></div>
+        <div class="ctrl"><label><span>Hillside's share $\pi_H$</span><b id="gPiHv"></b></label><input type="range" id="gPiH" min="0.05" max="0.95" step="0.01"></div>
+      </div>
+      <svg id="eSvg" viewBox="0 0 820 240" aria-label="Apples colored by responsibility"></svg>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--a)"></i>blamed on Hillside</span>
+        <span><i class="sw" style="background:var(--b)"></i>blamed on Valley</span>
+        <span>blended color = split blame</span>
+        <span><i class="sw line" style="background:var(--a)"></i>$\pi_H\mathcal{N}(y\mid\mu_H,\sigma_H^2)$</span>
+        <span><i class="sw line" style="background:var(--b)"></i>$\pi_V\mathcal{N}(y\mid\mu_V,\sigma_V^2)$</span>
+      </div>
+      <div class="row">
+        <button class="pill primary" id="eStep">E step: set every q to the posterior</button>
+        <label class="check"><input type="checkbox" id="eAuto"> E step automatically while I drag</label>
+      </div>
+      <div class="demo-title" style="margin-top:10px">The scoreboard for the whole bin (in nats)</div>
+      <svg id="gauge1" viewBox="0 0 820 122" aria-label="LL versus ELBO gauge"></svg>
+      <p class="hint">Move a slider while the blame is frozen and the ELBO separates from LL, because the gap $\sum_n \mathbb{KL}$ opens. Press E step and the two snap back together. Hover over an apple to see its Bayes'-rule arithmetic.</p>
+    </div>
+    <div class="callout"><b>In the story.</b> The E step asks every apple, &ldquo;given what I currently believe about the orchards, how likely is it that you came from each one?&rdquo; An apple sitting between the two bell curves gets split blame (a blended color), and that is the right answer, not a failure to decide.</div>
+  </section>
+
+  <!-- ===================== 8.7.2.3 ===================== -->
+  <section class="block" id="s23">
+    <h2><span class="num">8.7.2.3</span>The M step: climb the net</h2>
+    <div class="kicker">With the blame frozen, re-estimate each orchard as if the soft assignments were real.</div>
+    <p>Now hold the blame $q^t$ fixed and maximize the ELBO over $\theta$. The entropy term $\mathbb{H}(q_n)$ does not involve $\theta$, so it drops out and only the first term remains:</p>
+    <div class="eqbox">
+      $$\ell(\theta) = \sum_n \mathbb{E}_{q_n^t(z_n)}\big[\log p(y_n, z_n\mid\theta)\big], \qquad \theta^{t+1} = \arg\max_\theta\ \ell(\theta)$$
+    </div>
+    <div class="terms">
+      <div class="t">$\log p(y_n,z_n\mid\theta)$</div><div>The <b>complete-data</b> log likelihood: easy, because it has no sum inside the log.</div>
+      <div class="t">$\mathbb{E}_{q^t}[\cdot]$</div><div>Average it over the frozen blame. Apple $n$ counts as $r_{nH}$ of an apple toward Hillside and $r_{nV}$ of an apple toward Valley.</div>
+    </div>
+    <p>For exponential-family models such as Gaussians, this is ordinary maximum likelihood with <b>expected sufficient statistics</b>: weighted counts, weighted sums, and weighted sums of squares. Each orchard's new mean is the <b>balance point</b> of the apples, where each apple weighs as much as the blame it gets.</p>
+
+    <div class="demo">
+      <div class="demo-title">The M step as a seesaw. Each stick's height is how much that apple is blamed on the orchard.</div>
+      <svg id="mSvg" viewBox="0 0 820 300" aria-label="Weighted apples and their balance points"></svg>
+      <div class="legend">
+        <span>▲ new mean (balance point)</span>
+        <span>┆ dashed line: current guess</span>
+        <span>├─┤ new mean ± new spread</span>
+      </div>
+      <div class="scroll-x" style="margin-top:8px"><table class="work" id="mTable"></table></div>
+      <div class="row">
+        <button class="pill primary" id="mStep">Apply M step</button>
+        <button class="pill" id="mFull">One full EM iteration (E, then M)</button>
+        <button class="pill" id="mRun">Run EM to convergence</button>
+        <button class="pill" id="mReset">Reset the guess</button>
+        <span class="hint" id="mIter"></span>
+      </div>
+      <div class="demo-title" style="margin-top:10px">Same scoreboard as above</div>
+      <svg id="gauge2" viewBox="0 0 820 122" aria-label="LL versus ELBO gauge"></svg>
+    </div>
+    <div class="callout"><b>Watch the scoreboard during an M step.</b> The ELBO goes up, because that is what the M step maximizes. LL goes up <em>even more</em>, and a gap reappears, because the frozen blame is now out of date. The next E step closes the gap again. That alternation (close the gap, then raise the net) is the whole algorithm.</div>
+    <pre class="algo">initialize θ⁰
+repeat:
+    E step:  q_n(z_n) ← p(z_n | y_n, θᵗ)                       # blame = posterior;  ELBO = LL
+    M step:  θᵗ⁺¹ ← argmax_θ Σ_n E_{q_n}[ log p(y_n, z_n | θ) ]  # refit with soft labels
+until LL stops increasing</pre>
+  </section>
+
+  <!-- ===================== 8.7.3 ===================== -->
+  <section class="block" id="s3">
+    <h2><span class="num">8.7.3</span>Example: EM for a Gaussian mixture model</h2>
+    <div class="kicker">The same two steps, written out for $K$ Gaussian components in $D$ dimensions.</div>
+    <p>A GMM says each point is produced by first rolling a $K$-sided die with probabilities $\pi_k$ to choose a component, then drawing from that component's Gaussian $\mathcal{N}(\mu_k,\Sigma_k)$. Our orchards are the case $K=2$, $D=1$.</p>
+    <h3>8.7.3.1 E step: responsibilities</h3>
+    <div class="eqbox">
+      $$r_{nk} = p(z_n{=}k\mid y_n,\theta^t) = \frac{\pi_k\,\mathcal{N}(y_n\mid\mu_k,\Sigma_k)}{\sum_{k'}\pi_{k'}\,\mathcal{N}(y_n\mid\mu_{k'},\Sigma_{k'})}$$
+    </div>
+    <p>This is Bayes' rule: the numerator is prior times likelihood, and the denominator normalizes so that each point's responsibilities sum to 1. It is exactly the coloring in the E-step demo.</p>
+    <h3>8.7.3.2 M step: weighted refits</h3>
+    <div class="eqbox">
+      $$\ell(\theta) = \sum_n\sum_k r_{nk}\log\pi_k \;+\; \sum_n\sum_k r_{nk}\log\mathcal{N}(y_n\mid\mu_k,\Sigma_k)$$
+    </div>
+    <p>The objective splits into a $\pi$ part and a separate part for each component, so each piece can be maximized on its own:</p>
+    <div class="eqbox">
+      $$r_k = \sum_n r_{nk}, \qquad \mu_k = \frac{\sum_n r_{nk}\,y_n}{r_k}, \qquad \Sigma_k = \frac{\sum_n r_{nk}\,(y_n-\mu_k)(y_n-\mu_k)^\top}{r_k}, \qquad \pi_k = \frac{r_k}{N}$$
+    </div>
+    <div class="terms">
+      <div class="t">$r_k$</div><div>The <b>effective number of points</b> owned by component $k$ (for example, Hillside &ldquo;owns&rdquo; 17.3 apples).</div>
+      <div class="t">$\mu_k$, $\Sigma_k$</div><div>The weighted mean and weighted covariance: the seesaw from the M-step demo, generalized to $D$ dimensions.</div>
+      <div class="t">$\pi_k$</div><div>The component's share of the effective count.</div>
+    </div>
+  </section>
+
+  <!-- ===================== 8.7.3.3 ===================== -->
+  <section class="block" id="s33">
+    <h2><span class="num">8.7.3.3</span>Example: watch EM run in 2-D</h2>
+    <div class="kicker">Now you also measure each apple's sweetness, so every component gets a full covariance ellipse.</div>
+    <p>The chapter's figure runs EM on 2-D data and shows the ellipses settling over the iterations. Here the bin holds 120 apples with two measurements each: weight (g) and sweetness (&deg;Brix). Hillside apples are small but sweet, and Valley apples are big but milder. The ellipses are each component's 1&sigma; and 2&sigma; contours, and each apple's color is its responsibility.</p>
+    <div class="demo">
+      <div class="demo-title">Drag the ✚ centers to choose a starting point, then step through E and M.</div>
+      <div class="row">
+        <button class="pill primary" id="gNext">Next: E step</button>
+        <button class="pill" id="gRun">Run ▶</button>
+        <button class="pill" id="gRand">Random start</button>
+        <button class="pill" id="gReset">Reset</button>
+        <label class="check"><input type="checkbox" id="gTruth"> color by true orchard</label>
+      </div>
+      <svg id="gSvg" viewBox="0 0 820 440" aria-label="2-D Gaussian mixture fit"></svg>
+      <div class="two" style="margin-top:10px">
+        <div>
+          <div class="demo-title">Log likelihood after each full iteration</div>
+          <svg id="gTrace" viewBox="0 0 400 210" aria-label="Log likelihood trace"></svg>
+        </div>
+        <div>
+          <div class="tiles" style="grid-template-columns:1fr 1fr" id="gTiles"></div>
+          <div class="status" id="gStatus"></div>
+        </div>
+      </div>
+    </div>
+    <div class="callout"><b>What to notice.</b> The LL trace never goes down, because of the chain of inequalities from 8.7.1. Early iterations make big moves and later ones polish. Try a bad start, such as both centers on the same cluster or one center far off in a corner. EM usually still finds its way, but it can take many iterations.</div>
+  </section>
+
+  <!-- ===================== 8.7.3.4 ===================== -->
+  <section class="block" id="s34">
+    <h2><span class="num">8.7.3.4</span>MAP estimation: the one-apple orchard</h2>
+    <div class="kicker">Maximum likelihood can &ldquo;win&rdquo; by cheating: it shrinks one component onto a single point.</div>
+    <p>Someone dropped a single prize-winning 290 g giant into the bin. Suppose Valley's bell curve parks right on top of it. Then that apple's density is</p>
+    <div class="eqbox">
+      $$\mathcal{N}(y_n\mid\mu_k{=}y_n,\ \sigma_k^2) = \frac{1}{\sqrt{2\pi}\,\sigma_k} \;\xrightarrow{\;\sigma_k\to 0\;}\; \infty$$
+    </div>
+    <p>The other component can cover the rest of the bin, so <b>LL can be pushed to $+\infty$</b> by an absurd recipe: &ldquo;Valley grows apples that weigh exactly 290.000 g.&rdquo; This singularity is a real failure mode of MLE for GMMs, and it gets worse in higher dimensions.</p>
+    <p>The fix is to add a prior and do <b>MAP</b> estimation instead. With a conjugate (inverse-Wishart) prior on each covariance and a flat prior on each mean, only the M step changes:</p>
+    <div class="eqbox">
+      $$\hat\Sigma_k = \frac{\breve{S} + S_k}{\breve\nu + r_k + D + 2}, \qquad S_k = \sum_n r_{nk}(y_n-\bar y_k)(y_n-\bar y_k)^\top$$
+    </div>
+    <div class="terms">
+      <div class="t">$\breve S$</div><div>Prior <b>pseudo-scatter</b>: it acts like a few imaginary apples with a sensible spread. A common default is $\breve S = \tfrac{1}{K^{1/D}}\operatorname{diag}(s_1^2,\dots,s_D^2)$ from the pooled data variance, and $\breve\nu = D+2$.</div>
+      <div class="t">$r_k\to 1$, $S_k\to 0$</div><div>Even when a component owns only one apple, $\hat\Sigma_k \ge \breve S/(\breve\nu+D+3) > 0$, so it can no longer collapse.</div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">MLE and MAP run side by side from the same start (Valley begins on the giant apple)</div>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>prior strength (× the default $\breve S$)</span><b id="mapStrv"></b></label><input type="range" id="mapStr" min="0.1" max="3" step="0.05" value="1"></div>
+      </div>
+      <div class="row">
+        <button class="pill primary" id="mapStep">Step</button>
+        <button class="pill" id="mapRun">Run 25 iterations</button>
+        <button class="pill" id="mapReset">Reset</button>
+        <span class="hint" id="mapIter"></span>
+      </div>
+      <div class="two">
+        <div><div class="demo-title">MLE (no prior)</div><svg id="mapMle" viewBox="0 0 420 200"></svg><div class="readout" id="mapMleR"></div></div>
+        <div><div class="demo-title">MAP (with the prior)</div><svg id="mapMap" viewBox="0 0 420 200"></svg><div class="readout" id="mapMapR"></div></div>
+      </div>
+      <div class="demo-title" style="margin-top:12px">Valley's spread $\sigma_V$ over iterations (log scale)</div>
+      <svg id="mapSig" viewBox="0 0 820 200" aria-label="Valley spread over iterations"></svg>
+      <div class="legend">
+        <span><i class="sw line" style="background:var(--mle)"></i>MLE</span>
+        <span><i class="sw line" style="background:var(--q)"></i>MAP</span>
+      </div>
+    </div>
+    <div class="callout"><b>What to notice.</b> MLE's Valley curve turns into a spike, $\sigma_V$ plunges toward zero, and LL heads to $+\infty$. That looks like a great score, but the model is useless. MAP's Valley still sits on the giant apple, but its spread levels off at a floor set by the prior, so its score stays finite and honest. Lower the prior strength and the floor drops. At strength 0 you would be back to MLE.</div>
+  </section>
+
+  <!-- ===================== 8.7.3.5 ===================== -->
+  <section class="block" id="s35">
+    <h2><span class="num">8.7.3.5</span>Nonconvexity of the NLL: many hills</h2>
+    <div class="kicker">The likelihood surface has several peaks, and EM climbs whichever one it starts near.</div>
+    <p>Fix both spreads at 18 g and both shares at ½, and leave only the two means unknown. The map below shows LL for every pair $(\mu_H, \mu_V)$. There are <b>two equally tall peaks</b>: &ldquo;Hillside is small, Valley is big&rdquo; and its mirror image, &ldquo;Hillside is big, Valley is small&rdquo;. They describe the same fit with the names swapped. This is <b>label switching</b>. With $K$ components there are $K!$ such copies of every solution, so the negative log likelihood can't be convex.</p>
+    <div class="demo">
+      <div class="demo-title">Click anywhere to start EM there. The path shows each iteration.</div>
+      <div class="row">
+        <button class="pill" id="ncRand">10 random starts</button>
+        <button class="pill" id="ncDiag">Start exactly on the diagonal</button>
+        <button class="pill" id="ncClear">Clear paths</button>
+      </div>
+      <div class="two wide-left">
+        <svg id="ncSvg" viewBox="0 0 470 440" aria-label="Log likelihood surface over the two means"></svg>
+        <div>
+          <div class="readout" id="ncRead"></div>
+          <div class="legend" style="flex-direction:column;gap:6px">
+            <span><i class="sw" style="background:var(--seq)"></i>stronger color = higher LL</span>
+            <span>○ start &nbsp;● where EM stopped</span>
+            <span>dashed line: $\mu_H=\mu_V$ (the mirror)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="callout"><b>What to notice.</b> Every path flows uphill to the nearest peak, so which peak you reach depends only on where you start. A start exactly on the diagonal stays on it, because the two components stay identical forever. It stalls at a saddle point, where both orchards get the same recipe, which is a poor answer. In practice EM is run from <b>several random restarts</b> (or from a smart initialization such as K-means++), and the run with the best final LL is kept.</div>
+  </section>
+
+  <!-- ===================== CHEAT ===================== -->
+  <section class="block" id="cheat">
+    <h2>Cheat sheet: each equation in one line</h2>
+    <div class="scroll-x"><table class="cheat">
+      <tr><td>8.7.1</td><td>$Q(\theta,\theta^t)\le\text{LL}(\theta)$, $Q(\theta^t,\theta^t)=\text{LL}(\theta^t)$</td><td>Build a safety net under the hill that touches it where you stand.</td></tr>
+      <tr><td>8.7.1</td><td>$\text{LL}(\theta^{t+1})\ge Q(\theta^{t+1},\theta^t)\ge Q(\theta^t,\theta^t)=\text{LL}(\theta^t)$</td><td>Jumping to the top of the net can never take you downhill.</td></tr>
+      <tr><td>8.7.2</td><td>$\text{LL}=\sum_n\log\sum_{z_n}p(y_n,z_n\mid\theta)$</td><td>The log of a sum (over the unknown orchard) is what makes the problem hard.</td></tr>
+      <tr><td>8.7.2.1</td><td>$\text{LL}\ge\sum_n\mathbb{E}_{q_n}[\log p(y_n,z_n\mid\theta)]+\mathbb{H}(q_n)=\mathcal{L}$</td><td>Jensen: any blame distribution $q$ gives a lower bound, the ELBO.</td></tr>
+      <tr><td>8.7.2.2</td><td>$\mathcal{L}(\theta,q_n)=\log p(y_n\mid\theta)-\mathbb{KL}(q_n\|p(z_n\mid y_n,\theta))$</td><td>The gap is a KL. Set $q$ to the posterior to close it (the E step).</td></tr>
+      <tr><td>8.7.2.3</td><td>$\theta^{t+1}=\arg\max_\theta\sum_n\mathbb{E}_{q_n^t}[\log p(y_n,z_n\mid\theta)]$</td><td>With the blame frozen, fit as if the soft labels were real (the M step).</td></tr>
+      <tr><td>8.7.3.1</td><td>$r_{nk}\propto\pi_k\,\mathcal{N}(y_n\mid\mu_k,\Sigma_k)$</td><td>Responsibility comes from Bayes' rule, normalized over $k$.</td></tr>
+      <tr><td>8.7.3.2</td><td>$\mu_k=\frac{\sum_n r_{nk}y_n}{r_k}$, $\Sigma_k=\frac{\sum_n r_{nk}(y_n-\mu_k)(\cdot)^\top}{r_k}$, $\pi_k=\frac{r_k}{N}$</td><td>Weighted mean, weighted covariance, and effective share.</td></tr>
+      <tr><td>8.7.3.4</td><td>$\hat\Sigma_k=\frac{\breve S+S_k}{\breve\nu+r_k+D+2}$</td><td>A prior's pseudo-scatter stops a component from collapsing onto one point.</td></tr>
+      <tr><td>8.7.3.5</td><td>$K!$ equivalent modes, plus local optima</td><td>EM finds <em>a</em> peak. Use restarts and keep the best.</td></tr>
+    </table></div>
+  </section>
+
+  <div class="foot">All log likelihoods are in nats (natural log). The apples are simulated from a fixed random seed, and the story and numbers are this page's own, not the book's. Everything runs in your browser.</div>
+</div>
+
+<script>
+// ---------- shared helpers ----------
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const lin = (d0, d1, r0, r1) => { const f = v => r0 + (v - d0) / (d1 - d0) * (r1 - r0); f.inv = p => d0 + (p - r0) / (r1 - r0) * (d1 - d0); return f; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2), f3 = v => v.toFixed(3);
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gauss(rng) { const u = Math.max(rng(), 1e-12), v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function svgPt(svg, e) {
+  const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+  return [(e.clientX - r.left) / r.width * vb.width, (e.clientY - r.top) / r.height * vb.height];
+}
+const tip = $('tip');
+function showTip(e, html) {
+  tip.innerHTML = html; tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + w > window.innerWidth - 8) x = e.clientX - w - 14;
+  if (y + h > window.innerHeight - 8) y = e.clientY - h - 14;
+  tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+function bindTip(node, fn) {
+  node.addEventListener('pointermove', e => showTip(e, fn(e)));
+  node.addEventListener('pointerleave', hideTip);
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+let C = {};
+function refreshColors() { ['ink', 'muted', 'border', 'gridline', 'panel', 'soft', 'a', 'b', 'q', 'gap', 'mle', 'seq'].forEach(k => C[k] = cssVar('--' + k)); }
+function rgb(h) { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function mix(h1, h2, t) { const a = rgb(h1), b = rgb(h2); return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`; }
+function clip(svg, id, x, y, w, h) {
+  const d = el('defs', {}, svg), cp = el('clipPath', { id }, d);
+  el('rect', { x, y, width: w, height: h }, cp);
+  return `url(#${id})`;
+}
+
+// ---------- 1-D mixture math (two components) ----------
+const LOG2PI = Math.log(2 * Math.PI);
+const SDMIN = 1e-6;
+const lnN = (y, m, s) => { const z = (y - m) / s; return -0.5 * z * z - Math.log(s) - 0.5 * LOG2PI; };
+function lse(a, b) { const m = Math.max(a, b); if (m === -Infinity) return -Infinity; return m + Math.log(Math.exp(a - m) + Math.exp(b - m)); }
+const joint1 = (y, th) => [Math.log(th.pi[0]) + lnN(y, th.mu[0], th.sd[0]), Math.log(th.pi[1]) + lnN(y, th.mu[1], th.sd[1])];
+function estep1(Y, th) { return Y.map(y => { const j = joint1(y, th), l = lse(j[0], j[1]); return [Math.exp(j[0] - l), Math.exp(j[1] - l)]; }); }
+function ll1(Y, th) { let s = 0; for (const y of Y) { const j = joint1(y, th); s += lse(j[0], j[1]); } return s; }
+function elbo1(Y, th, R) {
+  let s = 0;
+  Y.forEach((y, n) => { const j = joint1(y, th); for (let k = 0; k < 2; k++) { const r = R[n][k]; if (r > 1e-300) s += r * (j[k] - Math.log(r)); } });
+  return s;
+}
+// s0 == null -> MLE; otherwise MAP with pseudo-scatter s0, nu0 = D + 2 = 3 (denominator r_k + nu0 + D + 2 = r_k + 6)
+function mstep1(Y, R, old, s0) {
+  const N = Y.length, out = { pi: [0, 0], mu: [0, 0], sd: [0, 0] };
+  for (let k = 0; k < 2; k++) {
+    let rk = 0, sy = 0;
+    for (let n = 0; n < N; n++) { rk += R[n][k]; sy += R[n][k] * Y[n]; }
+    if (rk < 1e-12) { out.pi[k] = 1e-12; out.mu[k] = old.mu[k]; out.sd[k] = old.sd[k]; continue; }
+    const mu = sy / rk; let S = 0;
+    for (let n = 0; n < N; n++) S += R[n][k] * (Y[n] - mu) ** 2;
+    const v = s0 == null ? S / rk : (s0 + S) / (rk + 6);
+    out.pi[k] = rk / N; out.mu[k] = mu; out.sd[k] = Math.max(Math.sqrt(v), SDMIN);
+  }
+  const ps = out.pi[0] + out.pi[1]; out.pi = out.pi.map(p => p / ps);
+  return out;
+}
+const cloneTh = th => ({ pi: th.pi.slice(), mu: th.mu.slice(), sd: th.sd.slice() });
+
+// ---------- the bin of apples ----------
+const TRUE1 = { pi: [0.45, 0.55], mu: [140, 192], sd: [13, 19] };
+const Y1 = [], Z1 = [];
+(() => {
+  const rng = mulberry32(473);
+  for (let i = 0; i < 18; i++) { Y1.push(Math.round(TRUE1.mu[0] + TRUE1.sd[0] * gauss(rng))); Z1.push(0); }
+  for (let i = 0; i < 22; i++) { Y1.push(Math.round(TRUE1.mu[1] + TRUE1.sd[1] * gauss(rng))); Z1.push(1); }
+})();
+const LLBEST = (() => { let th = cloneTh(TRUE1); for (let i = 0; i < 500; i++) th = mstep1(Y1, estep1(Y1, th), th); return ll1(Y1, th); })();
+const XD = [80, 300];
+const DSCALE = 7600;   // px per unit density in the 1-D strips
+
+function stackPos(Y, x, r) {
+  const step = 2 * r + 1.5, order = Y.map((_, i) => i).sort((i, j) => Y[i] - Y[j]);
+  const cnt = {}, pos = [];
+  for (const i of order) { const b = Math.round(x(Y[i]) / step); const c = cnt[b] || 0; cnt[b] = c + 1; pos[i] = [b * step, c]; }
+  return pos;
+}
+function xAxis(svg, x, y0, d0, d1, step, label, W) {
+  el('line', { x1: x(d0), x2: x(d1), y1: y0, y2: y0, class: 'axis' }, svg);
+  for (let v = Math.ceil(d0 / step) * step; v <= d1; v += step) {
+    el('line', { x1: x(v), x2: x(v), y1: y0, y2: y0 + 4, class: 'axis' }, svg);
+    el('text', { x: x(v), y: y0 + 16, 'text-anchor': 'middle', class: 'muted', 'font-size': 11 }, svg, v);
+  }
+  if (label) el('text', { x: W - 16, y: y0 + 30, 'text-anchor': 'end', class: 'muted', 'font-size': 11 }, svg, label);
+}
+function drawApples(svg, Y, x, base, r, fill, hover, click, extra) {
+  const pos = stackPos(Y, x, r);
+  Y.forEach((y, n) => {
+    const cx = pos[n][0], cy = base - r - 1.5 - pos[n][1] * (2 * r + 1.5);
+    const g = el('g', { style: 'cursor:' + (click ? 'pointer' : 'default') }, svg);
+    el('circle', { cx, cy, r: r + 5, fill: 'transparent' }, g);
+    const c = el('circle', { cx, cy, r, fill: fill(n), stroke: C.panel, 'stroke-width': 1.5 }, g);
+    if (extra) extra(n, c, cx, cy);
+    if (hover) bindTip(g, () => hover(n));
+    if (click) g.addEventListener('click', () => click(n));
+  });
+}
+function densPath(f, x, base, scale, extraXs) {
+  const xs = [];
+  for (let v = XD[0]; v <= XD[1]; v += 0.5) xs.push(v);
+  if (extraXs) xs.push(...extraXs);
+  xs.sort((a, b) => a - b);
+  let d = '';
+  xs.forEach((v, i) => { const py = Math.max(base - f(v) * scale, -1000); d += (i ? 'L' : 'M') + x(v).toFixed(1) + ',' + py.toFixed(1); });
+  return d;
+}
+function drawComps(svg, th, x, base, scale, clipUrl, opts = {}) {
+  const g = el('g', { 'clip-path': clipUrl }, svg);
+  const extra = k => { const a = []; for (let i = -40; i <= 40; i++) a.push(th.mu[k] + i * th.sd[k] / 10); return a; };
+  for (let k = 0; k < 2; k++) {
+    if (opts.only != null && opts.only !== k) continue;
+    const f = v => th.pi[k] * Math.exp(lnN(v, th.mu[k], th.sd[k]));
+    const d = densPath(f, x, base, scale, extra(k));
+    const col = k ? C.b : C.a;
+    el('path', { d: d + `L${x(XD[1])},${base}L${x(XD[0])},${base}Z`, fill: col, 'fill-opacity': 0.08, stroke: 'none' }, g);
+    el('path', { d, fill: 'none', stroke: col, 'stroke-width': 2 }, g);
+  }
+  if (opts.mixture) {
+    const f = v => th.pi[0] * Math.exp(lnN(v, th.mu[0], th.sd[0])) + th.pi[1] * Math.exp(lnN(v, th.mu[1], th.sd[1]));
+    el('path', { d: densPath(f, x, base, scale), fill: 'none', stroke: C.ink, 'stroke-width': 1.2, 'stroke-dasharray': '4 3', opacity: 0.7 }, g);
+  }
+}
+
+// ====================================================================
+// THE STORY
+// ====================================================================
+let peek = false;
+function renderIntro() {
+  const svg = $('introSvg'); svg.innerHTML = '';
+  const W = 820, H = 230, base = H - 40, x = lin(XD[0], XD[1], 30, W - 16);
+  const cp = clip(svg, 'introClip', 0, 0, W, base);
+  xAxis(svg, x, base, XD[0], XD[1], 20, 'weight (g)', W);
+  if (peek) drawComps(svg, TRUE1, x, base, DSCALE, cp);
+  drawApples(svg, Y1, x, base, 6,
+    n => peek ? (Z1[n] ? C.b : C.a) : C.muted,
+    n => `<b>Apple #${n + 1}</b>: ${Y1[n]} g<br>` + (peek ? `came from <b style="color:${Z1[n] ? C.b : C.a}">${Z1[n] ? 'Valley' : 'Hillside'}</b>` : 'orchard: <b>unknown</b>'));
+  const grp = k => Y1.filter((_, i) => Z1[i] === k);
+  const st = a => { const m = a.reduce((s, v) => s + v, 0) / a.length; return [m, Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / a.length)]; };
+  const h = st(grp(0)), v = st(grp(1));
+  $('introTiles').innerHTML = `
+    <div class="tile"><div class="k">apples in the bin</div><div class="v">${Y1.length}</div><div class="s">${Math.min(...Y1)}–${Math.max(...Y1)} g</div></div>
+    <div class="tile a"><div class="k">Hillside</div><div class="v">${peek ? grp(0).length + ' apples' : '?'}</div><div class="s">${peek ? `mean ${f1(h[0])} g, spread ${f1(h[1])} g` : 'mean? spread? share?'}</div></div>
+    <div class="tile b"><div class="k">Valley</div><div class="v">${peek ? grp(1).length + ' apples' : '?'}</div><div class="s">${peek ? `mean ${f1(v[0])} g, spread ${f1(v[1])} g` : 'mean? spread? share?'}</div></div>`;
+}
+$('introHide').onclick = () => { peek = false; $('introHide').classList.add('on'); $('introPeek').classList.remove('on'); renderIntro(); };
+$('introPeek').onclick = () => { peek = true; $('introPeek').classList.add('on'); $('introHide').classList.remove('on'); renderIntro(); };
+
+// ====================================================================
+// 8.7.1  MM on a single parameter (Valley's mean)
+// ====================================================================
+const MMD = [60, 300], MM_START = 270;
+const thMM = m => ({ pi: TRUE1.pi.slice(), mu: [TRUE1.mu[0], m], sd: TRUE1.sd.slice() });
+const mmGrid = []; for (let m = MMD[0]; m <= MMD[1]; m += 1) mmGrid.push(m);
+const mmLL = mmGrid.map(m => ll1(Y1, thMM(m)));
+let mmT = MM_START, mmHist = [MM_START], mmTimer = null, mmHover = null;
+const mmNext = m => { const R = estep1(Y1, thMM(m)); let a = 0, b = 0; R.forEach((r, n) => { a += r[1] * Y1[n]; b += r[1]; }); return a / b; };
+function renderMM() {
+  const svg = $('mmSvg'); svg.innerHTML = '';
+  const W = 820, H = 330, L = 60, R = 16, T = 14, B = 42;
+  const x = lin(MMD[0], MMD[1], L, W - R);
+  const lo = Math.min(...mmLL) - 10, hi = Math.max(...mmLL) + 8;
+  const y = lin(lo, hi, H - B, T);
+  const cp = clip(svg, 'mmClip', L, T, W - L - R, H - T - B);
+  for (let v = Math.ceil(lo / 20) * 20; v <= hi; v += 20) {
+    el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }, svg);
+    el('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'muted', 'font-size': 11 }, svg, v);
+  }
+  xAxis(svg, x, H - B, MMD[0], MMD[1], 20, 'Valley mean μ_V (g)', W);
+  el('text', { x: L + 6, y: T + 12, class: 'muted', 'font-size': 11 }, svg, 'log likelihood');
+  const path = vals => vals.map((v, i) => (i ? 'L' : 'M') + x(mmGrid[i]).toFixed(1) + ',' + y(v).toFixed(1)).join('');
+  // previous nets, faded
+  const Rt = estep1(Y1, thMM(mmT));
+  const g = el('g', { 'clip-path': cp }, svg);
+  mmHist.slice(-4, -1).forEach((m, i, arr) => {
+    const Rp = estep1(Y1, thMM(m));
+    el('path', { d: path(mmGrid.map(v => elbo1(Y1, thMM(v), Rp))), fill: 'none', stroke: C.q, 'stroke-width': 1.2, opacity: 0.18 + 0.1 * i }, g);
+  });
+  const Qv = mmGrid.map(v => elbo1(Y1, thMM(v), Rt));
+  el('path', { d: path(Qv), fill: 'none', stroke: C.q, 'stroke-width': 2.4 }, g);
+  el('path', { d: path(mmLL), fill: 'none', stroke: C.ink, 'stroke-width': 2 }, svg);
+  // history dots
+  mmHist.slice(0, -1).forEach(m => el('circle', { cx: x(m), cy: y(ll1(Y1, thMM(m))), r: 3.5, fill: C.muted }, svg));
+  const m1 = mmNext(mmT);
+  const llT = ll1(Y1, thMM(mmT)), q1 = elbo1(Y1, thMM(m1), Rt), ll1v = ll1(Y1, thMM(m1));
+  el('line', { x1: x(mmT), x2: x(m1), y1: y(llT), y2: y(q1), stroke: C.q, 'stroke-width': 1.4, 'stroke-dasharray': '3 3' }, svg);
+  if (Math.abs(y(ll1v) - y(q1)) > 2) el('line', { x1: x(m1), x2: x(m1), y1: y(ll1v), y2: y(q1), stroke: C.ink, 'stroke-width': 1.2, 'stroke-dasharray': '2 3' }, svg);
+  el('circle', { cx: x(m1), cy: y(q1), r: 7, fill: C.panel, stroke: C.q, 'stroke-width': 2.5 }, svg);
+  el('circle', { cx: x(m1), cy: y(ll1v), r: 4, fill: C.panel, stroke: C.ink, 'stroke-width': 1.5 }, svg);
+  el('circle', { cx: x(mmT), cy: y(llT), r: 7, fill: C.ink, stroke: C.panel, 'stroke-width': 2 }, svg);
+  el('text', { x: x(mmT), y: y(llT) - 13, 'text-anchor': 'middle', 'font-weight': 600 }, svg, 'θᵗ');
+  if (Math.abs(x(m1) - x(mmT)) > 18) el('text', { x: x(m1), y: y(q1) + 22, 'text-anchor': 'middle', 'font-weight': 600 }, svg, 'θᵗ⁺¹');
+  // hover layer
+  if (mmHover != null) {
+    el('line', { x1: x(mmHover), x2: x(mmHover), y1: T, y2: H - B, stroke: C.muted, 'stroke-width': 1, 'stroke-dasharray': '2 3' }, svg);
+  }
+  const hit = el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, fill: 'transparent', style: 'cursor:crosshair' }, svg);
+  hit.addEventListener('click', e => { stopMM(); mmT = clamp(x.inv(svgPt(svg, e)[0]), MMD[0], MMD[1]); mmHist = [mmT]; renderMM(); });
+  hit.addEventListener('pointermove', e => {
+    const m = clamp(x.inv(svgPt(svg, e)[0]), MMD[0], MMD[1]);
+    showTip(e, `μ_V = <b>${f1(m)} g</b><br>LL = <b>${f2(ll1(Y1, thMM(m)))}</b><br><span style="color:${C.q}">■</span> net Q = <b>${f2(elbo1(Y1, thMM(m), Rt))}</b><br><span class="hint">click to start here</span>`);
+  });
+  hit.addEventListener('pointerleave', hideTip);
+  $('mmIter').textContent = `steps taken: ${mmHist.length - 1}`;
+  $('mmChain').innerHTML = `LL(θᵗ⁺¹) = <b>${f2(ll1v)}</b> &nbsp;≥&nbsp; Q(θᵗ⁺¹, θᵗ) = <b style="color:${C.q}">${f2(q1)}</b> &nbsp;≥&nbsp; Q(θᵗ, θᵗ) = <b style="color:${C.q}">${f2(elbo1(Y1, thMM(mmT), Rt))}</b> &nbsp;=&nbsp; LL(θᵗ) = <b>${f2(llT)}</b> &nbsp;&nbsp;<span class="hint">(μ_V: ${f1(mmT)} → ${f1(m1)} g)</span>`;
+}
+function stopMM() { if (mmTimer) { clearInterval(mmTimer); mmTimer = null; $('mmRun').textContent = 'Run to convergence'; } }
+function stepMM() { const m1 = mmNext(mmT); const moved = Math.abs(m1 - mmT); mmT = m1; mmHist.push(m1); renderMM(); return moved; }
+$('mmStep').onclick = () => { stopMM(); stepMM(); };
+$('mmReset').onclick = () => { stopMM(); mmT = MM_START; mmHist = [MM_START]; renderMM(); };
+$('mmRun').onclick = () => {
+  if (mmTimer) { stopMM(); return; }
+  $('mmRun').textContent = 'Pause';
+  mmTimer = setInterval(() => { if (stepMM() < 0.02 || mmHist.length > 80) stopMM(); }, 380);
+};
+
+// ====================================================================
+// Shared guess for 8.7.2.1 - 8.7.2.3
+// ====================================================================
+const G0 = { pi: [0.5, 0.5], mu: [118, 238], sd: [26, 26] };
+let G = cloneTh(G0), Rq = estep1(Y1, G), emIters = 0, mTimer = null;
+const SL = [['gMuH', () => G.mu[0], v => G.mu[0] = v, v => v + ' g'], ['gSdH', () => G.sd[0], v => G.sd[0] = v, v => v + ' g'],
+  ['gMuV', () => G.mu[1], v => G.mu[1] = v, v => v + ' g'], ['gSdV', () => G.sd[1], v => G.sd[1] = v, v => v + ' g'],
+  ['gPiH', () => G.pi[0], v => { G.pi[0] = v; G.pi[1] = 1 - v; }, v => (+v).toFixed(2)]];
+function syncSliders() { SL.forEach(([id, get, , fmt]) => { const v = get(); $(id).value = v; $(id + 'v').textContent = fmt(Math.round(v * 100) / 100); }); }
+SL.forEach(([id, , set]) => $(id).addEventListener('input', () => {
+  stopM(); set(+$(id).value);
+  if ($('eAuto').checked) Rq = estep1(Y1, G);
+  sharedChanged();
+}));
+function sharedChanged() { syncSliders(); renderJensen(); renderE(); renderM(); renderGauge('gauge1'); renderGauge('gauge2'); }
+
+function renderGauge(id) {
+  const svg = $(id); svg.innerHTML = '';
+  const W = 820, L = 118, R = 24;
+  const llv = ll1(Y1, G), elv = elbo1(Y1, G, Rq), gap = Math.max(0, llv - elv);
+  // row 1: LL and ELBO on one log-likelihood axis
+  const y0 = 34, lo = LLBEST - 140, hi = LLBEST + 4, x = lin(lo, hi, L, W - R);
+  el('text', { x: L - 14, y: y0 + 4, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 600 }, svg, 'LL vs. ELBO');
+  el('rect', { x: L, y: y0 - 6, width: W - L - R, height: 12, rx: 6, fill: C.soft, stroke: C.border }, svg);
+  for (let v = Math.ceil(lo / 20) * 20; v <= hi; v += 20) el('text', { x: x(v), y: y0 + 22, 'text-anchor': 'middle', class: 'muted', 'font-size': 10 }, svg, v);
+  el('line', { x1: x(LLBEST), x2: x(LLBEST), y1: y0 - 10, y2: y0 + 10, stroke: C.muted, 'stroke-dasharray': '3 2' }, svg);
+  el('text', { x: x(LLBEST) + 4, y: y0 + 22, class: 'muted', 'font-size': 10 }, svg, 'best');
+  const px = v => clamp(x(v), L + 4, W - R - 4);
+  const xl = px(llv), xe = px(elv);
+  if (xl - xe > 1) el('rect', { x: xe, y: y0 - 4, width: xl - xe, height: 8, fill: C.gap, rx: 3 }, svg);
+  el('circle', { cx: xe, cy: y0, r: 7, fill: C.q, stroke: C.panel, 'stroke-width': 2 }, svg);
+  el('circle', { cx: xl, cy: y0, r: 7, fill: C.ink, stroke: C.panel, 'stroke-width': 2 }, svg);
+  const elTxt = `ELBO ${elv < lo ? '◀ ' : ''}${f2(elv)}`, llTxt = `LL ${f2(llv)}`;
+  const lab = (xx, txt) => el('text', { x: xx < L + 200 ? xx - 7 : xx + 7, y: y0 - 13, 'text-anchor': xx < L + 200 ? 'start' : 'end', 'font-size': 12, 'font-weight': 600 }, svg, txt);
+  if (xl - xe < 170) lab(xl, gap > 0.005 ? `${elTxt}  ·  ${llTxt}` : `ELBO = LL = ${f2(llv)}`);
+  else { lab(xl, llTxt); el('text', { x: xe - 7, y: y0 - 13, 'font-size': 12, 'font-weight': 600 }, svg, elTxt); }
+  // row 2: the gap, magnified on its own axis
+  const y1 = 92, GM = 5, xg = lin(0, GM, L, W - R);
+  el('text', { x: L - 14, y: y1 + 4, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 600 }, svg, 'gap = Σ KL');
+  el('rect', { x: L, y: y1 - 6, width: W - L - R, height: 12, rx: 6, fill: C.soft, stroke: C.border }, svg);
+  for (let v = 0; v <= GM; v++) el('text', { x: xg(v), y: y1 + 22, 'text-anchor': 'middle', class: 'muted', 'font-size': 10 }, svg, v + (v === GM ? ' nats' : ''));
+  const gw = xg(Math.min(gap, GM)) - L;
+  if (gw > 0.5) el('rect', { x: L, y: y1 - 6, width: gw, height: 12, rx: 6, fill: C.gap }, svg);
+  const gx = L + gw;
+  el('text', { x: gx > W - R - 120 ? gx - 6 : gx + 6, y: y1 - 10, 'text-anchor': gx > W - R - 120 ? 'end' : 'start', 'font-size': 12 }, svg,
+    gap > 0.005 ? `${f2(gap)} nats${gap > GM ? ' ▶ off scale' : ''}` : '0: tight (the net touches)');
+}
+
+// ====================================================================
+// 8.7.2.1  Jensen for one apple
+// ====================================================================
+let jSel = Y1.reduce((b, y, i) => Math.abs(y - 172) < Math.abs(Y1[b] - 172) ? i : b, 0);
+function jStats() {
+  const y = Y1[jSel], j = joint1(y, G), lpy = lse(j[0], j[1]);
+  const post = [Math.exp(j[0] - lpy), Math.exp(j[1] - lpy)];
+  const jq = +$('jq').value, q = [jq, 1 - jq];
+  const kl = q[0] * Math.log(q[0] / post[0]) + q[1] * Math.log(q[1] / post[1]);
+  return { y, j, lpy, post, q, kl };
+}
+function renderJensen() {
+  // picker
+  const pk = $('jPick'); pk.innerHTML = '';
+  const xp = lin(XD[0], XD[1], 30, 820 - 16);
+  xAxis(pk, xp, 56, XD[0], XD[1], 20, '', 820);
+  drawApples(pk, Y1, xp, 56, 4, n => n === jSel ? C.ink : C.muted, n => `Apple #${n + 1}: ${Y1[n]} g<br><span class="hint">click to select</span>`,
+    n => { jSel = n; renderJensen(); },
+    (n, c, cx, cy) => { if (n === jSel) { c.setAttribute('r', 6); el('text', { x: cx, y: cy - 10, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 600 }, pk, Y1[n] + ' g'); } });
+  // plot
+  const s = jStats();
+  $('jqv').textContent = f2(s.q[0]);
+  const xs = s.post.map((p, k) => p / s.q[k]);
+  const svg = $('jSvg'); svg.innerHTML = '';
+  const W = 520, H = 320, L = 44, R = 14, T = 14, B = 38;
+  const xmax = Math.max(2.2, Math.max(...xs) * 1.1), ymin = -4.5, ymax = Math.log(xmax) + 1.9;
+  const x = lin(0, xmax, L, W - R), y = lin(ymin, ymax, H - B, T);
+  const cp = clip(svg, 'jClip', L, T, W - L - R, H - T - B);
+  for (let v = Math.ceil(ymin); v <= ymax; v++) {
+    el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }, svg);
+    el('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'muted', 'font-size': 11 }, svg, v);
+  }
+  const xstep = xmax > 12 ? 5 : xmax > 5 ? 1 : 0.5;
+  el('line', { x1: L, x2: W - R, y1: H - B, y2: H - B, class: 'axis' }, svg);
+  for (let v = 0; v <= xmax; v += xstep) el('text', { x: x(v), y: H - B + 16, 'text-anchor': 'middle', class: 'muted', 'font-size': 11 }, svg, +v.toFixed(1));
+  el('text', { x: W - R, y: H - 4, 'text-anchor': 'end', class: 'muted', 'font-size': 11 }, svg, 'x = p(z | y) / q(z)  (each ratio ÷ p(y))');
+    let d = ''; for (let i = 0; i <= 300; i++) { const v = Math.exp(ymin) + (xmax - Math.exp(ymin)) * i / 300; d += (i ? 'L' : 'M') + x(v).toFixed(1) + ',' + y(Math.log(v)).toFixed(1); }
+  const g = el('g', { 'clip-path': cp }, svg);
+  el('path', { d, fill: 'none', stroke: C.ink, 'stroke-width': 2 }, g);
+  const P = xs.map(v => [x(v), y(Math.max(Math.log(v), ymin))]);
+  el('line', { x1: P[0][0], y1: P[0][1], x2: P[1][0], y2: P[1][1], stroke: C.muted, 'stroke-width': 1.5, 'stroke-dasharray': '5 3' }, g);
+  el('line', { x1: x(1), x2: x(1), y1: T, y2: H - B, stroke: C.gridline, 'stroke-width': 1 }, svg);
+  const yAvg = s.q[0] * Math.log(xs[0]) + s.q[1] * Math.log(xs[1]);   // = -KL
+  if (s.kl > 1e-4) el('line', { x1: x(1), x2: x(1), y1: y(0), y2: y(Math.max(yAvg, ymin)), stroke: C.gap, 'stroke-width': 4, 'stroke-linecap': 'round' }, svg);
+  P.forEach((p, k) => {
+    el('circle', { cx: p[0], cy: p[1], r: 7, fill: k ? C.b : C.a, stroke: C.panel, 'stroke-width': 2 }, svg);
+    const lbl = (k ? 'Valley' : 'Hillside') + (Math.log(xs[k]) < ymin ? ' (off scale ▼)' : '');
+    const right = xs[k] > 1 && p[0] < W - R - 70;
+    el('text', { x: p[0] + (right ? 10 : -10), y: p[1] + (xs[k] > 1 && !right ? 20 : 4), 'text-anchor': right ? 'start' : 'end', 'font-size': 11 }, svg, lbl);
+  });
+  el('circle', { cx: x(1), cy: y(0), r: 6, fill: C.ink, stroke: C.panel, 'stroke-width': 2 }, svg);
+  
+  el('rect', { x: x(1) - 6, y: y(Math.max(yAvg, ymin)) - 6, width: 12, height: 12, fill: C.q, stroke: C.panel, 'stroke-width': 2, transform: `rotate(45 ${x(1)} ${y(Math.max(yAvg, ymin))})` }, svg);
+  // key in the empty top-left corner
+  const kx = L + 12, ky = T + 14;
+  el('line', { x1: kx - 6, x2: kx + 6, y1: ky, y2: ky, stroke: C.ink, 'stroke-width': 2 }, svg);
+  el('text', { x: kx + 12, y: ky + 4, 'font-size': 11 }, svg, 'the curve y = log x');
+  el('circle', { cx: kx, cy: ky + 18, r: 5, fill: C.ink }, svg);
+  el('text', { x: kx + 12, y: ky + 22, 'font-size': 11 }, svg, 'log of the average = log p(y)');
+  el('rect', { x: kx - 4, y: ky + 32, width: 8, height: 8, fill: C.q, transform: `rotate(45 ${kx} ${ky + 36})` }, svg);
+  el('text', { x: kx + 12, y: ky + 40, 'font-size': 11 }, svg, 'average of the logs = ELBO term');
+  el('line', { x1: kx, x2: kx, y1: ky + 49, y2: ky + 59, stroke: C.gap, 'stroke-width': 4, 'stroke-linecap': 'round' }, svg);
+  el('text', { x: kx + 12, y: ky + 58, 'font-size': 11 }, svg, 'gap = KL(q ‖ posterior)');
+  // readout
+  const elboN = s.lpy - s.kl;
+  $('jRead').innerHTML = `
+    <div class="ln"><span>apple</span><b>#${jSel + 1}, ${s.y} g</b></div>
+    <div class="ln"><span>posterior p(H | y), p(V | y)</span><b>${f3(s.post[0])}, ${f3(s.post[1])}</b></div>
+    <div class="ln"><span>your blame q(H), q(V)</span><b>${f2(s.q[0])}, ${f2(s.q[1])}</b></div>
+    <div class="ln"><span>log p(yₙ | θ) (true)</span><b>${f3(s.lpy)}</b></div>
+    <div class="ln"><span style="color:${C.q}">ELBO term Σ q log(p(y,z)/q)</span><b>${f3(elboN)}</b></div>
+    <div class="ln"><span style="color:${C.gap}">gap = KL(q ‖ posterior)</span><b>${f3(s.kl)}</b></div>`;
+}
+$('jq').addEventListener('input', renderJensen);
+$('jPost').onclick = () => { const s = jStats(); $('jq').value = clamp(s.post[0], 0.01, 0.99); renderJensen(); };
+
+// ====================================================================
+// 8.7.2.2  E step
+// ====================================================================
+function renderE() {
+  const svg = $('eSvg'); svg.innerHTML = '';
+  const W = 820, H = 240, base = H - 40, x = lin(XD[0], XD[1], 30, W - 16);
+  const cp = clip(svg, 'eClip', 0, 0, W, base);
+  xAxis(svg, x, base, XD[0], XD[1], 20, 'weight (g)', W);
+  drawComps(svg, G, x, base, DSCALE, cp, { mixture: true });
+  drawApples(svg, Y1, x, base, 6, n => mix(C.a, C.b, Rq[n][1]), n => {
+    const j = joint1(Y1[n], G), l = lse(j[0], j[1]);
+    const ph = Math.exp(j[0] - l);
+    return `<b>Apple #${n + 1}: ${Y1[n]} g</b><br>
+      π<sub>H</sub>·N(y | μ<sub>H</sub>, σ<sub>H</sub>) = ${Math.exp(j[0]).toExponential(2)}<br>
+      π<sub>V</sub>·N(y | μ<sub>V</sub>, σ<sub>V</sub>) = ${Math.exp(j[1]).toExponential(2)}<br>
+      posterior p(H | y) = ${f3(ph)} &nbsp; p(V | y) = ${f3(1 - ph)}<br>
+      stored blame q(H) = <b>${f3(Rq[n][0])}</b>${Math.abs(Rq[n][0] - ph) > 0.005 ? ' <span style="color:' + C.gap + '">(stale)</span>' : ''}`;
+  });
+}
+$('eStep').onclick = () => { stopM(); Rq = estep1(Y1, G); sharedChanged(); };
+$('eAuto').addEventListener('change', () => { if ($('eAuto').checked) { Rq = estep1(Y1, G); sharedChanged(); } });
+
+// ====================================================================
+// 8.7.2.3  M step
+// ====================================================================
+function renderM() {
+  const svg = $('mSvg'); svg.innerHTML = '';
+  const W = 820, x = lin(XD[0], XD[1], 30, W - 16);
+  const nw = mstep1(Y1, Rq, G);
+  const rows = [{ k: 0, base: 120, name: 'Hillside' }, { k: 1, base: 262, name: 'Valley' }];
+  const hgt = 82;
+  rows.forEach(({ k, base, name }) => {
+    const col = k ? C.b : C.a;
+    el('line', { x1: x(XD[0]), x2: x(XD[1]), y1: base, y2: base, class: 'axis' }, svg);
+    for (let v = 100; v <= XD[1]; v += 20) el('text', { x: x(v), y: base + 30, 'text-anchor': 'middle', class: 'muted', 'font-size': 10 }, svg, v);
+    el('text', { x: x(XD[0]), y: base - hgt - 12, 'font-weight': 600, fill: col }, svg, `${name}: each apple counts as r(n, ${k ? 'V' : 'H'}) of an apple`);
+    el('line', { x1: x(XD[0]) - 4, x2: x(XD[0]) - 4, y1: base, y2: base - hgt, class: 'axis' }, svg);
+    el('text', { x: x(XD[0]) - 8, y: base - hgt + 4, 'text-anchor': 'end', class: 'muted', 'font-size': 10 }, svg, '1');
+    el('text', { x: x(XD[0]) - 8, y: base + 4, 'text-anchor': 'end', class: 'muted', 'font-size': 10 }, svg, '0');
+    Y1.forEach((y, n) => {
+      const r = Rq[n][k], g = el('g', {}, svg);
+      el('line', { x1: x(y), x2: x(y), y1: base, y2: base - r * hgt, stroke: col, 'stroke-width': 2, opacity: 0.8 }, g);
+      el('circle', { cx: x(y), cy: base - r * hgt, r: 4, fill: col, stroke: C.panel, 'stroke-width': 1 }, g);
+      el('rect', { x: x(y) - 4, y: base - hgt, width: 8, height: hgt, fill: 'transparent' }, g);
+      bindTip(g, () => `Apple #${n + 1}: ${y} g<br>counts as <b>${f3(r)}</b> of an apple for ${name}`);
+    });
+    // current guess
+    el('line', { x1: x(G.mu[k]), x2: x(G.mu[k]), y1: base - hgt - 4, y2: base, stroke: col, 'stroke-dasharray': '4 3', 'stroke-width': 1.5 }, svg);
+    // new balance point and spread
+    const xm = x(nw.mu[k]);
+    el('path', { d: `M${xm},${base + 1}L${xm - 9},${base + 15}L${xm + 9},${base + 15}Z`, fill: C.ink }, svg);
+    const sl = x(nw.mu[k] - nw.sd[k]), sr = x(nw.mu[k] + nw.sd[k]);
+    el('path', { d: `M${sl},${base - hgt - 4}v8M${sl},${base - hgt}H${sr}M${sr},${base - hgt - 4}v8`, stroke: C.ink, 'stroke-width': 1.5, fill: 'none' }, svg);
+    if (Math.abs(xm - x(G.mu[k])) > 14) {
+      const dir = Math.sign(xm - x(G.mu[k]));
+      el('path', { d: `M${x(G.mu[k])},${base - hgt / 2}H${xm - dir * 6}m${-dir * 6},-5l${dir * 6},5l${-dir * 6},5`, stroke: C.ink, 'stroke-width': 1.4, fill: 'none', opacity: 0.6 }, svg);
+    }
+  });
+  const rk = [0, 1].map(k => Rq.reduce((s, r) => s + r[k], 0));
+  const row = k => `<tr><td><b style="color:${k ? C.b : C.a}">${k ? 'Valley' : 'Hillside'}</b></td><td>${f2(rk[k])}</td>
+    <td>${f2(G.pi[k])} → <b>${f2(nw.pi[k])}</b></td><td>${f1(G.mu[k])} → <b>${f1(nw.mu[k])}</b></td><td>${f1(G.sd[k])} → <b>${f1(nw.sd[k])}</b></td></tr>`;
+  $('mTable').innerHTML = `<tr><th>orchard</th><th>effective apples r<sub>k</sub> = Σ r<sub>nk</sub></th><th>share π<sub>k</sub> = r<sub>k</sub>/N</th><th>mean μ<sub>k</sub> (g)</th><th>spread σ<sub>k</sub> (g)</th></tr>${row(0)}${row(1)}`;
+  $('mIter').textContent = `full EM iterations so far: ${emIters}`;
+}
+function applyM() { G = mstep1(Y1, Rq, G); G.sd = G.sd.map(s => clamp(s, 4, 50)); }
+$('mStep').onclick = () => { stopM(); applyM(); sharedChanged(); };
+$('mFull').onclick = () => { stopM(); Rq = estep1(Y1, G); applyM(); emIters++; sharedChanged(); };
+$('mReset').onclick = () => { stopM(); G = cloneTh(G0); Rq = estep1(Y1, G); emIters = 0; sharedChanged(); };
+function stopM() { if (mTimer) { clearInterval(mTimer); mTimer = null; $('mRun').textContent = 'Run EM to convergence'; } }
+$('mRun').onclick = () => {
+  if (mTimer) { stopM(); return; }
+  $('mRun').textContent = 'Pause';
+  let half = 0;
+  mTimer = setInterval(() => {
+    const before = ll1(Y1, G);
+    if (half % 2 === 0) Rq = estep1(Y1, G); else { applyM(); emIters++; }
+    half++; sharedChanged();
+    if (half % 2 === 0 && (Math.abs(ll1(Y1, G) - before) < 1e-4 || emIters > 200)) stopM();
+  }, 420);
+};
+
+// ====================================================================
+// 8.7.3.3  2-D GMM
+// ====================================================================
+const TRUE2 = [
+  { pi: 0.45, mu: [140, 14.2], sd: [13, 1.0], rho: 0.55 },
+  { pi: 0.55, mu: [195, 11.6], sd: [19, 1.1], rho: -0.35 },
+];
+const Y2 = [], Z2 = [];
+(() => {
+  const rng = mulberry32(8701);
+  [54, 66].forEach((cnt, k) => {
+    const t = TRUE2[k];
+    for (let i = 0; i < cnt; i++) {
+      const a = gauss(rng), b = gauss(rng);
+      Y2.push([t.mu[0] + t.sd[0] * a, t.mu[1] + t.sd[1] * (t.rho * a + Math.sqrt(1 - t.rho * t.rho) * b)]);
+      Z2.push(k);
+    }
+  });
+})();
+const XD2 = [85, 255], YD2 = [8, 17.5];
+function lnN2(y, m, S) {
+  const d0 = y[0] - m[0], d1 = y[1] - m[1], a = S[0][0], b = S[0][1], c = S[1][1], det = a * c - b * b;
+  return -0.5 * (c * d0 * d0 - 2 * b * d0 * d1 + a * d1 * d1) / det - 0.5 * Math.log(det) - LOG2PI;
+}
+const ll2 = th => Y2.reduce((s, y) => s + lse(Math.log(th.pi[0]) + lnN2(y, th.mu[0], th.S[0]), Math.log(th.pi[1]) + lnN2(y, th.mu[1], th.S[1])), 0);
+const estep2 = th => Y2.map(y => { const a = Math.log(th.pi[0]) + lnN2(y, th.mu[0], th.S[0]), b = Math.log(th.pi[1]) + lnN2(y, th.mu[1], th.S[1]), l = lse(a, b); return [Math.exp(a - l), Math.exp(b - l)]; });
+function mstep2(R, old) {
+  const N = Y2.length, out = { pi: [], mu: [], S: [] };
+  for (let k = 0; k < 2; k++) {
+    let rk = 0, s0 = 0, s1 = 0;
+    R.forEach((r, n) => { rk += r[k]; s0 += r[k] * Y2[n][0]; s1 += r[k] * Y2[n][1]; });
+    if (rk < 1e-8) { out.pi.push(1e-8); out.mu.push(old.mu[k].slice()); out.S.push(old.S[k].map(r => r.slice())); continue; }
+    const m = [s0 / rk, s1 / rk]; let a = 0, b = 0, c = 0;
+    R.forEach((r, n) => { const d0 = Y2[n][0] - m[0], d1 = Y2[n][1] - m[1]; a += r[k] * d0 * d0; b += r[k] * d0 * d1; c += r[k] * d1 * d1; });
+    out.pi.push(rk / N); out.mu.push(m); out.S.push([[a / rk + 1e-6, b / rk], [b / rk, c / rk + 1e-6]]);
+  }
+  const ps = out.pi[0] + out.pi[1]; out.pi = out.pi.map(p => p / ps);
+  return out;
+}
+const G2_0 = { pi: [0.5, 0.5], mu: [[112, 9.6], [236, 16.4]], S: [[[22 * 22, 0], [0, 1.4 * 1.4]], [[22 * 22, 0], [0, 1.4 * 1.4]]] };
+const clone2 = th => JSON.parse(JSON.stringify(th));
+let th2, R2, phase2, iter2, trace2, gTimer = null, drag2 = null;
+function reset2(th) { th2 = clone2(th); R2 = null; phase2 = 'E'; iter2 = 0; trace2 = [ll2(th2)]; }
+function step2() {
+  if (phase2 === 'E') { R2 = estep2(th2); phase2 = 'M'; }
+  else { th2 = mstep2(R2, th2); phase2 = 'E'; iter2++; trace2.push(ll2(th2)); }
+}
+function ellipsePath(m, S, c, x, y) {
+  const a = S[0][0], b = S[0][1], d = S[1][1];
+  const l11 = Math.sqrt(a), l21 = b / l11, l22 = Math.sqrt(Math.max(d - l21 * l21, 1e-12));
+  let p = '';
+  for (let i = 0; i <= 72; i++) {
+    const t = i / 72 * 2 * Math.PI, u = Math.cos(t) * c, v = Math.sin(t) * c;
+    p += (i ? 'L' : 'M') + x(m[0] + l11 * u).toFixed(1) + ',' + y(m[1] + l21 * u + l22 * v).toFixed(1);
+  }
+  return p + 'Z';
+}
+function render2() {
+  const svg = $('gSvg'); svg.innerHTML = '';
+  const W = 820, H = 440, L = 50, R = 16, T = 12, B = 42;
+  const x = lin(XD2[0], XD2[1], L, W - R), y = lin(YD2[0], YD2[1], H - B, T);
+  const cp = clip(svg, 'gClip', L, T, W - L - R, H - T - B);
+  for (let v = 100; v <= XD2[1]; v += 20) {
+    el('line', { x1: x(v), x2: x(v), y1: T, y2: H - B, class: 'grid' }, svg);
+    el('text', { x: x(v), y: H - B + 16, 'text-anchor': 'middle', class: 'muted', 'font-size': 11 }, svg, v);
+  }
+  for (let v = 9; v <= YD2[1]; v += 1) {
+    el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }, svg);
+    el('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'muted', 'font-size': 11 }, svg, v);
+  }
+  el('text', { x: W - R, y: H - 6, 'text-anchor': 'end', class: 'muted', 'font-size': 11 }, svg, 'weight (g)');
+  el('text', { x: 4, y: T + 4, class: 'muted', 'font-size': 11 }, svg, '°Brix');
+  const truth = $('gTruth').checked;
+  const pts = el('g', {}, svg);
+  Y2.forEach((p, n) => {
+    const fill = truth ? (Z2[n] ? C.b : C.a) : R2 ? mix(C.a, C.b, R2[n][1]) : C.muted;
+    const g = el('g', {}, pts);
+    el('circle', { cx: x(p[0]), cy: y(p[1]), r: 4.5, fill, stroke: C.panel, 'stroke-width': 1.5 }, g);
+    el('circle', { cx: x(p[0]), cy: y(p[1]), r: 8, fill: 'transparent' }, g);
+    bindTip(g, () => `${f1(p[0])} g, ${f1(p[1])} °Brix<br>` + (R2 ? `responsibility: H ${f2(R2[n][0])}, V ${f2(R2[n][1])}` : 'no E step yet') + `<br><span class="hint">truly from ${Z2[n] ? 'Valley' : 'Hillside'}</span>`);
+  });
+  const eg = el('g', { 'clip-path': cp, 'pointer-events': 'none' }, svg);
+  for (let k = 0; k < 2; k++) {
+    const col = k ? C.b : C.a;
+    el('path', { d: ellipsePath(th2.mu[k], th2.S[k], 2, x, y), fill: col, 'fill-opacity': 0.05, stroke: col, 'stroke-width': 1.5, 'stroke-dasharray': '5 3' }, eg);
+    el('path', { d: ellipsePath(th2.mu[k], th2.S[k], 1, x, y), fill: col, 'fill-opacity': 0.08, stroke: col, 'stroke-width': 2 }, eg);
+  }
+  for (let k = 0; k < 2; k++) {
+    const col = k ? C.b : C.a, cx = x(th2.mu[k][0]), cy = y(th2.mu[k][1]);
+    const g = el('g', { style: 'cursor:grab' }, svg);
+    el('circle', { cx, cy, r: 16, fill: 'transparent' }, g);
+    el('circle', { cx, cy, r: 9, fill: C.panel, stroke: col, 'stroke-width': 2.5 }, g);
+    el('path', { d: `M${cx - 5},${cy}H${cx + 5}M${cx},${cy - 5}V${cy + 5}`, stroke: col, 'stroke-width': 2.5 }, g);
+    el('text', { x: cx + 13, y: cy - 10, 'font-size': 12, 'font-weight': 600, fill: col }, svg, k ? 'Valley' : 'Hillside');
+    g.addEventListener('pointerdown', e => { e.preventDefault(); stop2(); drag2 = { k, x, y }; svg.setPointerCapture(e.pointerId); });
+  }
+  $('gNext').textContent = 'Next: ' + phase2 + ' step';
+  const llNow = ll2(th2);
+  $('gTiles').innerHTML = `
+    <div class="tile"><div class="k">iterations</div><div class="v">${iter2}</div><div class="s">next: ${phase2} step</div></div>
+    <div class="tile"><div class="k">log likelihood</div><div class="v">${f1(llNow)}</div><div class="s">${trace2.length > 1 ? 'last Δ = +' + (trace2.at(-1) - trace2.at(-2)).toFixed(3) : '&nbsp;'}</div></div>
+    <div class="tile a"><div class="k">Hillside share π<sub>H</sub></div><div class="v">${f2(th2.pi[0])}</div><div class="s">μ = (${f1(th2.mu[0][0])} g, ${f1(th2.mu[0][1])})</div></div>
+    <div class="tile b"><div class="k">Valley share π<sub>V</sub></div><div class="v">${f2(th2.pi[1])}</div><div class="s">μ = (${f1(th2.mu[1][0])} g, ${f1(th2.mu[1][1])})</div></div>`;
+  $('gStatus').innerHTML = phase2 === 'M' ? 'The E step just recolored every apple using the current ellipses. Next, the M step refits each ellipse to its (weighted) apples.' :
+    (R2 ? 'The M step just refit each ellipse to the weighted apples. Next, the E step recomputes the blame.' : 'Press <b>Next: E step</b> to color the apples by responsibility.');
+  renderTrace2();
+}
+$('gSvg').addEventListener('pointermove', e => {
+  if (!drag2) return;
+  const [px, py] = svgPt($('gSvg'), e);
+  th2.mu[drag2.k] = [clamp(drag2.x.inv(px), XD2[0], XD2[1]), clamp(drag2.y.inv(py), YD2[0], YD2[1])];
+  phase2 = 'E'; iter2 = 0; trace2 = [ll2(th2)];
+  render2();
+});
+['pointerup', 'pointercancel'].forEach(t => $('gSvg').addEventListener(t, () => { drag2 = null; }));
+function renderTrace2() {
+  const svg = $('gTrace'); svg.innerHTML = '';
+  const W = 400, H = 210, L = 52, R = 12, T = 12, B = 30;
+  const n = Math.max(10, trace2.length - 1);
+  let lo = Math.min(...trace2), hi = Math.max(...trace2); if (hi - lo < 1) { lo -= 0.5; hi += 0.5; }
+  const pad = (hi - lo) * 0.08;
+  const x = lin(0, n, L, W - R), y = lin(lo - pad, hi + pad, H - B, T);
+  for (let i = 0; i <= 4; i++) {
+    const v = lo - pad + (hi - lo + 2 * pad) * i / 4;
+    el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }, svg);
+    el('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'muted', 'font-size': 10 }, svg, v.toFixed(0));
+  }
+  const st = Math.max(1, Math.ceil(n / 10));
+  for (let i = 0; i <= n; i += st) el('text', { x: x(i), y: H - B + 15, 'text-anchor': 'middle', class: 'muted', 'font-size': 10 }, svg, i);
+  el('text', { x: W - R, y: H - 2, 'text-anchor': 'end', class: 'muted', 'font-size': 10 }, svg, 'iteration');
+  el('path', { d: trace2.map((v, i) => (i ? 'L' : 'M') + x(i) + ',' + y(v)).join(''), fill: 'none', stroke: C.ink, 'stroke-width': 2 }, svg);
+  trace2.forEach((v, i) => {
+    const g = el('g', {}, svg);
+    el('circle', { cx: x(i), cy: y(v), r: 4, fill: C.ink, stroke: C.panel, 'stroke-width': 1.5 }, g);
+    el('circle', { cx: x(i), cy: y(v), r: 9, fill: 'transparent' }, g);
+    bindTip(g, () => `iteration ${i}<br>LL = <b>${f3(v)}</b>` + (i ? `<br>change: +${(v - trace2[i - 1]).toFixed(4)}` : ''));
+  });
+}
+function stop2() { if (gTimer) { clearInterval(gTimer); gTimer = null; $('gRun').textContent = 'Run ▶'; } }
+$('gNext').onclick = () => { stop2(); step2(); render2(); };
+$('gRun').onclick = () => {
+  if (gTimer) { stop2(); return; }
+  $('gRun').textContent = 'Pause ❚❚';
+  gTimer = setInterval(() => {
+    step2(); render2();
+    if (phase2 === 'E' && trace2.length > 2 && (trace2.at(-1) - trace2.at(-2) < 1e-4 || iter2 > 300)) stop2();
+  }, 110);
+};
+$('gReset').onclick = () => { stop2(); reset2(G2_0); render2(); };
+$('gRand').onclick = () => {
+  stop2();
+  const i = Math.floor(Math.random() * Y2.length); let j; do { j = Math.floor(Math.random() * Y2.length); } while (j === i);
+  const mx = Y2.reduce((s, p) => s + p[0], 0) / Y2.length, my = Y2.reduce((s, p) => s + p[1], 0) / Y2.length;
+  const vx = Y2.reduce((s, p) => s + (p[0] - mx) ** 2, 0) / Y2.length, vy = Y2.reduce((s, p) => s + (p[1] - my) ** 2, 0) / Y2.length;
+  reset2({ pi: [0.5, 0.5], mu: [Y2[i].slice(), Y2[j].slice()], S: [[[vx / 2, 0], [0, vy / 2]], [[vx / 2, 0], [0, vy / 2]]] });
+  render2();
+};
+$('gTruth').addEventListener('change', render2);
+
+// ====================================================================
+// 8.7.3.4  MAP vs MLE: the one-apple orchard
+// ====================================================================
+const GIANT = 290, YMAP = Y1.concat([GIANT]);
+const S0DEF = (() => { const m = YMAP.reduce((s, v) => s + v, 0) / YMAP.length; return YMAP.reduce((s, v) => s + (v - m) ** 2, 0) / YMAP.length / 2; })();  // s^2 / K^(1/D), K=2, D=1
+let mapSt, mapTimer = null;
+function mapReset() {
+  stopMap();
+  const sd0 = 5, th0 = { pi: [0.9, 0.1], mu: [175, GIANT], sd: [32, sd0] };
+  mapSt = { mle: cloneTh(th0), map: cloneTh(th0), it: 0, hM: [sd0], hP: [sd0] };
+  renderMap();
+}
+function mapStep() {
+  const s0 = S0DEF * +$('mapStr').value;
+  mapSt.mle = mstep1(YMAP, estep1(YMAP, mapSt.mle), mapSt.mle);
+  mapSt.map = mstep1(YMAP, estep1(YMAP, mapSt.map), mapSt.map, s0);
+  mapSt.it++; mapSt.hM.push(mapSt.mle.sd[1]); mapSt.hP.push(mapSt.map.sd[1]);
+}
+function renderMapPanel(id, th, rid, isMap) {
+  const svg = $(id); svg.innerHTML = '';
+  const W = 420, H = 200, base = H - 34, x = lin(XD[0], XD[1], 14, W - 10);
+  const cp = clip(svg, id + 'Clip', 0, 0, W, base);
+  el('line', { x1: x(XD[0]), x2: x(XD[1]), y1: base, y2: base, class: 'axis' }, svg);
+  for (let v = 100; v <= XD[1]; v += 40) el('text', { x: x(v), y: base + 15, 'text-anchor': 'middle', class: 'muted', 'font-size': 10 }, svg, v);
+  drawComps(svg, th, x, base, DSCALE * 0.75, cp);
+  const R = estep1(YMAP, th);
+  drawApples(svg, YMAP, x, base, 3.5, n => mix(C.a, C.b, R[n][1]), n => `${YMAP[n]} g${n === YMAP.length - 1 ? ' (the prize giant)' : ''}<br>blame on Valley: ${f3(R[n][1])}`);
+  el('text', { x: x(GIANT), y: base + 28, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 600 }, svg, 'giant ↑');
+  const sd = th.sd[1], llv = ll1(YMAP, th), collapsed = sd < 0.01;
+  $(rid).innerHTML = `
+    <div class="ln"><span>Valley spread σ<sub>V</sub></span><b>${sd < 0.01 ? sd.toExponential(1) : f2(sd)} g</b></div>
+    <div class="ln"><span>Valley mean μ<sub>V</sub></span><b>${f1(th.mu[1])} g</b></div>
+    <div class="ln"><span>log likelihood</span><b>${f2(llv)}</b></div>
+    <div class="ln"><span>${isMap ? (sd >= 0.01 ? 'σ held up by the prior' : '') : (collapsed ? '<b style="color:' + C.gap + '">collapsed: σ→0, LL→+∞</b>' : 'not collapsed (yet)')}</span><b></b></div>`;
+}
+function renderMap() {
+  $('mapStrv').textContent = (+$('mapStr').value).toFixed(2) + '×';
+  $('mapIter').textContent = `iterations: ${mapSt.it}`;
+  renderMapPanel('mapMle', mapSt.mle, 'mapMleR', false);
+  renderMapPanel('mapMap', mapSt.map, 'mapMapR', true);
+  const svg = $('mapSig'); svg.innerHTML = '';
+  const W = 820, H = 200, L = 56, R = 70, T = 12, B = 30;
+  const n = Math.max(25, mapSt.it), x = lin(0, n, L, W - R), y = lin(-6.3, 2, H - B, T);
+  for (let e = -6; e <= 2; e += 2) {
+    el('line', { x1: L, x2: W - R, y1: y(e), y2: y(e), class: 'grid' }, svg);
+    el('text', { x: L - 6, y: y(e) + 4, 'text-anchor': 'end', class: 'muted', 'font-size': 10 }, svg, e === 0 ? '1 g' : e > 0 ? '10' + (e === 2 ? '0' : '') + ' g' : `10${e === -2 ? '⁻²' : e === -4 ? '⁻⁴' : '⁻⁶'} g`);
+  }
+  for (let i = 0; i <= n; i += 5) el('text', { x: x(i), y: H - B + 15, 'text-anchor': 'middle', class: 'muted', 'font-size': 10 }, svg, i);
+  el('text', { x: W - R, y: H - 2, 'text-anchor': 'end', class: 'muted', 'font-size': 10 }, svg, 'iteration');
+  [['hM', C.mle, 'MLE'], ['hP', C.q, 'MAP']].forEach(([key, col, name]) => {
+    const h = mapSt[key];
+    el('path', { d: h.map((v, i) => (i ? 'L' : 'M') + x(i) + ',' + y(Math.log10(v))).join(''), fill: 'none', stroke: col, 'stroke-width': 2 }, svg);
+    h.forEach((v, i) => {
+      const g = el('g', {}, svg);
+      el('circle', { cx: x(i), cy: y(Math.log10(v)), r: 3.5, fill: col, stroke: C.panel, 'stroke-width': 1.5 }, g);
+      el('circle', { cx: x(i), cy: y(Math.log10(v)), r: 8, fill: 'transparent' }, g);
+      bindTip(g, () => `${name}, iteration ${i}<br>σ<sub>V</sub> = <b>${v < 0.01 ? v.toExponential(2) : f2(v)} g</b>`);
+    });
+    const last = h.at(-1);
+    el('text', { x: x(h.length - 1) + 8, y: y(Math.log10(last)) + 4 + (key === 'hM' ? 0 : 0), 'font-size': 11, 'font-weight': 600 }, svg, name);
+  });
+}
+function stopMap() { if (mapTimer) { clearInterval(mapTimer); mapTimer = null; $('mapRun').textContent = 'Run 25 iterations'; } }
+$('mapStep').onclick = () => { stopMap(); mapStep(); renderMap(); };
+$('mapRun').onclick = () => {
+  if (mapTimer) { stopMap(); return; }
+  $('mapRun').textContent = 'Pause';
+  let left = 25;
+  mapTimer = setInterval(() => { mapStep(); renderMap(); if (--left <= 0) stopMap(); }, 220);
+};
+$('mapReset').onclick = mapReset;
+$('mapStr').addEventListener('input', mapReset);
+
+// ====================================================================
+// 8.7.3.5  Nonconvexity: LL over (mu_H, mu_V)
+// ====================================================================
+const NC = { sd: 18, D: [95, 245], G: 100 };
+const thNC = (a, b) => ({ pi: [0.5, 0.5], mu: [a, b], sd: [NC.sd, NC.sd] });
+let ncLL = null, ncLo, ncHi, ncPaths = [], ncImg = null;
+function ncCompute() {
+  ncLL = [];
+  for (let j = 0; j < NC.G; j++) {
+    const row = [];
+    for (let i = 0; i < NC.G; i++) {
+      const a = NC.D[0] + (i + 0.5) / NC.G * (NC.D[1] - NC.D[0]), b = NC.D[0] + (j + 0.5) / NC.G * (NC.D[1] - NC.D[0]);
+      row.push(ll1(Y1, thNC(a, b)));
+    }
+    ncLL.push(row);
+  }
+  ncHi = Math.max(...ncLL.flat()); ncLo = ncHi - 70;
+}
+function ncImage() {
+  const cv = document.createElement('canvas'); cv.width = NC.G; cv.height = NC.G;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(NC.G, NC.G);
+  const lo = rgb(C.soft), hi = rgb(C.seq);
+  for (let j = 0; j < NC.G; j++) for (let i = 0; i < NC.G; i++) {
+    const t = Math.pow(clamp((ncLL[j][i] - ncLo) / (ncHi - ncLo), 0, 1), 1.6);
+    const o = ((NC.G - 1 - j) * NC.G + i) * 4;
+    for (let c = 0; c < 3; c++) img.data[o + c] = Math.round(lo[c] + (hi[c] - lo[c]) * t);
+    img.data[o + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  ncImg = cv.toDataURL();
+}
+function ncEM(a, b) {
+  const path = [[a, b]];
+  for (let it = 0; it < 400; it++) {
+    const R = estep1(Y1, thNC(a, b));
+    let sa = 0, ra = 0, sb = 0, rb = 0;
+    R.forEach((r, n) => { sa += r[0] * Y1[n]; ra += r[0]; sb += r[1] * Y1[n]; rb += r[1]; });
+    const na = sa / ra, nb = sb / rb;
+    path.push([na, nb]);
+    if (Math.hypot(na - a, nb - b) < 0.005) break;
+    a = na; b = nb;
+  }
+  return path;
+}
+function renderNC() {
+  const svg = $('ncSvg'); svg.innerHTML = '';
+  const W = 470, H = 440, L = 50, R = 12, T = 12, B = 42, S = Math.min(W - L - R, H - T - B);
+  const x = lin(NC.D[0], NC.D[1], L, L + S), y = lin(NC.D[0], NC.D[1], T + S, T);
+  el('image', { href: ncImg, x: L, y: T, width: S, height: S, preserveAspectRatio: 'none' }, svg);
+  el('rect', { x: L, y: T, width: S, height: S, fill: 'none', stroke: C.border }, svg);
+  for (let v = 100; v <= NC.D[1]; v += 20) {
+    el('text', { x: x(v), y: T + S + 15, 'text-anchor': 'middle', class: 'muted', 'font-size': 10 }, svg, v);
+    el('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'muted', 'font-size': 10 }, svg, v);
+  }
+  el('text', { x: L + S, y: T + S + 32, 'text-anchor': 'end', class: 'muted', 'font-size': 11 }, svg, 'Hillside mean μ_H (g)');
+  el('text', { x: 12, y: T + S / 2, 'text-anchor': 'middle', class: 'muted', 'font-size': 11, transform: `rotate(-90 12 ${T + S / 2})` }, svg, 'Valley mean μ_V (g)');
+  el('line', { x1: x(NC.D[0]), y1: y(NC.D[0]), x2: x(NC.D[1]), y2: y(NC.D[1]), stroke: C.ink, 'stroke-dasharray': '5 4', 'stroke-width': 1, opacity: 0.5 }, svg);
+  const cp = clip(svg, 'ncClip', L, T, S, S);
+  const g = el('g', { 'clip-path': cp }, svg);
+  ncPaths.forEach(p => {
+    el('path', { d: p.map((q, i) => (i ? 'L' : 'M') + x(q[0]).toFixed(1) + ',' + y(q[1]).toFixed(1)).join(''), fill: 'none', stroke: C.ink, 'stroke-width': 2 }, g);
+    p.slice(1, 12).forEach(q => el('circle', { cx: x(q[0]), cy: y(q[1]), r: 2.5, fill: C.ink }, g));
+    el('circle', { cx: x(p[0][0]), cy: y(p[0][1]), r: 6, fill: C.panel, stroke: C.ink, 'stroke-width': 2 }, g);
+    const e = p.at(-1);
+    el('circle', { cx: x(e[0]), cy: y(e[1]), r: 6, fill: C.ink, stroke: C.panel, 'stroke-width': 2 }, g);
+  });
+  const hit = el('rect', { x: L, y: T, width: S, height: S, fill: 'transparent', style: 'cursor:crosshair' }, svg);
+  const toData = e => { const [px, py] = svgPt(svg, e); return [clamp(x.inv(px), NC.D[0], NC.D[1]), clamp(y.inv(py), NC.D[0], NC.D[1])]; };
+  hit.addEventListener('click', e => { const [a, b] = toData(e); ncPaths.push(ncEM(a, b)); if (ncPaths.length > 14) ncPaths.shift(); renderNC(); });
+  hit.addEventListener('pointermove', e => { const [a, b] = toData(e); showTip(e, `μ_H = ${f1(a)} g, μ_V = ${f1(b)} g<br>LL = <b>${f2(ll1(Y1, thNC(a, b)))}</b><br><span class="hint">click to run EM from here</span>`); });
+  hit.addEventListener('pointerleave', hideTip);
+  // summarize endpoints
+  const ends = {};
+  ncPaths.forEach(p => {
+    const e = p.at(-1), onDiag = Math.abs(e[0] - e[1]) < 0.5;
+    const key = onDiag ? 'diag' : e[0] < e[1] ? 'A' : 'B';
+    (ends[key] = ends[key] || { n: 0, e }).n++;
+  });
+  const line = (k, label) => ends[k] ? `<div class="ln"><span>${label}<br><span class="hint">μ_H ≈ ${f1(ends[k].e[0])}, μ_V ≈ ${f1(ends[k].e[1])}, LL = ${f2(ll1(Y1, thNC(...ends[k].e)))}</span></span><b>${ends[k].n}×</b></div>` : '';
+  $('ncRead').innerHTML = ncPaths.length ? `<div style="font-weight:600;margin-bottom:4px">Where the ${ncPaths.length} run${ncPaths.length > 1 ? 's' : ''} ended</div>` +
+    line('A', 'Peak 1: Hillside small, Valley big') + line('B', 'Peak 2: the mirror (names swapped)') + line('diag', 'Stuck on the diagonal (a saddle)') +
+    (ends.A && ends.B ? `<p class="hint" style="margin:6px 0 0">The two peaks have the same LL. They are the same answer with the labels swapped.</p>` : '')
+    : '<span class="hint">No runs yet. Click the map or press “10 random starts”.</span>';
+}
+$('ncRand').onclick = () => { for (let i = 0; i < 10; i++) { const r = () => NC.D[0] + 5 + Math.random() * (NC.D[1] - NC.D[0] - 10); ncPaths.push(ncEM(r(), r())); } while (ncPaths.length > 14) ncPaths.shift(); renderNC(); };
+$('ncDiag').onclick = () => { const v = 110 + Math.random() * 110; ncPaths.push(ncEM(v, v)); if (ncPaths.length > 14) ncPaths.shift(); renderNC(); };
+$('ncClear').onclick = () => { ncPaths = []; renderNC(); };
+
+// ---------- boot ----------
+function renderAll() {
+  renderIntro(); renderMM(); sharedChanged(); render2(); renderMap(); ncImage(); renderNC();
+}
+function boot() {
+  renderMathInElement(document.body, {
+    delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
+    ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg'],
+    throwOnError: false,
+  });
+  refreshColors();
+  reset2(G2_0);
+  ncCompute();
+  $('mapStr').value = 1;
+  mapReset();
+  renderAll();
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { refreshColors(); renderAll(); });
+if (window.renderMathInElement) boot(); else window.addEventListener('load', boot);
+</script>
+</body>
+</html>
