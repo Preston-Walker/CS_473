@@ -1,0 +1,1442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Generative vs Discriminative</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --soft: #fafaf9;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --gridline: #ecebe8;
+    --a: #2a78d6;        /* sea bass / class 1 */
+    --b: #eb6834;        /* salmon / class 0 */
+    --c: #c49a1a;        /* trout (the class added later) */
+    --gen: #6a4bc4;      /* generative model */
+    --disc: #138a6a;     /* discriminative model */
+    --bad: #e34948;      /* errors / overconfidence */
+    --callout-bg: #fbf3e8;
+    --callout-border: #ecd9b8;
+    --code-bg: #f1f0ed;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+      --border: #34342f; --gridline: #2a2a27;
+      --a: #3987e5; --b: #d95926; --c: #d8b440; --gen: #9a8ae6; --disc: #2fb88e; --bad: #e66767;
+      --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+    --border: #34342f; --gridline: #2a2a27;
+    --a: #3987e5; --b: #d95926; --c: #d8b440; --gen: #9a8ae6; --disc: #2fb88e; --bad: #e66767;
+    --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 30px 16px 70px; }
+  header h1 { font-size: 1.75rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  nav.toc { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a {
+    font-size: 0.78rem; text-decoration: none; color: var(--ink);
+    border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 3px 10px;
+  }
+  nav.toc a.g { border-left: 3px solid var(--gen); }
+  nav.toc a.d { border-left: 3px solid var(--disc); }
+  nav.toc a:hover { border-color: var(--ink); }
+  section.block {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px 24px 26px; margin-top: 26px; overflow-x: clip; position: relative;
+  }
+  section.block.g { border-top: 4px solid var(--gen); }
+  section.block.d { border-top: 4px solid var(--disc); }
+  @media (max-width: 560px) { section.block { padding: 18px 14px 20px; } }
+  section.block h2 { font-size: 1.22rem; margin: 0 0 4px; }
+  section.block h2 .num { color: var(--muted); font-weight: 600; font-size: 0.9rem; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .part { margin: 40px 0 -8px; }
+  .part h2 { font-size: 1.4rem; margin: 0 0 4px; }
+  .part p { color: var(--muted); margin: 0; font-size: 0.95rem; }
+  .kicker { color: var(--muted); font-size: 0.86rem; margin-bottom: 12px; font-style: italic; }
+  h3 { font-size: 0.98rem; margin: 20px 0 6px; }
+  p { margin: 0 0 12px; font-size: 0.95rem; }
+  ol, ul { font-size: 0.95rem; margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  .eqbox {
+    background: var(--soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 18px; margin: 14px 0; overflow-x: auto;
+  }
+  .eqbox .label { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .callout {
+    margin: 16px 0 0; padding: 10px 14px; border-radius: 8px;
+    background: var(--callout-bg); border: 1px solid var(--callout-border); font-size: 0.9rem;
+  }
+  details { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); }
+  details summary { cursor: pointer; padding: 8px 14px; font-size: 0.88rem; font-weight: 600; }
+  details > div { padding: 0 14px 12px; overflow-x: auto; font-size: 0.9rem; }
+  code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; font-size: 0.88em; }
+  .demo { border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 14px; }
+  .demo-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .two > * { min-width: 0; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+  .panel-h { font-size: 0.84rem; font-weight: 700; margin: 0 0 4px; display: flex; align-items: center; gap: 6px; }
+  .panel-h.g { color: var(--gen); } .panel-h.d { color: var(--disc); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  button.pill {
+    font-size: 0.8rem; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink); font-family: inherit;
+  }
+  button.pill:hover { border-color: var(--ink); }
+  button.pill.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button.pill.primary { border-color: var(--gen); font-weight: 600; }
+  button.pill:disabled { opacity: .45; cursor: default; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 6px 0 10px; }
+  .ctrl { display: flex; flex-direction: column; gap: 2px; min-width: 180px; flex: 1; }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .ctrl label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .tiles.three { grid-template-columns: repeat(3, 1fr); }
+  .tiles.two-t { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 640px) { .tiles, .tiles.three { grid-template-columns: 1fr 1fr; } }
+  .tile { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+  .tile .k { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+  .tile .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 0.72rem; color: var(--muted); }
+  .tile.g { border-left: 4px solid var(--gen); }
+  .tile.d { border-left: 4px solid var(--disc); }
+  .tile.t { border-left: 4px solid var(--ink); }
+  .tile.bad .v { color: var(--bad); }
+  svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  svg text { fill: var(--ink); font-family: inherit; font-size: 12px; }
+  svg .muted { fill: var(--muted); }
+  svg .axis { stroke: var(--border); }
+  svg .grid { stroke: var(--gridline); }
+  svg.click { cursor: crosshair; }
+  .readout { font-size: 0.86rem; background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-variant-numeric: tabular-nums; margin-top: 8px; min-height: 2.6em; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+  .legend > span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw.dot { border-radius: 50%; }
+  .sw.line { height: 3px; border-radius: 2px; width: 18px; }
+  .sw.dash { height: 0; width: 18px; border-top: 2px dashed; border-radius: 0; }
+  .scroll-x { overflow-x: auto; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  .cards.three { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 720px) { .cards, .cards.three { grid-template-columns: 1fr; } }
+  .card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--soft); font-size: 0.9rem; }
+  .card h4 { margin: 0 0 6px; font-size: 0.92rem; }
+  .card p { font-size: 0.88rem; margin: 0; }
+  .card.g { border-left: 4px solid var(--gen); }
+  .card.d { border-left: 4px solid var(--disc); }
+  .uses { margin: 14px 0 6px; }
+  .uses .lbl { font-size: 0.74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+  .use { display: grid; grid-template-columns: 30px 1fr; gap: 4px 10px; padding: 8px 0; border-bottom: 1px dotted var(--border); font-size: 0.9rem; }
+  .use:last-child { border-bottom: none; }
+  .use .ic { font-size: 1.25rem; line-height: 1.2; text-align: center; }
+  .use b { display: block; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chip { font-size: 0.78rem; border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; background: var(--soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .chip.dup { border-color: var(--bad); color: var(--bad); }
+  .chip.off { opacity: .35; text-decoration: line-through; }
+  table.work { border-collapse: collapse; width: 100%; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+  table.work th, table.work td { border-bottom: 1px solid var(--border); padding: 4px 7px; text-align: right; white-space: nowrap; }
+  table.work th { color: var(--muted); font-weight: 600; font-size: 0.76rem; }
+  table.work td:first-child, table.work th:first-child { text-align: left; }
+  td.same { color: var(--disc); font-weight: 600; }
+  td.chg { color: var(--bad); font-weight: 600; }
+  td.new { color: var(--c); font-weight: 600; }
+  table.cheat { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+  table.cheat th { text-align: left; font-size: 0.76rem; color: var(--muted); border-bottom: 2px solid var(--border); padding: 6px 8px; }
+  table.cheat td { border-bottom: 1px solid var(--border); padding: 8px 8px; vertical-align: top; }
+  table.cheat td.side { white-space: nowrap; font-weight: 700; font-size: 0.8rem; }
+  table.cheat td.side.g { color: var(--gen); } table.cheat td.side.d { color: var(--disc); }
+  .quiz-q { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 10px 0; background: var(--soft); }
+  .quiz-q .sc { font-size: 0.92rem; margin-bottom: 8px; }
+  .quiz-q .fb { font-size: 0.86rem; margin-top: 8px; display: none; padding: 8px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); }
+  .quiz-q.done .fb { display: block; }
+  .quiz-q button.pill.pick-g.on { background: var(--gen); border-color: var(--gen); color: #fff; }
+  .quiz-q button.pill.pick-d.on { background: var(--disc); border-color: var(--disc); color: #fff; }
+  .verdict { font-weight: 700; }
+  .verdict.ok { color: var(--disc); } .verdict.no { color: var(--bad); }
+  .score { font-size: 0.9rem; font-weight: 600; }
+  svg text.halo { paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; display: none; max-width: 300px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 10px; font-size: 0.8rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); font-variant-numeric: tabular-nums;
+  }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
+  a { color: var(--a); }
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<div class="wrap">
+  <header>
+    <h1>Generative vs Discriminative Classifiers</h1>
+    <div class="subtitle">A hands-on companion to &sect;9.4 of Murphy's <em>Probabilistic Machine Learning: An Introduction</em>. It explains what each kind of classifier actually learns, then takes the chapter's list of advantages one at a time. For each advantage you get real places where it matters and a live demo that shows it happening. Built for CS 473 self-study.</div>
+    <nav class="toc">
+      <a href="#big">The big idea</a>
+      <a href="#pair">NB &harr; LR pair</a>
+      <a class="d" href="#acc">9.4.1 Accuracy</a>
+      <a class="d" href="#feat">9.4.1 Feature preprocessing</a>
+      <a class="d" href="#cal">9.4.1 Calibration</a>
+      <a class="g" href="#fit">9.4.2 Easy to fit</a>
+      <a class="g" href="#miss">9.4.3 Missing features</a>
+      <a class="g" href="#sep">9.4.2 Add classes separately</a>
+      <a class="g" href="#unl">9.4.2 Unlabeled data</a>
+      <a class="g" href="#spur">9.4.2 Spurious features</a>
+      <a href="#quiz">Which would you pick?</a>
+      <a href="#cheat">Cheat sheet</a>
+    </nav>
+  </header>
+
+  <!-- ===================== BIG IDEA ===================== -->
+  <section class="block" id="big">
+    <h2>The big idea: two ways to answer &ldquo;which class is this?&rdquo;</h2>
+    <div class="kicker">One model learns what each class looks like. The other only learns where the line between them is.</div>
+    <p>Suppose a fish-processing plant wants a camera to sort <b style="color:var(--b)">salmon</b> from <b style="color:var(--a)">sea bass</b> on a conveyor belt. The camera measures two features for each fish: its <b>length</b> and the <b>lightness</b> of its scales. There are two quite different ways to build the sorter.</p>
+    <div class="cards">
+      <div class="card g">
+        <h4 style="color:var(--gen)">Generative: &ldquo;learn what each class looks like&rdquo;</h4>
+        <p>Build a full description of each species, $p(\boldsymbol{x}\mid y)$: how long salmon tend to be, how light they are, and how those two features vary together. Do the same for sea bass, and also learn how common each species is, $p(y)$. To classify a new fish, ask <em>which species' description fits this fish better</em>, using Bayes' rule.</p>
+        <p style="margin-top:8px">It's like an art student who has learned to <em>draw</em> both fish. Because the model describes the inputs themselves, it can generate new, realistic fish. That is where the name comes from.</p>
+      </div>
+      <div class="card d">
+        <h4 style="color:var(--disc)">Discriminative: &ldquo;learn only the difference&rdquo;</h4>
+        <p>Skip describing the fish. Learn $p(y\mid\boldsymbol{x})$ directly: a function that takes (length, lightness) and returns the probability of each species. Training only cares about getting the labels right, so the model only has to learn <em>where the boundary is</em>.</p>
+        <p style="margin-top:8px">It's like an inspector who can't draw either fish but has become very good at the one question &ldquo;salmon or bass?&rdquo; It has no idea what a typical fish looks like, so it can't generate one.</p>
+      </div>
+    </div>
+    <div class="two">
+      <div class="eqbox" style="border-left:4px solid var(--gen)">
+        <div class="label">Generative classifier: model the joint, then flip it with Bayes' rule</div>
+        $$p(y=c\mid\boldsymbol{x},\boldsymbol\theta)=\frac{p(\boldsymbol{x}\mid y=c,\boldsymbol\theta)\,p(y=c\mid\boldsymbol\theta)}{\sum_{c'}p(\boldsymbol{x}\mid y=c',\boldsymbol\theta)\,p(y=c'\mid\boldsymbol\theta)}$$
+        <div class="hint">Examples: Gaussian discriminant analysis (LDA/QDA, &sect;9.2), naive Bayes (&sect;9.3), hidden Markov models.</div>
+      </div>
+      <div class="eqbox" style="border-left:4px solid var(--disc)">
+        <div class="label">Discriminative classifier: model the conditional directly</div>
+        $$p(y=1\mid\boldsymbol{x},\boldsymbol{w})=\sigma(\boldsymbol{w}^\top\boldsymbol{x}+b)$$
+        <div class="hint">Examples: logistic regression (Ch. 10), neural network classifiers (Ch. 13), and, in spirit, SVMs and decision trees.</div>
+      </div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Same fish, two models. Both are refit every time you change the data.</div>
+      <div class="row">
+        <span class="hint">Click a plot to add a</span>
+        <button class="pill on" id="d1AddB">salmon</button>
+        <button class="pill" id="d1AddA">sea bass</button>
+        <span style="flex:1"></span>
+        <button class="pill primary" id="d1Dream">&#10024; Ask each model to invent 15 new fish</button>
+        <button class="pill" id="d1Reset">Reset data</button>
+      </div>
+      <div class="two">
+        <div>
+          <div class="panel-h g">Generative (Gaussian per class, i.e. QDA)</div>
+          <svg id="d1Gen" class="click" viewBox="0 0 440 330" aria-label="Generative model fit"></svg>
+        </div>
+        <div>
+          <div class="panel-h d">Discriminative (logistic regression)</div>
+          <svg id="d1Disc" class="click" viewBox="0 0 440 330" aria-label="Discriminative model fit"></svg>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="sw dot" style="background:var(--b)"></i>salmon</span>
+        <span><i class="sw dot" style="background:var(--a)"></i>sea bass</span>
+        <span><i class="sw line" style="background:var(--gen)"></i>generative boundary</span>
+        <span><i class="sw line" style="background:var(--disc)"></i>discriminative boundary</span>
+        <span><i class="sw dash" style="border-color:var(--muted)"></i>1&sigma; and 2&sigma; ellipses of each class's $p(\boldsymbol{x}\mid y)$</span>
+        <span><i class="sw dot" style="border:2px solid var(--muted)"></i>invented fish (ring, in its species' color)</span>
+      </div>
+      <div class="readout" id="d1Read"><span class="hint">Hover over either plot to compare the two models' answers at that spot.</span></div>
+      <div class="tiles" id="d1Tiles"></div>
+    </div>
+    <div class="callout"><b>What to notice.</b> The generative model stores a whole picture of each species (the ellipses), and the boundary is a side effect of comparing those pictures. Logistic regression stores only three numbers, which together describe a line. Press the &#10024; button: the generative model can invent believable new fish, while the discriminative model has nothing to sample from. That difference in <em>what gets learned</em> drives every pro and con on the rest of this page.</div>
+  </section>
+
+  <!-- ===================== NB-LR PAIR ===================== -->
+  <section class="block" id="pair">
+    <h2>A useful twist: same formula, different training</h2>
+    <div class="kicker">Section 9.3.4 shows that the two families can produce predictions of exactly the same shape.</div>
+    <p>If a Gaussian generative classifier shares one covariance across classes (LDA), or if you use naive Bayes with binary features, the posterior works out to</p>
+    <div class="eqbox">$$p(y=1\mid\boldsymbol{x})=\sigma\big(\boldsymbol{w}^\top\boldsymbol{x}+b\big),$$</div>
+    <p>which is <em>exactly</em> the logistic regression formula. They are called a <b>generative&ndash;discriminative pair</b>. So the real difference is not the shape of the answer. It is <b>how the weights get chosen</b>:</p>
+    <div class="two">
+      <div class="eqbox" style="border-left:4px solid var(--gen)">
+        <div class="label">Generative training: fit the inputs and the labels</div>
+        $$\max_{\boldsymbol\theta}\ \sum_n \log p(\boldsymbol{x}_n, y_n\mid\boldsymbol\theta)$$
+        <div class="hint">$\boldsymbol{w}$ is then computed from the class means, covariances and priors.</div>
+      </div>
+      <div class="eqbox" style="border-left:4px solid var(--disc)">
+        <div class="label">Discriminative training: fit the labels only</div>
+        $$\max_{\boldsymbol{w}}\ \sum_n \log p(y_n\mid \boldsymbol{x}_n,\boldsymbol{w})$$
+        <div class="hint">$\boldsymbol{w}$ is tuned directly to predict labels well.</div>
+      </div>
+    </div>
+    <p>The generative objective spends effort modeling $p(\boldsymbol{x})$, which you never need for classification. When those modeling assumptions are right, that extra structure is a gift: it acts like extra information, and it lets you fit fast, handle missing inputs and use unlabeled data. When the assumptions are wrong, the extra structure is a burden, and the discriminative objective, which only cares about labels, tends to win. The rest of the page is that trade-off, one advantage at a time.</p>
+  </section>
+
+  <!-- ===================== DISCRIMINATIVE ===================== -->
+  <div class="part">
+    <h2 style="color:var(--disc)">&sect;9.4.1 &mdash; Where discriminative classifiers win</h2>
+    <p>Three advantages from the chapter: better accuracy, freedom to engineer features, and probabilities you can trust.</p>
+  </div>
+
+  <section class="block d" id="acc">
+    <h2><span class="num">9.4.1</span>Better predictive accuracy</h2>
+    <div class="kicker">&ldquo;$p(y\mid\boldsymbol{x})$ is often much simpler (and therefore easier to learn) than $p(\boldsymbol{x}, y)$.&rdquo;</div>
+    <p>To classify, you only need the boundary. A generative model has to get <em>all</em> of $p(\boldsymbol{x}\mid y)$ right first, including bumps and quirks that have nothing to do with the boundary. If its assumed shape (say, one Gaussian per class) is wrong, those errors leak into the boundary. A discriminative model never models those bumps, so it can't be misled by them.</p>
+    <div class="uses">
+      <div class="lbl">Where you see this</div>
+      <div class="use"><div class="ic">&#128247;</div><div><b>Image recognition</b>Writing down a probability distribution over every possible photo of a cat is hopeless. Deciding whether a photo contains a cat is much easier. Modern image classifiers are discriminative neural networks.</div></div>
+      <div class="use"><div class="ic">&#128179;</div><div><b>Fraud detection and click prediction</b>Transactions or ad impressions have messy, many-humped feature distributions (time of day, amount, merchant type). Only the risk score is needed, so the industry standard is logistic regression or gradient-boosted trees.</div></div>
+      <div class="use"><div class="ic">&#128483;</div><div><b>Speech recognition</b>Systems moved from generative HMM&ndash;Gaussian-mixture acoustic models to discriminative neural networks largely for this reason.</div></div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">A 1-D version of the chapter's Fig 9.8: lumpy class densities, simple posterior</div>
+      <p class="hint">Data come from a world where the true $p(y=\text{class 2}\mid x)$ is <b>always</b> a simple S-curve, but the class densities $p(x\mid y)$ get lumpier in each successive world. Shaded areas are the true class densities, dashed curves are the one-Gaussian-per-class fit, and the ticks along the bottom are the training points. The generative model fits one Gaussian per class; the discriminative model fits an S-curve. Both see the same 300 training points.</p>
+      <div class="row">
+        <button class="pill on" data-acc="0">Smooth world</button>
+        <button class="pill" data-acc="1">Lumpy world</button>
+        <button class="pill" data-acc="2">Very lumpy world</button>
+        <span style="flex:1"></span>
+        <button class="pill" id="accResample">Draw a new training set</button>
+      </div>
+      <svg id="accTop" viewBox="0 0 860 200" aria-label="Class-conditional densities"></svg>
+      <svg id="accBot" viewBox="0 0 860 200" aria-label="Posterior curves"></svg>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--a);opacity:.45"></i><span>true $p(x, y{=}1)$</span></span>
+        <span><i class="sw" style="background:var(--b);opacity:.45"></i><span>true $p(x, y{=}2)$</span></span>
+        <span><i class="sw dash" style="border-color:var(--muted)"></i>generative's Gaussian fit for each class</span>
+        <span><i class="sw dash" style="border-color:var(--ink)"></i>true $p(y{=}2\mid x)$</span>
+        <span><i class="sw line" style="background:var(--gen)"></i>generative's $p(y{=}2\mid x)$</span>
+        <span><i class="sw line" style="background:var(--disc)"></i>discriminative's $p(y{=}2\mid x)$</span>
+        <span><i class="sw" style="background:var(--bad);opacity:.3"></i>generative predicts the wrong class here</span>
+      </div>
+      <div class="tiles three" id="accTiles"></div>
+    </div>
+    <div class="callout"><b>Takeaway.</b> In the smooth world the Gaussian assumption is nearly right and the two models tie. In the lumpy worlds the posterior is still a simple S-curve, but the Gaussians can't match the lumps. A far-out lump drags one class's Gaussian wide, so its tail ends up winning in places it shouldn't (red bands). The discriminative model doesn't care about the lumps at all.</div>
+  </section>
+
+  <section class="block d" id="feat">
+    <h2><span class="num">9.4.1</span>Can handle feature preprocessing</h2>
+    <div class="kicker">&ldquo;Discriminative methods allow us to preprocess the input in arbitrary ways&hellip; It is often hard to define a generative model on such pre-processed data, since the new features can be correlated in complex ways.&rdquo;</div>
+    <p>With logistic regression you can replace $\boldsymbol{x}$ by any feature vector $\phi(\boldsymbol{x})$: polynomials, word counts plus bigrams, embeddings, hand-crafted flags. The model doesn't care how those features relate to one another. A generative model has to describe the distribution of $\phi(\boldsymbol{x})$. Once $x_1$, $x_1^2$ and $x_1^3$ are all features, they are tightly tied together (one determines the others), and a simple density such as naive Bayes ignores those ties.</p>
+    <div class="uses">
+      <div class="lbl">Where you see this</div>
+      <div class="use"><div class="ic">&#128172;</div><div><b>Sentiment and text classification</b>Features like &ldquo;contains <i>not</i>&rdquo;, &ldquo;contains <i>good</i>&rdquo; and the bigram &ldquo;<i>not good</i>&rdquo; overlap heavily. Logistic regression on n-grams or TF&ndash;IDF is a classic strong baseline.</div></div>
+      <div class="use"><div class="ic">&#129504;</div><div><b>Classifiers on top of pretrained embeddings</b>A sentence or image embedding has hundreds of correlated dimensions. A logistic regression &ldquo;probe&rdquo; or a small neural head is the standard choice.</div></div>
+      <div class="use"><div class="ic">&#127968;</div><div><b>Tabular models with engineered features</b>Credit or housing models add ratios, logs and interaction terms (income/debt, age&times;tenure). These are easy to add to a discriminative model and awkward to model generatively.</div></div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">Two interlocking moons. Add polynomial features and feed the same features to both models.</div>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Polynomial degree of $\phi(\boldsymbol{x})$</span><b id="featDegV">1</b></label><input type="range" id="featDeg" min="1" max="5" step="1" value="1"></div>
+      </div>
+      <div class="chips" id="featChips"></div>
+      <div class="two">
+        <div>
+          <div class="panel-h g">Generative: Gaussian naive Bayes on $\phi(\boldsymbol{x})$</div>
+          <svg id="featGen" viewBox="0 0 440 300" aria-label="Naive Bayes on polynomial features"></svg>
+        </div>
+        <div>
+          <div class="panel-h d">Discriminative: logistic regression on $\phi(\boldsymbol{x})$</div>
+          <svg id="featDisc" viewBox="0 0 440 300" aria-label="Logistic regression on polynomial features"></svg>
+        </div>
+      </div>
+      <div class="tiles" id="featTiles"></div>
+      <p class="hint" style="margin-top:8px">Accuracy and average confidence are measured on 3,000 fresh test points. A well-behaved model's confidence should track its accuracy.</p>
+    </div>
+    <div class="callout"><b>Takeaway.</b> As the degree rises, logistic regression's accuracy climbs from about 87% to about 97%, because the new features let it bend its boundary around the moons. Naive Bayes gets <em>worse</em> and <em>more confident</em> at the same time. It treats $x_1$, $x_1^2$, $x_1^3,\dots$ as independent pieces of evidence, so the same information is counted many times.</div>
+  </section>
+
+  <section class="block d" id="cal">
+    <h2><span class="num">9.4.1</span>Well-calibrated probabilities</h2>
+    <div class="kicker">&ldquo;Some generative classifiers, such as naive Bayes, make strong independence assumptions which are often not valid. This can result in very extreme posterior class probabilities (very near 0 or 1).&rdquo;</div>
+    <p>A model is <b>calibrated</b> if, among all the cases where it says &ldquo;80%&rdquo;, about 80% really are positive. A weather forecaster who says 70% chance of rain is calibrated if it rains on about 70% of those days. When a decision depends on the actual number (should I approve this loan, how many nurses do I staff, what interest rate do I charge), calibration matters as much as accuracy.</p>
+    <div class="uses">
+      <div class="lbl">Where you see this</div>
+      <div class="use"><div class="ic">&#127973;</div><div><b>Clinical risk scores</b>&ldquo;12% risk of readmission&rdquo; drives follow-up decisions, so the number must mean what it says. Logistic regression is the workhorse here.</div></div>
+      <div class="use"><div class="ic">&#127974;</div><div><b>Credit scoring and insurance pricing</b>Expected loss = probability &times; cost. A model that says 99.9% when the truth is 80% misprices everything.</div></div>
+      <div class="use"><div class="ic">&#128232;</div><div><b>Spam filtering</b>Naive Bayes spam filters famously output probabilities like 0.99999 or 0.00001. They often rank emails well, but the numbers themselves can't be trusted.</div></div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">A spam filter with near-duplicate features. Both models are trained on 3,000 simulated emails and tested on 20,000.</div>
+      <p class="hint">Each email has three genuinely different clues (unknown sender, contains a link, contains <i>free</i>). Spammers then repeat the <i>free</i> clue in disguise. The sliders control how many disguised copies there are and how often a copy agrees with the original <i>free</i> word.</p>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Disguised copies of &ldquo;free&rdquo;</span><b id="calKV">4</b></label><input type="range" id="calK" min="0" max="6" step="1" value="4"></div>
+        <div class="ctrl"><label><span>How often a copy just repeats the original (correlation)</span><b id="calRV">100%</b></label><input type="range" id="calR" min="0" max="1" step="0.05" value="1"></div>
+      </div>
+      <div class="chips" id="calChips"></div>
+      <div class="two">
+        <div>
+          <div class="panel-h">Reliability diagram (the diagonal = perfectly calibrated)</div>
+          <svg id="calRel" viewBox="0 0 440 330" aria-label="Reliability diagram"></svg>
+          <div class="legend">
+            <span><i class="sw dot" style="background:var(--gen)"></i>naive Bayes (generative)</span>
+            <span><i class="sw dot" style="background:var(--disc)"></i>logistic regression (discriminative)</span>
+            <span>dot size = number of emails in that bin</span>
+          </div>
+        </div>
+        <div>
+          <div class="panel-h">An email that trips every clue: P(spam)?</div>
+          <svg id="calBars" viewBox="0 0 440 200" aria-label="Probability for an all-clues email"></svg>
+          <div class="tiles two-t" id="calTiles"></div>
+        </div>
+      </div>
+    </div>
+    <div class="callout"><b>Takeaway.</b> Set the correlation to 0% and naive Bayes's independence assumption becomes true, so both models are calibrated. Move it to 100%: naive Bayes now counts the same clue once per copy, and its confidence shoots toward 1 while the truth stays put. Logistic regression learns that the copies are redundant and splits the weight between them, so it stays calibrated.</div>
+  </section>
+
+  <!-- ===================== GENERATIVE ===================== -->
+  <div class="part">
+    <h2 style="color:var(--gen)">&sect;9.4.2&ndash;9.4.3 &mdash; Where generative classifiers win</h2>
+    <p>Five advantages from the chapter. Almost all of them come from the same fact: the model knows what the inputs look like.</p>
+  </div>
+
+  <section class="block g" id="fit">
+    <h2><span class="num">9.4.2</span>Easy to fit</h2>
+    <div class="kicker">&ldquo;Generative classifiers are often very easy to fit. For example&hellip; naive Bayes classifier&hellip; [and] discriminant analysis&hellip; by simple counting and averaging.&rdquo;</div>
+    <p>A Gaussian or naive Bayes classifier is trained in one pass: count each class, average its points, compute their spread. That's a closed-form formula. Logistic regression has no closed form. You must run an iterative optimizer (gradient descent or Newton's method), which passes over the data many times, needs a stopping rule, and may need a learning rate tuned.</p>
+    <div class="uses">
+      <div class="lbl">Where you see this</div>
+      <div class="use"><div class="ic">&#128232;</div><div><b>Personal spam filters that learn as you click</b>When you mark an email as spam, a naive Bayes filter just bumps a few word counts. There's no retraining. That's a big reason the &ldquo;Bayesian&rdquo; spam filters popularized in the early 2000s were naive Bayes.</div></div>
+      <div class="use"><div class="ic">&#128225;</div><div><b>Streaming data and tiny devices</b>Running sums of counts, means and spreads can be updated one example at a time in constant memory, on a microcontroller or a data stream too large to revisit.</div></div>
+      <div class="use"><div class="ic">&#9201;</div><div><b>Quick baselines</b>Naive Bayes and LDA train in milliseconds even on huge datasets, so they make a good first sanity check before anything fancier.</div></div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">Race to a trained model on the fish data</div>
+      <div class="row">
+        <button class="pill primary" id="fitGo">&#9654; Train both</button>
+        <button class="pill" id="fitReset">Reset</button>
+        <span class="hint" id="fitStatus"></span>
+      </div>
+      <div class="two">
+        <div>
+          <svg id="fitSvg" viewBox="0 0 440 330" aria-label="Fish data with fitted boundaries"></svg>
+          <div class="legend">
+            <span><i class="sw line" style="background:var(--gen)"></i>generative (closed form)</span>
+            <span><i class="sw line" style="background:var(--disc)"></i>logistic regression (gradient descent)</span>
+          </div>
+        </div>
+        <div>
+          <div class="panel-h">Logistic regression's training loss</div>
+          <svg id="fitLoss" viewBox="0 0 440 200" aria-label="Training loss curve"></svg>
+          <div class="readout" id="fitRead"></div>
+        </div>
+      </div>
+      <div class="tiles two-t" id="fitTiles"></div>
+    </div>
+    <div class="callout"><b>Takeaway.</b> The generative model is done before the first frame is drawn; its parameters are literally averages. Logistic regression has to search for its weights. Newton's method is faster than gradient descent, but it is still a loop, and every iteration touches every data point.</div>
+  </section>
+
+  <section class="block g" id="miss">
+    <h2><span class="num">9.4.3</span>Can easily handle missing input features</h2>
+    <div class="kicker">&ldquo;Sometimes some of the inputs (components of $\boldsymbol{x}$) are not observed&hellip; With a generative classifier there is a simple method for dealing with this.&rdquo;</div>
+    <p>If feature $x_2$ is missing, a generative model can <b>marginalize it out</b>. It asks how well each class explains the features you <em>do</em> have:</p>
+    <div class="eqbox">
+      $$p(y=c\mid\boldsymbol{x}_1,\boldsymbol\theta)\ \propto\ p(y=c\mid\boldsymbol\theta)\int p(\boldsymbol{x}_1,\boldsymbol{x}_2\mid y=c,\boldsymbol\theta)\,d\boldsymbol{x}_2 \;=\; p(y=c\mid\boldsymbol\theta)\,p(\boldsymbol{x}_1\mid y=c,\boldsymbol\theta)$$
+      <div class="hint">For a Gaussian, marginalizing just means deleting the missing rows and columns of $\boldsymbol\mu_c$ and $\boldsymbol\Sigma_c$. For naive Bayes it means dropping that feature's factor. (This assumes the feature is missing at random.)</div>
+    </div>
+    <p>A discriminative model learned $p(y\mid x_1, x_2)$ and has no idea what values $x_2$ tends to take, so there's no principled fix. In practice people <b>impute</b> a guess (often the average) or train a separate model for every pattern of missing features, which is up to $2^D$ models.</p>
+    <div class="uses">
+      <div class="lbl">Where you see this</div>
+      <div class="use"><div class="ic">&#129658;</div><div><b>Medical diagnosis</b>Not every patient gets every lab test. A generative model can still diagnose from whichever tests were run.</div></div>
+      <div class="use"><div class="ic">&#127777;</div><div><b>Sensor networks and robots</b>A weather station's humidity sensor fails, or a robot's camera is blocked. The classifier has to keep working with the sensors that remain.</div></div>
+      <div class="use"><div class="ic">&#128203;</div><div><b>Surveys and forms</b>People skip questions. Marginalizing over the skipped answers is more honest than filling in the average.</div></div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">The lightness sensor on the conveyor belt breaks</div>
+      <div class="row">
+        <button class="pill" id="missOk">Sensor working</button>
+        <button class="pill on" id="missBroken">Lightness sensor broken</button>
+        <span class="hint">Click or drag on the left plot to move the test fish.</span>
+      </div>
+      <div class="two">
+        <div>
+          <svg id="missSvg" class="click" viewBox="0 0 440 330" aria-label="Fish data with a test fish"></svg>
+        </div>
+        <div>
+          <div class="panel-h">P(sea bass | length only), across all lengths</div>
+          <svg id="missCurve" viewBox="0 0 440 250" aria-label="Posterior given length only"></svg>
+          <div class="legend">
+            <span><i class="sw dash" style="border-color:var(--ink)"></i>truth (from the simulator)</span>
+            <span><i class="sw line" style="background:var(--gen)"></i>generative, marginalized</span>
+            <span><i class="sw line" style="background:var(--disc)"></i>logistic regression, lightness filled with the average</span>
+          </div>
+        </div>
+      </div>
+      <div class="tiles three" id="missTiles"></div>
+    </div>
+    <div class="callout"><b>Takeaway.</b> The generative model's answer stays close to the truth across every length. Logistic regression with mean-imputed lightness predicts nearly 0% or 100% for most lengths. Its length weight was learned <em>together with</em> lightness, so evaluating it at a made-up average lightness turns honest uncertainty into false confidence.</div>
+  </section>
+
+  <section class="block g" id="sep">
+    <h2><span class="num">9.4.2</span>Can fit classes separately</h2>
+    <div class="kicker">&ldquo;In a generative classifier, we estimate the parameters of each class conditional density independently, so we do not have to retrain the model when we add more classes.&rdquo;</div>
+    <p>Each class's $p(\boldsymbol{x}\mid y=c)$ is fit using only that class's examples. Adding a new class means fitting one new density and updating the class counts, while everything already learned stays put. In a discriminative model all the weights compete inside one softmax, so adding a class changes the right answer for every weight, and you retrain on everything.</p>
+    <div class="uses">
+      <div class="lbl">Where you see this</div>
+      <div class="use"><div class="ic">&#128100;</div><div><b>Face or voice recognition for a building or a phone</b>Enrolling a new employee or speaker should be instant. Classic speaker verification fits a Gaussian mixture model per speaker for exactly this reason.</div></div>
+      <div class="use"><div class="ic">&#128038;</div><div><b>Species identification apps</b>New species, or new regional variants, get added all the time. Retraining a giant model on every species for each addition is expensive.</div></div>
+      <div class="use"><div class="ic">&#9997;</div><div><b>Handwriting or gesture systems with user-defined classes</b>A user teaches the system a new symbol or gesture from a few examples.</div></div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">The plant starts processing a third species: trout</div>
+      <div class="row">
+        <button class="pill on" id="sepTwo">Salmon + sea bass</button>
+        <button class="pill" id="sepThree">Add trout</button>
+      </div>
+      <div class="two">
+        <div>
+          <div class="panel-h g">Generative (Gaussian per class)</div>
+          <svg id="sepGen" viewBox="0 0 440 300" aria-label="Generative 3-class fit"></svg>
+          <div class="scroll-x"><table class="work" id="sepGenT"></table></div>
+        </div>
+        <div>
+          <div class="panel-h d">Discriminative (softmax regression)</div>
+          <svg id="sepDisc" viewBox="0 0 440 300" aria-label="Discriminative 3-class fit"></svg>
+          <div class="scroll-x"><table class="work" id="sepDiscT"></table></div>
+        </div>
+      </div>
+      <div class="tiles two-t" id="sepTiles"></div>
+    </div>
+    <div class="callout"><b>Takeaway.</b> With trout added, the generative model's salmon and sea bass Gaussians are byte-for-byte the same; only the class proportions $\pi_c$ are re-divided, which is one line of arithmetic. Every one of softmax regression's weights moves, because &ldquo;salmon versus everything else&rdquo; now means something different.</div>
+  </section>
+
+  <section class="block g" id="unl">
+    <h2><span class="num">9.4.2</span>Can handle unlabeled training data</h2>
+    <div class="kicker">&ldquo;We are often interested in semi-supervised learning&hellip; This is fairly easy to do using generative models&hellip; but is much harder to do with discriminative models.&rdquo;</div>
+    <p>An unlabeled point still tells a generative model something: it must come from <em>one of</em> the classes, so the class densities should be placed where the data actually are. Treat the missing label as a hidden variable and run EM (see the <a href="../8.7/">&sect;8.7 page</a>). The E step softly labels the unlabeled points, and the M step refits the classes using everyone. A discriminative model only models $p(y\mid\boldsymbol{x})$, and an unlabeled point has no $y$, so it contributes nothing to the likelihood.</p>
+    <div class="uses">
+      <div class="lbl">Where you see this</div>
+      <div class="use"><div class="ic">&#129659;</div><div><b>Medical imaging</b>Hospitals have millions of scans, but only a few have been labeled by a radiologist, whose time is expensive.</div></div>
+      <div class="use"><div class="ic">&#128240;</div><div><b>Text classification</b>Sorting news articles or support tickets: a few hundred are tagged, and the rest of the web is unlabeled. Naive Bayes + EM was a classic early method for this.</div></div>
+      <div class="use"><div class="ic">&#128300;</div><div><b>Science: cell types, galaxy shapes, protein families</b>Labels require an expert or an experiment, but raw measurements are plentiful.</div></div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">Two labeled examples per class, 300 unlabeled</div>
+      <div class="row">
+        <button class="pill primary" id="unlStep">EM step</button>
+        <button class="pill" id="unlRun">Run EM &#9654;</button>
+        <button class="pill" id="unlReset">Reset EM</button>
+        <button class="pill" id="unlNew">Pick different labeled examples</button>
+        <span class="hint" id="unlIter"></span>
+      </div>
+      <svg id="unlSvg" viewBox="0 0 860 400" aria-label="Semi-supervised learning"></svg>
+      <div class="legend">
+        <span><i class="sw dot" style="background:var(--b);outline:2px solid var(--ink)"></i>labeled (class 1)</span>
+        <span><i class="sw dot" style="background:var(--a);outline:2px solid var(--ink)"></i>labeled (class 2)</span>
+        <span><i class="sw dot" style="background:var(--muted)"></i>unlabeled (tinted by the E step's soft labels)</span>
+        <span><i class="sw line" style="background:var(--disc)"></i>logistic regression, labeled only</span>
+        <span><i class="sw dash" style="border-color:var(--gen)"></i>generative, labeled only</span>
+        <span><i class="sw line" style="background:var(--gen)"></i>generative + EM on unlabeled</span>
+      </div>
+      <div class="tiles three" id="unlTiles"></div>
+    </div>
+    <div class="callout"><b>Takeaway.</b> With only four labels, the labeled-only boundaries swing wildly depending on which four points you happened to get (try &ldquo;Pick different labeled examples&rdquo; a few times). After a few EM steps the generative model locks onto the two clouds formed by all 300 unlabeled points, and its test accuracy reaches about 99%, almost every time. (EM can still get stuck in a poor local optimum, as on the &sect;8.7 page, if the four labeled points are very unrepresentative.)</div>
+  </section>
+
+  <section class="block g" id="spur">
+    <h2><span class="num">9.4.2</span>May be more robust to spurious features</h2>
+    <div class="kicker">&ldquo;A discriminative model may pick up on features of the input that can distinguish the classes in the training set, but which are not robust and which do not generalize beyond the training set&hellip; By contrast, generative models may be better able to capture the causal mechanisms of the underlying data generating process.&rdquo;</div>
+    <p>A discriminative model will use <em>any</em> feature that separates the labels in the training data, whether or not it has anything to do with the class. If that shortcut changes in a new setting (<b>distribution shift</b>), accuracy collapses. A generative model is trained to explain how each class <em>produces</em> its inputs, $p(\boldsymbol{x}\mid y)$, which follows the causal direction (disease &rarr; symptoms, not symptoms &rarr; disease). Mechanisms like that tend to stay the same when the setting changes.</p>
+    <p>Notice that the chapter says &ldquo;<b>may</b> be more robust.&rdquo; This is not a guarantee. A generative model whose $p(\boldsymbol{x}\mid y)$ also includes the shortcut feature can be fooled too. The advantage comes from modeling the right mechanism, which is an active research area (e.g., invariant causal prediction).</p>
+    <div class="uses">
+      <div class="lbl">Where you see this</div>
+      <div class="use"><div class="ic">&#129659;</div><div><b>Chest X-ray models that learned the hospital</b>Pneumonia classifiers have been found to rely on scanner markers and hospital-specific text tags. Sicker patients were scanned on portable machines, so &ldquo;portable-scanner marker&rdquo; predicted the label without being about the lungs.</div></div>
+      <div class="use"><div class="ic">&#128058;</div><div><b>Wolf vs husky</b>In a well-known demonstration (from the paper that introduced the LIME explanation method), a wolf-vs-husky classifier turned out to be a snow detector, because the wolf photos had snowy backgrounds.</div></div>
+      <div class="use"><div class="ic">&#128004;</div><div><b>Cows on beaches</b>Models trained on cows in green pastures fail to recognize a cow on a beach.</div></div>
+    </div>
+    <div class="demo">
+      <div class="demo-title">Why a shortcut works at one hospital and fails at the next</div>
+      <div class="row">
+        <button class="pill on" id="spurTrain">Training hospital</button>
+        <button class="pill" id="spurNew">New hospital</button>
+      </div>
+      <svg id="spurSvg" viewBox="0 0 860 300" aria-label="Causal diagram"></svg>
+      <div class="readout" id="spurRead"></div>
+    </div>
+    <div class="callout"><b>Takeaway.</b> The arrow <i>pneumonia &rarr; lung shadows</i> is biology, so it holds at every hospital. The link between the scanner marker and pneumonia is an accident of one hospital's workflow. A model that describes how each class generates its images is pushed toward the first arrow. A model that only hunts for whatever separates the training labels happily grabs the second one.</div>
+  </section>
+
+  <!-- ===================== QUIZ ===================== -->
+  <section class="block" id="quiz">
+    <h2>Which would you pick?</h2>
+    <div class="kicker">Eight real-world situations. Choose a side, then read why, citing the chapter's advantage.</div>
+    <div class="score" id="quizScore"></div>
+    <div id="quizList"></div>
+    <div class="row"><button class="pill" id="quizReset">Reset quiz</button></div>
+  </section>
+
+  <!-- ===================== CHEAT SHEET ===================== -->
+  <section class="block" id="cheat">
+    <h2>Cheat sheet</h2>
+    <div class="kicker">Every advantage from &sect;9.4 in one table.</div>
+    <div class="scroll-x"><table class="cheat">
+      <tr><th>Side</th><th>Advantage</th><th>Why it happens</th><th>Typical place it matters</th></tr>
+      <tr><td class="side d">Discriminative</td><td><b>Better predictive accuracy</b></td><td>$p(y\mid\boldsymbol{x})$ is usually simpler than $p(\boldsymbol{x}\mid y)$; no effort is wasted (or misled) modeling the inputs.</td><td>Image, speech, fraud, click prediction</td></tr>
+      <tr><td class="side d">Discriminative</td><td><b>Handles feature preprocessing</b></td><td>Any $\phi(\boldsymbol{x})$ works; no need to model how the engineered features are correlated.</td><td>Text with n-grams, embeddings, tabular feature engineering</td></tr>
+      <tr><td class="side d">Discriminative</td><td><b>Well-calibrated probabilities</b></td><td>Fitting $p(y\mid\boldsymbol{x})$ directly absorbs redundant features instead of double-counting them (as naive Bayes does).</td><td>Clinical risk, credit scoring, any expected-cost decision</td></tr>
+      <tr><td class="side g">Generative</td><td><b>Easy to fit</b></td><td>Closed-form counting and averaging, in a single pass, with easy online updates.</td><td>Personal spam filters, streaming or embedded systems, baselines</td></tr>
+      <tr><td class="side g">Generative</td><td><b>Handles missing features</b></td><td>Marginalize: $p(y\mid\boldsymbol{x}_1)\propto p(y)\,p(\boldsymbol{x}_1\mid y)$. For a Gaussian, drop rows and columns.</td><td>Medical tests not run, broken sensors, skipped survey questions</td></tr>
+      <tr><td class="side g">Generative</td><td><b>Fit classes separately</b></td><td>Each $p(\boldsymbol{x}\mid y=c)$ uses only class $c$'s data, so a new class doesn't disturb the old ones.</td><td>Enrolling faces or speakers, adding species, user-defined gestures</td></tr>
+      <tr><td class="side g">Generative</td><td><b>Uses unlabeled data</b></td><td>Treat $y$ as latent and run EM; unlabeled $\boldsymbol{x}$ still shapes $p(\boldsymbol{x})$.</td><td>Medical imaging, text, science with expensive labels</td></tr>
+      <tr><td class="side g">Generative</td><td><b>May resist spurious features</b></td><td>Modeling $y\to\boldsymbol{x}$ can capture the causal mechanism, which survives distribution shift.</td><td>Deploying at a new hospital, region, camera or season</td></tr>
+    </table></div>
+    <h3>Rule of thumb</h3>
+    <p>Lots of labeled data, complex inputs, and you only need the label or a trustworthy probability: <b style="color:var(--disc)">go discriminative</b>. Few labels, missing values, classes that keep arriving, a need for instant training, or a good idea of how the data are generated: <b style="color:var(--gen)">go generative</b>. And remember the generative&ndash;discriminative pair: naive Bayes and logistic regression can have the same formula, and only the training objective differs.</p>
+  </section>
+
+  <div class="foot">
+    All data on this page are simulated from fixed random seeds, so the numbers are reproducible. The fish, emails and scans are illustrations, not real measurements. The quoted lines are from &sect;9.4 of K. P. Murphy, <em>Probabilistic Machine Learning: An Introduction</em> (MIT Press, 2022). Logistic regression is fit by Newton's method with a small L2 penalty except in the &ldquo;Easy to fit&rdquo; race, which uses gradient descent so the iterations are visible. Gaussian covariances get a small ridge so tiny classes stay well posed.
+  </div>
+</div>
+
+<script>
+// ---------- math (pure functions) ----------
+const LOG2PI = Math.log(2 * Math.PI);
+const sigmoid = z => z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gauss(rng) { const u = Math.max(rng(), 1e-12), v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function lseArr(a) { const m = Math.max(...a); if (m === -Infinity) return m; return m + Math.log(a.reduce((s, v) => s + Math.exp(v - m), 0)); }
+function softmaxArr(a) { const l = lseArr(a); return a.map(v => Math.exp(v - l)); }
+
+// Solve A x = b by Gaussian elimination with partial pivoting.
+function solve(A, b) {
+  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    const d = M[c][c] || 1e-12;
+    for (let r = c + 1; r < n; r++) { const f = M[r][c] / d; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+  }
+  const x = new Array(n).fill(0);
+  for (let r = n - 1; r >= 0; r--) { let s = M[r][n]; for (let k = r + 1; k < n; k++) s -= M[r][k] * x[k]; x[r] = s / (M[r][r] || 1e-12); }
+  return x;
+}
+
+// ---- 2-D Gaussians ----
+function mvn2Sample(rng, m, S) {
+  const l11 = Math.sqrt(S[0][0]), l21 = S[0][1] / l11, l22 = Math.sqrt(Math.max(S[1][1] - l21 * l21, 1e-12));
+  const z1 = gauss(rng), z2 = gauss(rng);
+  return [m[0] + l11 * z1, m[1] + l21 * z1 + l22 * z2];
+}
+function mvn2LogPdf(x, m, S) {
+  const a = S[0][0], b = S[0][1], d = S[1][1], det = a * d - b * b;
+  const u = x[0] - m[0], v = x[1] - m[1];
+  return -0.5 * ((d * u * u - 2 * b * u * v + a * v * v) / det) - 0.5 * Math.log(det) - LOG2PI;
+}
+const n1LogPdf = (x, m, v) => -0.5 * (x - m) * (x - m) / v - 0.5 * Math.log(v) - 0.5 * LOG2PI;
+function covOf(P, W, m) {
+  let s = 0, a = 0, b = 0, d = 0;
+  P.forEach((p, i) => { const w = W ? W[i] : 1, u = p[0] - m[0], v = p[1] - m[1]; s += w; a += w * u * u; b += w * u * v; d += w * v * v; });
+  return [[a / s, b / s], [b / s, d / s]];
+}
+function meanOf(P, W) {
+  let s = 0, x = 0, y = 0;
+  P.forEach((p, i) => { const w = W ? W[i] : 1; s += w; x += w * p[0]; y += w * p[1]; });
+  return [x / s, y / s];
+}
+
+// Gaussian generative classifier (QDA): one Gaussian per class, fit by counting and averaging.
+// ridge is added to each covariance as a light prior so tiny classes stay well posed.
+function fitQDA(X, y, K, ridge) {
+  const pi = [], m = [], S = [];
+  for (let c = 0; c < K; c++) {
+    const P = X.filter((_, i) => y[i] === c);
+    pi.push(P.length / X.length);
+    const mc = meanOf(P), Sc = covOf(P, null, mc);
+    m.push(mc); S.push([[Sc[0][0] + ridge[0], Sc[0][1]], [Sc[1][0], Sc[1][1] + ridge[1]]]);
+  }
+  return { pi, m, S, K };
+}
+function qdaPost(md, x) { return softmaxArr(md.m.map((m, c) => Math.log(md.pi[c]) + mvn2LogPdf(x, m, md.S[c]))); }
+// Missing x2: marginalize it out, which for a Gaussian just means keeping the x1 row/column.
+function qdaPostX1(md, x1) { return softmaxArr(md.m.map((m, c) => Math.log(md.pi[c]) + n1LogPdf(x1, m[0], md.S[c][0][0]))); }
+
+// ---- Logistic regression (binary), Newton's method with an L2 penalty (bias unpenalized) ----
+// Phi rows already include a leading 1. Returns { w, iters }.
+function fitLR(Phi, y, lam, maxIt = 50) {
+  const d = Phi[0].length; let w = new Array(d).fill(0), it = 0;
+  for (; it < maxIt; it++) {
+    const g = new Array(d).fill(0), H = Array.from({ length: d }, () => new Array(d).fill(0));
+    Phi.forEach((f, n) => {
+      let z = 0; for (let j = 0; j < d; j++) z += w[j] * f[j];
+      const p = sigmoid(z), r = Math.max(p * (1 - p), 1e-9);
+      for (let j = 0; j < d; j++) { g[j] += (p - y[n]) * f[j]; for (let k = 0; k < d; k++) H[j][k] += r * f[j] * f[k]; }
+    });
+    for (let j = 1; j < d; j++) { g[j] += lam * w[j]; H[j][j] += lam; }
+    H[0][0] += 1e-8;
+    const step = solve(H, g);
+    let mx = 0; for (let j = 0; j < d; j++) { w[j] -= step[j]; mx = Math.max(mx, Math.abs(step[j])); }
+    if (mx < 1e-7) { it++; break; }
+  }
+  return { w, iters: it };
+}
+const lrP = (w, f) => { let z = 0; for (let j = 0; j < w.length; j++) z += w[j] * f[j]; return sigmoid(z); };
+
+// Standardizer for raw 2-D inputs (keeps Newton/GD well conditioned); weights reported on the raw scale.
+function stdz(X) {
+  const m = [0, 1].map(j => X.reduce((s, p) => s + p[j], 0) / X.length);
+  const s = [0, 1].map(j => Math.sqrt(X.reduce((t, p) => t + (p[j] - m[j]) ** 2, 0) / X.length) || 1);
+  return { m, s, f: p => [1, (p[0] - m[0]) / s[0], (p[1] - m[1]) / s[1]] };
+}
+// Logistic regression on 2-D points; w is returned on the raw scale: P(y=1|x) = sigma(w0 + w1 x1 + w2 x2).
+function fitLR2(X, y, lam) {
+  const T = stdz(X), r = fitLR(X.map(T.f), y, lam);
+  const w = r.w, w1 = w[1] / T.s[0], w2 = w[2] / T.s[1];
+  return { w: [w[0] - w1 * T.m[0] - w2 * T.m[1], w1, w2], iters: r.iters };
+}
+const lr2P = (w, x) => sigmoid(w[0] + w[1] * x[0] + w[2] * x[1]);
+
+// Multiclass (softmax) logistic regression by full-batch gradient descent on standardized inputs.
+function fitSoftmax2(X, y, K, lam, iters = 3000, lr = 0.5) {
+  const T = stdz(X), F = X.map(T.f), N = X.length;
+  let W = Array.from({ length: K }, () => [0, 0, 0]);
+  for (let t = 0; t < iters; t++) {
+    const G = Array.from({ length: K }, () => [0, 0, 0]);
+    F.forEach((f, n) => {
+      const p = softmaxArr(W.map(w => w[0] * f[0] + w[1] * f[1] + w[2] * f[2]));
+      for (let c = 0; c < K; c++) { const e = p[c] - (y[n] === c ? 1 : 0); for (let j = 0; j < 3; j++) G[c][j] += e * f[j] / N; }
+    });
+    for (let c = 0; c < K; c++) for (let j = 0; j < 3; j++) W[c][j] -= lr * (G[c][j] + (j ? lam * W[c][j] : 0));
+  }
+  return W.map(w => { const w1 = w[1] / T.s[0], w2 = w[2] / T.s[1]; return [w[0] - w1 * T.m[0] - w2 * T.m[1], w1, w2]; });
+}
+const smP = (W, x) => softmaxArr(W.map(w => w[0] + w[1] * x[0] + w[2] * x[1]));
+
+// ---------- DOM + drawing helpers ----------
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const lin = (d0, d1, r0, r1) => { const f = v => r0 + (v - d0) / (d1 - d0) * (r1 - r0); f.inv = p => d0 + (p - r0) / (r1 - r0) * (d1 - d0); return f; };
+const pct = v => (100 * v).toFixed(0) + '%';
+const pct1 = v => (100 * v).toFixed(1) + '%';
+function svgPt(svg, e) {
+  const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+  return [(e.clientX - r.left) / r.width * vb.width, (e.clientY - r.top) / r.height * vb.height];
+}
+const tip = $('tip');
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+let C = {};
+function refreshColors() { ['ink', 'muted', 'border', 'gridline', 'panel', 'soft', 'a', 'b', 'c', 'gen', 'disc', 'bad'].forEach(k => C[k] = cssVar('--' + k)); }
+function rgb(h) { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function mix(h1, h2, t) { const a = rgb(h1), b = rgb(h2); return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`; }
+let clipN = 0;
+
+// A plotting frame: axes, grid, labels. Returns scales plus the plot rectangle.
+function frame(svg, W, H, xd, yd, o = {}) {
+  svg.innerHTML = '';
+  const L = o.L ?? 46, R = W - (o.R ?? 12), T = o.T ?? 10, B = H - (o.B ?? 36);
+  const x = lin(xd[0], xd[1], L, R), y = lin(yd[0], yd[1], B, T);
+  (o.xt || []).forEach(v => {
+    el('line', { x1: x(v), x2: x(v), y1: T, y2: B, class: 'grid' }, svg);
+    el('text', { x: x(v), y: B + 15, 'text-anchor': 'middle', class: 'muted', 'font-size': 11 }, svg, o.xf ? o.xf(v) : v);
+  });
+  (o.yt || []).forEach(v => {
+    el('line', { x1: L, x2: R, y1: y(v), y2: y(v), class: 'grid' }, svg);
+    el('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'muted', 'font-size': 11 }, svg, o.yf ? o.yf(v) : v);
+  });
+  if (o.xl) el('text', { x: (L + R) / 2, y: H - 4, 'text-anchor': 'middle', class: 'muted', 'font-size': 11.5 }, svg, o.xl);
+  if (o.yl) el('text', { x: 12, y: (T + B) / 2, 'text-anchor': 'middle', transform: `rotate(-90 12 ${(T + B) / 2})`, class: 'muted', 'font-size': 11.5 }, svg, o.yl);
+  const id = 'clip' + (++clipN), d = el('defs', {}, svg), cp = el('clipPath', { id }, d);
+  el('rect', { x: L, y: T, width: R - L, height: B - T }, cp);
+  const g = { svg, x, y, L, R, T, B, W, H, clip: `url(#${id})` };
+  g.layer = el('g', { 'clip-path': g.clip }, svg);
+  g.box = () => el('rect', { x: L, y: T, width: R - L, height: B - T, fill: 'none', class: 'axis' }, svg);
+  return g;
+}
+// Paint fn(x, y) over the plot area through a small canvas, scaled up smoothly.
+function heat(g, fn, nx = 88, ny = 66) {
+  const cv = document.createElement('canvas'); cv.width = nx; cv.height = ny;
+  const ctx = cv.getContext('2d'), im = ctx.createImageData(nx, ny);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const px = g.L + (i + .5) / nx * (g.R - g.L), py = g.T + (j + .5) / ny * (g.B - g.T);
+    const c = fn(g.x.inv(px), g.y.inv(py)), k = 4 * (j * nx + i);
+    im.data[k] = c[0]; im.data[k + 1] = c[1]; im.data[k + 2] = c[2]; im.data[k + 3] = c[3];
+  }
+  ctx.putImageData(im, 0, 0);
+  el('image', { href: cv.toDataURL(), x: g.L, y: g.T, width: g.R - g.L, height: g.B - g.T, preserveAspectRatio: 'none' }, g.layer);
+}
+// Binary posterior shading: p is P(class 1). Class 1 uses colors[1], class 0 uses colors[0].
+const probHeat = (p, cols) => { const c = rgb(p > .5 ? cols[1] : cols[0]); return [...c, Math.round(Math.abs(p - .5) * 2 * 72)]; };
+const argmaxHeat = (ps, cols) => { let k = 0; ps.forEach((v, i) => { if (v > ps[k]) k = i; }); const K = ps.length; return [...rgb(cols[k]), Math.round((ps[k] - 1 / K) / (1 - 1 / K) * 72)]; };
+// Marching squares: path for fn = level, in screen coordinates.
+function contourD(g, fn, level = .5, nx = 72, ny = 54) {
+  const V = new Float64Array((nx + 1) * (ny + 1)), PX = i => g.L + i / nx * (g.R - g.L), PY = j => g.T + j / ny * (g.B - g.T);
+  for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) V[j * (nx + 1) + i] = fn(g.x.inv(PX(i)), g.y.inv(PY(j))) - level;
+  let d = '';
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const cs = [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]], v = cs.map(([a, b]) => V[b * (nx + 1) + a]), pts = [];
+    for (let e = 0; e < 4; e++) {
+      const va = v[e], vb = v[(e + 1) % 4];
+      if ((va < 0) !== (vb < 0)) {
+        const t = va / (va - vb), [a0, b0] = cs[e], [a1, b1] = cs[(e + 1) % 4];
+        pts.push([PX(a0 + (a1 - a0) * t), PY(b0 + (b1 - b0) * t)]);
+      }
+    }
+    for (let k = 0; k + 1 < pts.length; k += 2) d += `M${pts[k][0].toFixed(1)},${pts[k][1].toFixed(1)}L${pts[k + 1][0].toFixed(1)},${pts[k + 1][1].toFixed(1)}`;
+  }
+  return d;
+}
+function contour(g, fn, attrs, level = .5) { const d = contourD(g, fn, level); if (d) el('path', { d, fill: 'none', 'stroke-linecap': 'round', ...attrs }, g.layer); }
+function ellD(g, m, S, k) {
+  const a = S[0][0], b = S[0][1], d = S[1][1], tr = (a + d) / 2, df = Math.sqrt(((a - d) / 2) ** 2 + b * b);
+  const l1 = tr + df, l2 = Math.max(tr - df, 1e-12), th = 0.5 * Math.atan2(2 * b, a - d), c = Math.cos(th), s = Math.sin(th);
+  let p = '';
+  for (let i = 0; i <= 64; i++) {
+    const t = i / 64 * 2 * Math.PI, u = k * Math.sqrt(l1) * Math.cos(t), v = k * Math.sqrt(l2) * Math.sin(t);
+    p += (i ? 'L' : 'M') + g.x(m[0] + c * u - s * v).toFixed(1) + ',' + g.y(m[1] + s * u + c * v).toFixed(1);
+  }
+  return p + 'Z';
+}
+function ellipses(g, md, cols) {
+  md.m.forEach((m, c) => {
+    el('path', { d: ellD(g, m, md.S[c], 1), fill: 'none', stroke: cols[c], 'stroke-width': 1.4, opacity: .85 }, g.layer);
+    el('path', { d: ellD(g, m, md.S[c], 2), fill: 'none', stroke: cols[c], 'stroke-width': 1.2, 'stroke-dasharray': '4 3', opacity: .7 }, g.layer);
+  });
+}
+function dots(g, X, Y, cols, r = 3.6, extra = {}) {
+  X.forEach((p, i) => el('circle', { cx: g.x(p[0]), cy: g.y(p[1]), r, fill: cols[Y[i]], stroke: C.panel, 'stroke-width': 1, ...extra }, g.layer));
+}
+function tiles(id, list) {
+  $(id).innerHTML = list.map(t => `<div class="tile ${t.cls || ''}"><div class="k">${t.k}</div><div class="v">${t.v}</div>${t.s ? `<div class="s">${t.s}</div>` : ''}</div>`).join('');
+}
+function pills(ids, on) { ids.forEach(id => $(id).classList.toggle('on', id === on)); }
+
+// ---------- the fish world ----------
+const cv2 = (s1, s2, r) => [[s1 * s1, r * s1 * s2], [r * s1 * s2, s2 * s2]];
+// 0 = salmon, 1 = sea bass, 2 = trout
+const FISH = [{ m: [55, 6.0], S: cv2(8, 1.1, .7) }, { m: [70, 4.6], S: cv2(10, 1.3, .6) }, { m: [63, 8.4], S: cv2(7, .8, .5) }];
+const FNAME = ['salmon', 'sea bass', 'trout'];
+const fishCols = () => [C.b, C.a, C.c];
+const FD = { x: [30, 100], y: [0, 11] };
+const FRIDGE = [0.5, 0.02];
+function makeFish(seed, n, classes) {
+  const rng = mulberry32(seed), X = [], Y = [];
+  classes.forEach(c => { for (let i = 0; i < n; i++) { X.push(mvn2Sample(rng, FISH[c].m, FISH[c].S)); Y.push(c); } });
+  return { X, Y };
+}
+function fishFrame(svg, W = 440, H = 330) {
+  return frame(svg, W, H, FD.x, FD.y, { xt: [40, 50, 60, 70, 80, 90], yt: [0, 2, 4, 6, 8, 10], xl: 'length (cm)', yl: 'lightness (0–11)', L: 40 });
+}
+const inPlot = (g, px, py) => px >= g.L && px <= g.R && py >= g.T && py <= g.B;
+
+// ---------- 1. Same fish, two models ----------
+let D1, d1Sel = 0, d1Dream = null, d1M = null, d1Hover = null;
+function d1Reset() { const F = makeFish(42, 40, [0, 1]); D1 = { X: F.X, Y: F.Y }; d1Dream = null; d1Hover = null; }
+function d1Fit() {
+  const n0 = D1.Y.filter(v => v === 0).length, n1 = D1.Y.length - n0;
+  if (n0 < 2 || n1 < 2) return null;
+  const q = fitQDA(D1.X, D1.Y, 2, FRIDGE), lr = fitLR2(D1.X, D1.Y, 1e-2);
+  const lpx = p => lseArr(q.m.map((m, c) => Math.log(q.pi[c]) + mvn2LogPdf(p, m, q.S[c])));
+  const trainLp = D1.X.map(lpx).sort((a, b) => a - b);
+  return { q, lr, lpx, trainLp };
+}
+let d1G = {};
+function renderD1() {
+  d1M = d1Fit();
+  const cols = fishCols();
+  ['d1Gen', 'd1Disc'].forEach(id => {
+    const g = d1G[id] = fishFrame($(id));
+    const gen = id === 'd1Gen';
+    if (d1M) {
+      heat(g, (a, b) => probHeat(gen ? qdaPost(d1M.q, [a, b])[1] : lr2P(d1M.lr.w, [a, b]), cols));
+      if (gen) ellipses(g, d1M.q, cols);
+      contour(g, gen ? (a, b) => qdaPost(d1M.q, [a, b])[1] : (a, b) => lr2P(d1M.lr.w, [a, b]), { stroke: gen ? C.gen : C.disc, 'stroke-width': 2.6 });
+    }
+    dots(g, D1.X, D1.Y, cols);
+    if (gen && d1Dream) d1Dream.X.forEach((p, i) => el('circle', { cx: g.x(p[0]), cy: g.y(p[1]), r: 4.6, fill: 'none', stroke: cols[d1Dream.Y[i]], 'stroke-width': 2 }, g.layer));
+    if (!gen && d1Dream) {
+      el('rect', { x: g.L + 18, y: g.T + 12, width: g.R - g.L - 36, height: 54, rx: 8, fill: C.panel, stroke: C.disc, 'stroke-width': 1.5, opacity: .95 }, g.svg);
+      el('text', { x: (g.L + g.R) / 2, y: g.T + 34, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 600 }, g.svg, 'Nothing to sample from.');
+      el('text', { x: (g.L + g.R) / 2, y: g.T + 52, 'text-anchor': 'middle', 'font-size': 11.5, class: 'muted' }, g.svg, 'It learned p(y | x) only; there is no p(x).');
+    }
+    if (d1Hover) el('circle', { cx: g.x(d1Hover[0]), cy: g.y(d1Hover[1]), r: 6, fill: 'none', stroke: C.ink, 'stroke-width': 1.5 }, g.layer);
+    if (!d1M) el('text', { x: (g.L + g.R) / 2, y: (g.T + g.B) / 2, 'text-anchor': 'middle', 'font-size': 12.5 }, g.svg, 'Each species needs at least 2 fish to fit.');
+    g.box();
+  });
+  if (!d1M) { tiles('d1Tiles', []); return; }
+  const acc = f => D1.X.reduce((s, p, i) => s + ((f(p) > .5) === (D1.Y[i] === 1)), 0) / D1.X.length;
+  tiles('d1Tiles', [
+    { cls: 'g', k: 'Generative: numbers it learned', v: '11', s: 'π (1) + two means (2+2) + two covariances (3+3)' },
+    { cls: 'g', k: 'Generative: training accuracy', v: pct(acc(p => qdaPost(d1M.q, p)[1])), s: 'fit by counting and averaging' },
+    { cls: 'd', k: 'Discriminative: numbers it learned', v: '3', s: `w = (${d1M.lr.w[1].toFixed(2)}, ${d1M.lr.w[2].toFixed(2)}), b = ${d1M.lr.w[0].toFixed(1)}` },
+    { cls: 'd', k: 'Discriminative: training accuracy', v: pct(acc(p => lr2P(d1M.lr.w, p))), s: `fit by Newton's method (${d1M.lr.iters} iterations)` },
+  ]);
+  renderD1Read();
+}
+function renderD1Read() {
+  if (!d1M || !d1Hover) { $('d1Read').innerHTML = '<span class="hint">Hover over either plot to compare the two models\' answers at that spot.</span>'; return; }
+  const p = d1Hover, pg = qdaPost(d1M.q, p)[1], pd = lr2P(d1M.lr.w, p);
+  const lp = d1M.lpx(p), below = d1M.trainLp.filter(v => v < lp).length / d1M.trainLp.length;
+  const typ = below > .2 ? 'a typical-looking fish' : below > 0 ? 'an unusual fish' : `<b style="color:var(--bad)">stranger than every training fish</b>`;
+  $('d1Read').innerHTML = `At length <b>${p[0].toFixed(1)}</b> cm, lightness <b>${p[1].toFixed(1)}</b>: ` +
+    `<span style="color:var(--gen)">generative P(sea bass) = <b>${pg.toFixed(3)}</b></span> &middot; ` +
+    `<span style="color:var(--disc)">discriminative P(sea bass) = <b>${pd.toFixed(3)}</b></span><br>` +
+    `<span class="hint">Only the generative model can also say how plausible this fish is at all: under its $p(\\boldsymbol{x})$ this is ${typ}. Logistic regression answers just as confidently for a fish that looks like nothing it has seen.</span>`;
+  renderMath($('d1Read'));
+}
+['d1Gen', 'd1Disc'].forEach(id => {
+  const svg = $(id);
+  svg.addEventListener('click', e => {
+    const g = d1G[id], [px, py] = svgPt(svg, e);
+    if (!g || !inPlot(g, px, py)) return;
+    D1.X.push([g.x.inv(px), g.y.inv(py)]); D1.Y.push(d1Sel); d1Dream = null; renderD1();
+  });
+  svg.addEventListener('pointermove', e => {
+    const g = d1G[id], [px, py] = svgPt(svg, e);
+    if (!g || !inPlot(g, px, py)) return;
+    d1Hover = [g.x.inv(px), g.y.inv(py)];
+    ['d1Gen', 'd1Disc'].forEach(k => { const gg = d1G[k], old = gg.svg.querySelector('.hov'); if (old) old.remove(); el('circle', { class: 'hov', cx: gg.x(d1Hover[0]), cy: gg.y(d1Hover[1]), r: 6, fill: 'none', stroke: C.ink, 'stroke-width': 1.5 }, gg.layer); });
+    renderD1Read();
+  });
+});
+$('d1AddB').onclick = () => { d1Sel = 0; pills(['d1AddB', 'd1AddA'], 'd1AddB'); };
+$('d1AddA').onclick = () => { d1Sel = 1; pills(['d1AddB', 'd1AddA'], 'd1AddA'); };
+$('d1Reset').onclick = () => { d1Reset(); renderD1(); };
+$('d1Dream').onclick = () => {
+  if (!d1M) return;
+  const rng = mulberry32((Math.random() * 1e9) | 0), X = [], Y = [];
+  for (let i = 0; i < 15; i++) { const c = rng() < d1M.q.pi[1] ? 1 : 0; X.push(mvn2Sample(rng, d1M.q.m[c], d1M.q.S[c])); Y.push(c); }
+  d1Dream = { X, Y }; renderD1();
+};
+
+// ---------- 2. Accuracy: lumpy class densities, simple posterior ----------
+const ACC_P = [
+  [[1, 0, 1.6]],
+  [[.3, -3, .6], [.25, -.8, .45], [.25, 1.2, .5], [.2, 4, .5]],
+  [[.14, -3.6, .3], [.3, -1.1, .35], [.16, .5, .25], [.1, 2.5, .3], [.3, 8, .4]],
+];
+const ACC_A = 1.6, ACC_D = [-6, 10];
+let accPre = 0, accSeed = 1;
+function accCompute() {
+  const P = ACC_P[accPre];
+  const px = x => P.reduce((s, [w, m, sd]) => s + w * Math.exp(n1LogPdf(x, m, sd * sd)), 0);
+  const rng = mulberry32(accSeed * 7), X = [], Y = [];
+  for (let n = 0; n < 300; n++) {
+    let u = rng(), k = 0; while (k < P.length - 1 && u > P[k][0]) { u -= P[k][0]; k++; }
+    const x = P[k][1] + P[k][2] * gauss(rng); X.push(x); Y.push(rng() < sigmoid(ACC_A * x) ? 1 : 0);
+  }
+  const gfit = [0, 1].map(c => {
+    const xs = X.filter((_, i) => Y[i] === c), m = xs.reduce((a, b) => a + b, 0) / xs.length;
+    return { pi: xs.length / X.length, m, v: Math.max(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length, 1e-3) };
+  });
+  const gp = x => softmaxArr(gfit.map(q => Math.log(q.pi) + n1LogPdf(x, q.m, q.v)))[1];
+  const lw = fitLR(X.map(x => [1, x]), Y, 1e-3).w, lp = x => sigmoid(lw[0] + lw[1] * x);
+  let bay = 0, ga = 0, la = 0, Z = 0;
+  for (let x = ACC_D[0] - 3; x <= ACC_D[1] + 3; x += 0.005) {
+    const w = px(x), t = sigmoid(ACC_A * x); Z += w;
+    bay += w * Math.max(t, 1 - t); ga += w * (gp(x) > .5 ? t : 1 - t); la += w * (lp(x) > .5 ? t : 1 - t);
+  }
+  return { px, X, Y, gfit, gp, lp, bay: bay / Z, ga: ga / Z, la: la / Z };
+}
+function renderAcc() {
+  const R = accCompute(), cols = [C.a, C.b], xs = [];
+  for (let i = 0; i <= 500; i++) xs.push(ACC_D[0] + (ACC_D[1] - ACC_D[0]) * i / 500);
+  const tj = c => x => R.px(x) * (c ? sigmoid(ACC_A * x) : 1 - sigmoid(ACC_A * x));
+  const fj = c => x => R.gfit[c].pi * Math.exp(n1LogPdf(x, R.gfit[c].m, R.gfit[c].v));
+  let ymax = 0; xs.forEach(x => { ymax = Math.max(ymax, tj(0)(x), tj(1)(x), fj(0)(x), fj(1)(x)); });
+  ymax *= 1.08;
+  const xt = []; for (let v = -6; v <= 10; v += 2) xt.push(v);
+  // top: densities
+  const g = frame($('accTop'), 860, 200, ACC_D, [0, ymax], { xt, xl: '', yl: 'density', B: 22, L: 50 });
+  const path = f => xs.map((x, i) => (i ? 'L' : 'M') + g.x(x).toFixed(1) + ',' + g.y(f(x)).toFixed(1)).join('');
+  [0, 1].forEach(c => {
+    el('path', { d: path(tj(c)) + `L${g.x(ACC_D[1])},${g.y(0)}L${g.x(ACC_D[0])},${g.y(0)}Z`, fill: cols[c], opacity: .28 }, g.layer);
+    el('path', { d: path(tj(c)), fill: 'none', stroke: cols[c], 'stroke-width': 1.4 }, g.layer);
+  });
+  [0, 1].forEach(c => el('path', { d: path(fj(c)), fill: 'none', stroke: cols[c], 'stroke-width': 2.2, 'stroke-dasharray': '6 4' }, g.layer));
+  R.X.forEach((x, i) => el('line', { x1: g.x(x), x2: g.x(x), y1: g.B, y2: g.B - 7, stroke: cols[R.Y[i]], 'stroke-width': 1, opacity: .7 }, g.layer));
+  g.box();
+  // bottom: posteriors
+  const h = frame($('accBot'), 860, 200, ACC_D, [0, 1], { xt, yt: [0, .5, 1], xl: 'x', yl: 'p(y = 2 | x)', L: 50, T: 8 });
+  const path2 = f => xs.map((x, i) => (i ? 'L' : 'M') + h.x(x).toFixed(1) + ',' + h.y(f(x)).toFixed(1)).join('');
+  let start = null;
+  xs.forEach((x, i) => {
+    const wrong = (R.gp(x) > .5) !== (x > 0);
+    if (wrong && start === null) start = x;
+    if ((!wrong || i === xs.length - 1) && start !== null) { el('rect', { x: h.x(start), y: h.T, width: Math.max(h.x(x) - h.x(start), 1.5), height: h.B - h.T, fill: C.bad, opacity: .22 }, h.layer); start = null; }
+  });
+  el('path', { d: path2(x => sigmoid(ACC_A * x)), fill: 'none', stroke: C.ink, 'stroke-width': 2, 'stroke-dasharray': '6 4' }, h.layer);
+  el('path', { d: path2(R.gp), fill: 'none', stroke: C.gen, 'stroke-width': 2.4 }, h.layer);
+  el('path', { d: path2(R.lp), fill: 'none', stroke: C.disc, 'stroke-width': 2.4 }, h.layer);
+  h.box();
+  tiles('accTiles', [
+    { cls: 't', k: 'Best possible accuracy (Bayes optimal)', v: pct1(R.bay), s: 'knows the true S-curve' },
+    { cls: 'g' + (R.bay - R.ga > .01 ? ' bad' : ''), k: 'Generative accuracy', v: pct1(R.ga), s: `${((R.bay - R.ga) * 100).toFixed(1)} points below best` },
+    { cls: 'd', k: 'Discriminative accuracy', v: pct1(R.la), s: `${((R.bay - R.la) * 100).toFixed(1)} points below best` },
+  ]);
+}
+document.querySelectorAll('[data-acc]').forEach(b => b.onclick = () => {
+  accPre = +b.dataset.acc; document.querySelectorAll('[data-acc]').forEach(o => o.classList.toggle('on', o === b)); renderAcc();
+});
+$('accResample').onclick = () => { accSeed++; renderAcc(); };
+
+// ---------- 3. Feature preprocessing: polynomial features on two moons ----------
+function moons(rng, n, noise) {
+  const X = [], Y = [];
+  for (let i = 0; i < n; i++) {
+    const c = i % 2, t = Math.PI * rng();
+    const p = c === 0 ? [Math.cos(t), Math.sin(t)] : [1 - Math.cos(t), 0.5 - Math.sin(t)];
+    X.push([p[0] + noise * gauss(rng), p[1] + noise * gauss(rng)]); Y.push(c);
+  }
+  return { X, Y };
+}
+const FEAT = (() => { const rng = mulberry32(11); return { tr: moons(rng, 200, .18), te: moons(rng, 3000, .18) }; })();
+const polyTerms = deg => { const t = []; for (let d = 1; d <= deg; d++) for (let i = d; i >= 0; i--) t.push([i, d - i]); return t; };
+const SUP = ['', '', '²', '³', '⁴', '⁵'];
+const termName = ([i, j]) => (i ? 'x₁' + SUP[i] : '') + (j ? 'x₂' + SUP[j] : '');
+const featCache = {};
+function featFit(deg) {
+  if (featCache[deg]) return featCache[deg];
+  const terms = polyTerms(deg), raw = p => terms.map(([i, j]) => Math.pow(p[0], i) * Math.pow(p[1], j));
+  const F = FEAT.tr.X.map(raw);
+  const mu = terms.map((_, j) => F.reduce((s, f) => s + f[j], 0) / F.length);
+  const sd = terms.map((_, j) => Math.sqrt(F.reduce((s, f) => s + (f[j] - mu[j]) ** 2, 0) / F.length));
+  const Z = p => raw(p).map((v, j) => (v - mu[j]) / sd[j]);
+  const lw = fitLR(FEAT.tr.X.map(p => [1, ...Z(p)]), FEAT.tr.Y, 0.1).w;
+  const nb = [0, 1].map(c => {
+    const R = FEAT.tr.X.filter((_, i) => FEAT.tr.Y[i] === c).map(Z);
+    const m = terms.map((_, j) => R.reduce((s, f) => s + f[j], 0) / R.length);
+    const v = terms.map((_, j) => R.reduce((s, f) => s + (f[j] - m[j]) ** 2, 0) / R.length + 1e-6);
+    return { pi: R.length / FEAT.tr.X.length, m, v };
+  });
+  const nbP = p => { const z = Z(p); return softmaxArr(nb.map(q => Math.log(q.pi) + z.reduce((s, v, j) => s + n1LogPdf(v, q.m[j], q.v[j]), 0)))[1]; };
+  const lrPp = p => lrP(lw, [1, ...Z(p)]);
+  const score = f => { let a = 0, c = 0; FEAT.te.X.forEach((p, i) => { const q = f(p); a += (q > .5) === (FEAT.te.Y[i] === 1); c += Math.max(q, 1 - q); }); return { acc: a / FEAT.te.X.length, conf: c / FEAT.te.X.length }; };
+  return featCache[deg] = { terms, nbP, lrPp, nbS: score(nbP), lrS: score(lrPp) };
+}
+function renderFeat() {
+  const deg = +$('featDeg').value, R = featFit(deg), cols = [C.b, C.a];
+  $('featDegV').textContent = deg;
+  $('featChips').innerHTML = `<span class="hint" style="align-self:center">${R.terms.length} features:</span>` + R.terms.map(t => `<span class="chip">${termName(t)}</span>`).join('');
+  [['featGen', R.nbP, C.gen], ['featDisc', R.lrPp, C.disc]].forEach(([id, f, col]) => {
+    const g = frame($(id), 440, 300, [-1.6, 2.6], [-1.15, 1.6], { xt: [-1, 0, 1, 2], yt: [-1, 0, 1], xl: 'x₁', yl: 'x₂', L: 36 });
+    heat(g, (a, b) => probHeat(f([a, b]), cols));
+    contour(g, (a, b) => f([a, b]), { stroke: col, 'stroke-width': 2.6 });
+    dots(g, FEAT.tr.X, FEAT.tr.Y, cols, 2.8);
+    g.box();
+  });
+  const gap = R.nbS.conf - R.nbS.acc;
+  tiles('featTiles', [
+    { cls: 'g', k: 'Naive Bayes: test accuracy', v: pct1(R.nbS.acc) },
+    { cls: 'g' + (gap > .05 ? ' bad' : ''), k: 'Naive Bayes: average confidence', v: pct1(R.nbS.conf), s: gap > .05 ? `overconfident by ${(gap * 100).toFixed(0)} points` : 'roughly matches accuracy' },
+    { cls: 'd', k: 'Logistic regression: test accuracy', v: pct1(R.lrS.acc) },
+    { cls: 'd', k: 'Logistic regression: average confidence', v: pct1(R.lrS.conf), s: Math.abs(R.lrS.conf - R.lrS.acc) < .05 ? 'roughly matches accuracy' : '' },
+  ]);
+}
+$('featDeg').oninput = renderFeat;
+
+// ---------- 4. Calibration: naive Bayes double-counts duplicated clues ----------
+const SP = { ind: [[.3, .7], [.4, .8]], q: [.15, .6] }; // [P(clue | ham), P(clue | spam)]
+const SP_COPIES = ['FREE', 'fr3e', 'FREE!!!', 'f-r-e-e', 'Free', 'freee'];
+function simEmail(rng, k, rho) {
+  const c = rng() < .5 ? 1 : 0, x = SP.ind.map(r => rng() < r[c] ? 1 : 0), w = rng() < SP.q[c] ? 1 : 0;
+  x.push(w);
+  for (let j = 0; j < k; j++) x.push(rng() < rho ? w : (rng() < SP.q[c] ? 1 : 0));
+  return { x, c };
+}
+function spamTrue(x, k, rho) {
+  return softmaxArr([0, 1].map(c => {
+    let l = Math.log(.5); SP.ind.forEach((r, j) => { l += Math.log(x[j] ? r[c] : 1 - r[c]); });
+    const w = x[2], q = SP.q[c]; l += Math.log(w ? q : 1 - q);
+    for (let j = 0; j < k; j++) { const xj = x[3 + j]; l += Math.log(rho * (xj === w ? 1 : 0) + (1 - rho) * (xj ? q : 1 - q)); }
+    return l;
+  }))[1];
+}
+function renderCal() {
+  const k = +$('calK').value, rho = +$('calR').value;
+  $('calKV').textContent = k; $('calRV').textContent = pct(rho);
+  $('calChips').innerHTML = ['unknown sender', 'has a link', 'free'].map(s => `<span class="chip">${s}</span>`).join('') +
+    SP_COPIES.map((s, j) => `<span class="chip dup${j < k ? '' : ' off'}">${s}</span>`).join('');
+  const rng = mulberry32(5), tr = []; for (let i = 0; i < 3000; i++) tr.push(simEmail(rng, k, rho));
+  const D = 3 + k;
+  const nb = [0, 1].map(c => { const R = tr.filter(e => e.c === c); return { pi: R.length / tr.length, th: Array.from({ length: D }, (_, j) => (R.reduce((s, e) => s + e.x[j], 0) + 1) / (R.length + 2)) }; });
+  const nbP = x => softmaxArr(nb.map(m => Math.log(m.pi) + x.reduce((s, v, j) => s + Math.log(v ? m.th[j] : 1 - m.th[j]), 0)))[1];
+  const lw = fitLR(tr.map(e => [1, ...e.x]), tr.map(e => e.c), 1).w, lrPp = x => lrP(lw, [1, ...x]);
+  const te = []; for (let i = 0; i < 20000; i++) te.push(simEmail(rng, k, rho));
+  const models = [[nbP, C.gen], [lrPp, C.disc]];
+  // reliability diagram
+  const g = frame($('calRel'), 440, 330, [-0.04, 1.04], [-0.04, 1.04], { xt: [0, .2, .4, .6, .8, 1], yt: [0, .2, .4, .6, .8, 1], xf: pct, yf: pct, xl: 'model says P(spam) =', yl: 'fraction actually spam', L: 46 });
+  el('line', { x1: g.x(0), y1: g.y(0), x2: g.x(1), y2: g.y(1), stroke: C.muted, 'stroke-dasharray': '5 4', 'stroke-width': 1.2 }, g.layer);
+  const stats = models.map(([f, col], mi) => {
+    const bins = Array.from({ length: 10 }, () => ({ n: 0, p: 0, y: 0 }));
+    let hiN = 0, hiY = 0;
+    te.forEach(e => { const p = f(e.x), b = bins[Math.min(9, Math.floor(p * 10))]; b.n++; b.p += p; b.y += e.c; if (p >= .9) { hiN++; hiY += e.c; } });
+    const pts = bins.filter(b => b.n >= 20).map(b => [b.p / b.n, b.y / b.n, b.n]);
+    el('path', { d: pts.map((q, i) => (i ? 'L' : 'M') + g.x(q[0]).toFixed(1) + ',' + g.y(q[1]).toFixed(1)).join(''), fill: 'none', stroke: col, 'stroke-width': 2, opacity: .8 }, g.layer);
+    pts.forEach(q => el('circle', { cx: g.x(q[0]) + (mi ? 1.5 : -1.5), cy: g.y(q[1]), r: 2.5 + Math.sqrt(q[2] / 20000) * 16, fill: col, 'fill-opacity': .55, stroke: col, 'stroke-width': 1.2 }, g.layer));
+    return { hiN, hiY };
+  });
+  g.box();
+  // the all-clues email
+  const all = new Array(D).fill(1), vals = [['Truth', spamTrue(all, k, rho), C.ink], ['Naive Bayes', nbP(all), C.gen], ['Logistic regression', lrPp(all), C.disc]];
+  const h = frame($('calBars'), 440, 200, [0, 1], [0, 3], { xt: [0, .25, .5, .75, 1], xf: pct, L: 130, B: 28, R: 50 });
+  vals.forEach(([name, v, col], i) => {
+    const yy = h.y(2.5 - i) - 13;
+    el('text', { x: h.L - 8, y: yy + 17, 'text-anchor': 'end', 'font-size': 12 }, h.svg, name);
+    el('rect', { x: h.L, y: yy, width: Math.max(h.x(v) - h.L, 1), height: 26, rx: 3, fill: col, opacity: .85 }, h.layer);
+    el('text', { x: h.x(v) + 6, y: yy + 17, 'font-size': 12, 'font-weight': 700, class: 'halo' }, h.svg, v > .9995 ? '>99.9%' : pct1(v));
+  });
+  h.box();
+  const hi = (s, cls, name) => s.hiN ? { cls, k: `When ${name} says ≥ 90% spam, the email really is spam`, v: pct(s.hiY / s.hiN), s: `${s.hiN.toLocaleString()} of 20,000 test emails`, bad: s.hiY / s.hiN < .9 } : { cls, k: `When ${name} says ≥ 90% spam…`, v: '—', s: 'it never goes that high here' };
+  const t = [hi(stats[0], 'g', 'naive Bayes'), hi(stats[1], 'd', 'logistic regression')];
+  t.forEach(x => { if (x.bad) x.cls += ' bad'; });
+  tiles('calTiles', t);
+}
+$('calK').oninput = renderCal; $('calR').oninput = renderCal;
+
+// ---------- 5. Easy to fit: closed form vs. an optimization loop ----------
+const FIT = makeFish(42, 40, [0, 1]);
+const FIT_Q = fitQDA(FIT.X, FIT.Y, 2, FRIDGE);
+const FIT_NEWTON = fitLR2(FIT.X, FIT.Y, 1e-2);
+// Gradient descent on standardized inputs; keep every iterate so the animation can replay it.
+const FIT_GD = (() => {
+  const T = stdz(FIT.X), F = FIT.X.map(T.f), N = F.length, lam = 1e-2, lr = 0.5;
+  let w = [0, 0, 0]; const hist = [];
+  const lossOf = w => F.reduce((s, f, n) => { const p = Math.min(Math.max(lrP(w, f), 1e-12), 1 - 1e-12); return s - (FIT.Y[n] ? Math.log(p) : Math.log(1 - p)); }, 0) / N + lam / 2 * (w[1] ** 2 + w[2] ** 2);
+  for (let t = 0; t < 5000; t++) {
+    const raw = [w[0] - w[1] * T.m[0] / T.s[0] - w[2] * T.m[1] / T.s[1], w[1] / T.s[0], w[2] / T.s[1]];
+    hist.push({ w: raw, loss: lossOf(w) });
+    const gr = [0, 0, 0];
+    F.forEach((f, n) => { const e = lrP(w, f) - FIT.Y[n]; for (let j = 0; j < 3; j++) gr[j] += e * f[j] / N; });
+    gr[1] += lam * w[1]; gr[2] += lam * w[2];
+    if (Math.hypot(...gr) < 1e-4) break;
+    for (let j = 0; j < 3; j++) w[j] -= lr * gr[j];
+  }
+  return hist;
+})();
+let fitIdx = -1, fitTimer = null;
+function renderFit() {
+  const cols = fishCols(), g = fishFrame($('fitSvg'));
+  if (fitIdx >= 0) {
+    ellipses(g, FIT_Q, cols);
+    contour(g, (a, b) => qdaPost(FIT_Q, [a, b])[1], { stroke: C.gen, 'stroke-width': 2.6 });
+    const w = FIT_GD[fitIdx].w;
+    contour(g, (a, b) => lr2P(w, [a, b]), { stroke: C.disc, 'stroke-width': 2.6 });
+  }
+  dots(g, FIT.X, FIT.Y, cols);
+  g.box();
+  const n = FIT_GD.length, l0 = FIT_GD[0].loss, l1 = FIT_GD[n - 1].loss;
+  const h = frame($('fitLoss'), 440, 200, [0, n], [Math.max(0, l1 - .05), l0 + .02], { xt: [0, Math.round(n / 4), Math.round(n / 2), Math.round(3 * n / 4), n].filter((v, i, a) => a.indexOf(v) === i), yt: [l1, l0].map(v => +v.toFixed(2)), xl: 'gradient-descent iteration', yl: 'loss', L: 46 });
+  if (fitIdx >= 0) {
+    el('path', { d: FIT_GD.slice(0, fitIdx + 1).map((s, i) => (i ? 'L' : 'M') + h.x(i).toFixed(1) + ',' + h.y(s.loss).toFixed(1)).join(''), fill: 'none', stroke: C.disc, 'stroke-width': 2.2 }, h.layer);
+    el('circle', { cx: h.x(fitIdx), cy: h.y(FIT_GD[fitIdx].loss), r: 4, fill: C.disc }, h.layer);
+  }
+  h.box();
+  const done = fitIdx === n - 1;
+  const q = FIT_Q, f1 = v => v.toFixed(1);
+  $('fitRead').innerHTML = fitIdx < 0 ? '<span class="hint">Press &ldquo;Train both&rdquo;.</span>' :
+    `<div style="color:var(--gen)"><b>Generative, finished instantly:</b> $\\hat\\pi_{\\text{salmon}} = 40/80$, $\\hat{\\boldsymbol\\mu}_{\\text{salmon}} = $ (${f1(q.m[0][0])}, ${f1(q.m[0][1])}), $\\hat{\\boldsymbol\\mu}_{\\text{bass}} = $ (${f1(q.m[1][0])}, ${f1(q.m[1][1])}), plus each class's covariance. Every number is an average.</div>` +
+    `<div style="color:var(--disc);margin-top:6px"><b>Logistic regression, iteration ${fitIdx + 1} of ${n}${done ? ' (converged)' : ''}:</b> loss ${FIT_GD[fitIdx].loss.toFixed(4)}</div>`;
+  renderMath($('fitRead'));
+  tiles('fitTiles', [
+    { cls: 'g', k: 'Generative: passes over the data', v: fitIdx < 0 ? '—' : '1', s: 'count, average, done' },
+    { cls: 'd', k: 'Logistic regression: passes over the data', v: fitIdx < 0 ? '—' : String(fitIdx + 1), s: `gradient descent; Newton's method needs ${FIT_NEWTON.iters} passes, each with a matrix solve` },
+  ]);
+  $('fitStatus').textContent = fitIdx < 0 ? '' : done ? 'Both trained.' : 'Logistic regression still optimizing…';
+}
+$('fitGo').onclick = () => {
+  if (fitTimer) return;
+  const n = FIT_GD.length, F = 150; let f = 0;
+  fitIdx = 0; renderFit();
+  fitTimer = setInterval(() => {
+    f++; fitIdx = Math.min(n - 1, Math.round((n - 1) * (f / F) ** 2));
+    renderFit();
+    if (fitIdx >= n - 1) { clearInterval(fitTimer); fitTimer = null; }
+  }, 30);
+};
+$('fitReset').onclick = () => { if (fitTimer) { clearInterval(fitTimer); fitTimer = null; } fitIdx = -1; renderFit(); };
+
+// ---------- 6. Missing features ----------
+const MISS = makeFish(42, 40, [0, 1]);
+const MISS_Q = fitQDA(MISS.X, MISS.Y, 2, FRIDGE);
+const MISS_LR = fitLR2(MISS.X, MISS.Y, 1e-3).w;
+const MISS_MX2 = MISS.X.reduce((s, p) => s + p[1], 0) / MISS.X.length;
+const missTrueX1 = x1 => softmaxArr(FISH.slice(0, 2).map(f => Math.log(.5) + n1LogPdf(x1, f.m[0], f.S[0][0])))[1];
+const missTrue = p => softmaxArr(FISH.slice(0, 2).map(f => Math.log(.5) + mvn2LogPdf(p, f.m, f.S)))[1];
+let missPt = [74, 6.6], missBroken = true, missG = null;
+function renderMiss() {
+  const cols = fishCols(), g = missG = fishFrame($('missSvg')), p = missPt;
+  dots(g, MISS.X, MISS.Y, cols, 3.2, { opacity: .75 });
+  if (missBroken) {
+    el('line', { x1: g.x(p[0]), x2: g.x(p[0]), y1: g.T, y2: g.B, stroke: C.gen, 'stroke-width': 7, opacity: .18 }, g.layer);
+    el('line', { x1: g.x(p[0]), x2: g.x(p[0]), y1: g.T, y2: g.B, stroke: C.gen, 'stroke-width': 1.5, 'stroke-dasharray': '5 4' }, g.layer);
+    el('line', { x1: g.L, x2: g.R, y1: g.y(MISS_MX2), y2: g.y(MISS_MX2), stroke: C.disc, 'stroke-width': 1, 'stroke-dasharray': '2 4' }, g.layer);
+    const ix = g.x(p[0]), iy = g.y(MISS_MX2);
+    el('path', { d: `M${ix - 7},${iy - 7}L${ix + 7},${iy + 7}M${ix - 7},${iy + 7}L${ix + 7},${iy - 7}`, stroke: C.disc, 'stroke-width': 3 }, g.layer);
+    const right = p[0] < 64, tx = ix + (right ? 10 : -10), anchor = right ? 'start' : 'end';
+    el('text', { x: tx, y: iy - 10, 'text-anchor': anchor, 'font-size': 11.5, fill: C.disc, 'font-weight': 600, class: 'halo' }, g.svg, 'LR plugs in the average lightness');
+    el('text', { x: tx, y: g.T + 16, 'text-anchor': anchor, 'font-size': 11.5, fill: C.gen, 'font-weight': 600, class: 'halo' }, g.svg, 'Generative: averages over this whole line');
+    el('circle', { cx: ix, cy: g.y(p[1]), r: 7, fill: 'none', stroke: C.muted, 'stroke-width': 1.5, 'stroke-dasharray': '2 2' }, g.layer);
+  } else {
+    el('circle', { cx: g.x(p[0]), cy: g.y(p[1]), r: 7, fill: C.ink, stroke: C.panel, 'stroke-width': 2 }, g.layer);
+  }
+  g.box();
+  // curve over lengths
+  const h = frame($('missCurve'), 440, 250, FD.x, [0, 1], { T: 16, xt: [40, 50, 60, 70, 80, 90], yt: [0, .25, .5, .75, 1], yf: pct, xl: 'length (cm)', L: 42 });
+  const xs = []; for (let i = 0; i <= 200; i++) xs.push(FD.x[0] + (FD.x[1] - FD.x[0]) * i / 200);
+  const path = f => xs.map((x, i) => (i ? 'L' : 'M') + h.x(x).toFixed(1) + ',' + h.y(f(x)).toFixed(1)).join('');
+  const fT = missTrueX1, fG = x => qdaPostX1(MISS_Q, x)[1], fL = x => lr2P(MISS_LR, [x, MISS_MX2]);
+  el('path', { d: path(fL), fill: 'none', stroke: C.disc, 'stroke-width': 2.4 }, h.layer);
+  el('path', { d: path(fG), fill: 'none', stroke: C.gen, 'stroke-width': 2.4 }, h.layer);
+  el('path', { d: path(fT), fill: 'none', stroke: C.ink, 'stroke-width': 1.8, 'stroke-dasharray': '6 4' }, h.layer);
+  el('line', { x1: h.x(p[0]), x2: h.x(p[0]), y1: h.T, y2: h.B, stroke: C.muted, 'stroke-width': 1 }, h.layer);
+  [[fT, C.ink], [fG, C.gen], [fL, C.disc]].forEach(([f, c]) => el('circle', { cx: h.x(p[0]), cy: h.y(f(p[0])), r: 4.5, fill: c, stroke: C.panel, 'stroke-width': 1.5 }, h.layer));
+  h.box();
+  const L = `length ${p[0].toFixed(0)} cm`;
+  if (missBroken) tiles('missTiles', [
+    { cls: 't', k: `Truth: P(sea bass | ${L})`, v: pct1(fT(p[0])), s: 'from the simulator' },
+    { cls: 'g', k: 'Generative, lightness marginalized out', v: pct1(fG(p[0])), s: `off by ${(Math.abs(fG(p[0]) - fT(p[0])) * 100).toFixed(1)} points` },
+    { cls: 'd' + (Math.abs(fL(p[0]) - fT(p[0])) > .1 ? ' bad' : ''), k: 'Logistic regression, average lightness plugged in', v: pct1(fL(p[0])), s: `off by ${(Math.abs(fL(p[0]) - fT(p[0])) * 100).toFixed(1)} points` },
+  ]);
+  else tiles('missTiles', [
+    { cls: 't', k: `Truth: P(sea bass | ${L}, lightness ${p[1].toFixed(1)})`, v: pct1(missTrue(p)), s: 'from the simulator' },
+    { cls: 'g', k: 'Generative, both features', v: pct1(qdaPost(MISS_Q, p)[1]) },
+    { cls: 'd', k: 'Logistic regression, both features', v: pct1(lr2P(MISS_LR, p)) },
+  ]);
+}
+(() => {
+  const svg = $('missSvg'); let drag = false;
+  const move = e => { const g = missG, [px, py] = svgPt(svg, e); if (!g || !inPlot(g, px, py)) return; missPt = [g.x.inv(px), g.y.inv(py)]; renderMiss(); };
+  svg.addEventListener('pointerdown', e => { drag = true; svg.setPointerCapture(e.pointerId); move(e); });
+  svg.addEventListener('pointermove', e => { if (drag) move(e); });
+  svg.addEventListener('pointerup', () => { drag = false; });
+  svg.addEventListener('pointercancel', () => { drag = false; });
+})();
+$('missOk').onclick = () => { missBroken = false; pills(['missOk', 'missBroken'], 'missOk'); renderMiss(); };
+$('missBroken').onclick = () => { missBroken = true; pills(['missOk', 'missBroken'], 'missBroken'); renderMiss(); };
+
+// ---------- 7. Fit classes separately ----------
+const SEP2 = makeFish(42, 40, [0, 1]);
+const SEP_T = makeFish(43, 40, [2]);
+const SEP3 = { X: [...SEP2.X, ...SEP_T.X], Y: [...SEP2.Y, ...SEP_T.Y] };
+let SEP = null, sepK = 2;
+function sepCompute() {
+  SEP = {
+    g2: fitQDA(SEP2.X, SEP2.Y, 2, FRIDGE), g3: fitQDA(SEP3.X, SEP3.Y, 3, FRIDGE),
+    d2: fitSoftmax2(SEP2.X, SEP2.Y, 2, 1e-2), d3: fitSoftmax2(SEP3.X, SEP3.Y, 3, 1e-2),
+  };
+}
+function renderSep() {
+  if (!SEP) sepCompute();
+  const cols = fishCols(), three = sepK === 3, D = three ? SEP3 : SEP2, gm = three ? SEP.g3 : SEP.g2, dm = three ? SEP.d3 : SEP.d2;
+  [['sepGen', p => qdaPost(gm, p)], ['sepDisc', p => smP(dm, p)]].forEach(([id, f], i) => {
+    const g = fishFrame($(id), 440, 300);
+    heat(g, (a, b) => argmaxHeat(f([a, b]), cols));
+    if (i === 0) gm.m.forEach((m, c) => el('path', { d: ellD(g, m, gm.S[c], 1.5), fill: 'none', stroke: cols[c], 'stroke-width': 1.6 }, g.layer));
+    dots(g, D.X, D.Y, cols, 3.2);
+    g.box();
+  });
+  const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2), f3 = v => v.toFixed(3);
+  const sw = c => `<i class="sw dot" style="background:${cols[c]};margin-right:5px;vertical-align:-1px"></i>`;
+  let gh = '<tr><th>class</th><th>μ (len, light)</th><th>sd (len, light)</th><th>π</th><th></th></tr>';
+  for (let c = 0; c < gm.m.length; c++) {
+    const S = gm.S[c], status = !three ? '' : c < 2 ? '<td class="same">μ, Σ same</td>' : '<td class="new">new</td>';
+    const piCell = three && c < 2 ? `<td class="chg">${f2(SEP.g2.pi[c])}→${f2(gm.pi[c])}</td>` : `<td>${f2(gm.pi[c])}</td>`;
+    gh += `<tr><td>${sw(c)}${FNAME[c]}</td><td>${f1(gm.m[c][0])}, ${f1(gm.m[c][1])}</td><td>${f1(Math.sqrt(S[0][0]))}, ${f2(Math.sqrt(S[1][1]))}</td>${piCell}${status || '<td></td>'}</tr>`;
+  }
+  $('sepGenT').innerHTML = gh;
+  let dh = '<tr><th>class</th><th>w<sub>length</sub></th><th>w<sub>light</sub></th><th>b</th></tr>';
+  for (let c = 0; c < dm.length; c++) {
+    const cell = (j, fmt) => three && c < 2 ? `<td class="chg">${fmt(SEP.d2[c][j])}→${fmt(dm[c][j])}</td>` : `<td${three ? ' class="new"' : ''}>${fmt(dm[c][j])}</td>`;
+    dh += `<tr><td>${sw(c)}${FNAME[c]}</td>${cell(1, f3)}${cell(2, f2)}${cell(0, f2)}</tr>`;
+  }
+  $('sepDiscT').innerHTML = dh;
+  tiles('sepTiles', three ? [
+    { cls: 'g', k: 'Generative: old density parameters that changed', v: '0 of 10', s: 'fit only trout\'s μ and Σ (5 numbers), then re-divide the class counts' },
+    { cls: 'd bad', k: 'Discriminative: old weights that changed', v: '6 of 6', s: 'plus 3 new ones; the whole softmax is retrained on all 120 fish' },
+  ] : [
+    { cls: 'g', k: 'Generative parameters', v: '11', s: 'π + a mean and a covariance per class' },
+    { cls: 'd', k: 'Discriminative parameters', v: '6', s: 'a weight vector and bias per class' },
+  ]);
+}
+$('sepTwo').onclick = () => { sepK = 2; pills(['sepTwo', 'sepThree'], 'sepTwo'); renderSep(); };
+$('sepThree').onclick = () => { sepK = 3; pills(['sepTwo', 'sepThree'], 'sepThree'); renderSep(); };
+
+// ---------- 8. Unlabeled data: semi-supervised EM ----------
+const SS = { m: [[-0.75, 0.75], [0.75, -0.75]], S: [[2.52, 2.32], [2.32, 2.52]] };
+const UNL = (() => {
+  const rng = mulberry32(2024), U = [], UY = [], T = [], TY = [];
+  for (let c = 0; c < 2; c++) {
+    for (let i = 0; i < 150; i++) { U.push(mvn2Sample(rng, SS.m[c], SS.S)); UY.push(c); }
+    for (let i = 0; i < 2000; i++) { T.push(mvn2Sample(rng, SS.m[c], SS.S)); TY.push(c); }
+  }
+  return { U, T, TY };
+})();
+// Tied-covariance Gaussian classifier from soft labels R (one row [r0, r1] per point).
+function fitTied(X, R, ridge) {
+  const m = [], pi = []; let a = 0, b = 0, d = 0;
+  for (let c = 0; c < 2; c++) { const w = R.map(r => r[c]); pi.push(w.reduce((s, v) => s + v, 0) / X.length); m.push(meanOf(X, w)); }
+  X.forEach((p, i) => { for (let c = 0; c < 2; c++) { const w = R[i][c], u = p[0] - m[c][0], v = p[1] - m[c][1]; a += w * u * u; b += w * u * v; d += w * v * v; } });
+  const n = X.length, S = [[a / n + ridge, b / n], [b / n, d / n + ridge]];
+  return { pi, m, S: [S, S], K: 2 };
+}
+let unlSeed = 305, unl = null, unlTimer = null;
+function unlInit() {
+  const rng = mulberry32(unlSeed), L = [], LY = [];
+  for (let c = 0; c < 2; c++) for (let i = 0; i < 2; i++) { L.push(mvn2Sample(rng, SS.m[c], SS.S)); LY.push(c); }
+  const oneHot = LY.map(y => y ? [0, 1] : [1, 0]);
+  const g0 = fitTied(L, oneHot, 0.3), lr = fitLR2(L, LY, 1).w;
+  unl = { L, LY, oneHot, g0, lr, g: g0, R: null, iter: 0 };
+}
+function unlStep() {
+  const R = UNL.U.map(p => qdaPost(unl.g, p)), X = [...unl.L, ...UNL.U];
+  unl.R = R; unl.g = fitTied(X, [...unl.oneHot, ...R], 0.3 / (X.length / 4)); unl.iter++;
+}
+const unlAcc = f => UNL.T.reduce((s, p, i) => s + ((f(p) > .5) === (UNL.TY[i] === 1)), 0) / UNL.T.length;
+function renderUnl() {
+  const cols = [C.b, C.a];
+  const g = frame($('unlSvg'), 860, 400, [-5.5, 5.5], [-4.6, 4.6], { xt: [-4, -2, 0, 2, 4], yt: [-4, -2, 0, 2, 4], xl: 'feature 1 (e.g. lesion size)', yl: 'feature 2 (e.g. texture)', L: 40 });
+  if (unl.iter) ellipses(g, unl.g, cols);
+  UNL.U.forEach((p, i) => {
+    const r = unl.R ? unl.R[i][1] : .5, col = unl.R ? mix(C.muted, r > .5 ? C.a : C.b, Math.abs(r - .5) * 2) : C.muted;
+    el('circle', { cx: g.x(p[0]), cy: g.y(p[1]), r: 2.8, fill: col, opacity: .75 }, g.layer);
+  });
+  contour(g, (a, b) => lr2P(unl.lr, [a, b]), { stroke: C.disc, 'stroke-width': 2.6 });
+  contour(g, (a, b) => qdaPost(unl.g0, [a, b])[1], { stroke: C.gen, 'stroke-width': 2.4, 'stroke-dasharray': '7 5' });
+  if (unl.iter) contour(g, (a, b) => qdaPost(unl.g, [a, b])[1], { stroke: C.gen, 'stroke-width': 3 });
+  unl.L.forEach((p, i) => el('circle', { cx: g.x(p[0]), cy: g.y(p[1]), r: 7, fill: cols[unl.LY[i]], stroke: C.ink, 'stroke-width': 2.2 }, g.layer));
+  g.box();
+  $('unlIter').textContent = unl.iter ? `EM iteration ${unl.iter}` : 'EM not started: unlabeled points are gray';
+  tiles('unlTiles', [
+    { cls: 'd', k: 'Logistic regression, 4 labels only', v: pct1(unlAcc(p => lr2P(unl.lr, p))), s: 'test accuracy (4,000 fresh points)' },
+    { cls: 'g', k: 'Generative, 4 labels only', v: pct1(unlAcc(p => qdaPost(unl.g0, p)[1])), s: 'test accuracy' },
+    { cls: 'g', k: 'Generative + EM on 300 unlabeled', v: unl.iter ? pct1(unlAcc(p => qdaPost(unl.g, p)[1])) : '—', s: unl.iter ? 'test accuracy' : 'press EM step' },
+  ]);
+}
+function unlStop() { if (unlTimer) { clearInterval(unlTimer); unlTimer = null; $('unlRun').innerHTML = 'Run EM &#9654;'; } }
+$('unlStep').onclick = () => { unlStop(); unlStep(); renderUnl(); };
+$('unlRun').onclick = () => {
+  if (unlTimer) { unlStop(); return; }
+  $('unlRun').textContent = 'Pause';
+  unlTimer = setInterval(() => { unlStep(); renderUnl(); if (unl.iter >= 40) unlStop(); }, 300);
+};
+$('unlReset').onclick = () => { unlStop(); unlInit(); renderUnl(); };
+$('unlNew').onclick = () => { unlStop(); unlSeed += 17; unlInit(); renderUnl(); };
+
+// ---------- 9. Spurious features: causal diagram ----------
+let spurNew = false;
+function renderSpur() {
+  const svg = $('spurSvg'); svg.innerHTML = '';
+  const defs = el('defs', {}, svg);
+  [['arrInk', C.ink], ['arrBad', C.bad], ['arrMuted', C.muted]].forEach(([id, col]) => {
+    const mk = el('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, defs);
+    el('path', { d: 'M0,0L10,5L0,10z', fill: col }, mk);
+  });
+  const node = (x, y, w, title, sub, col) => {
+    el('rect', { x: x - w / 2, y: y - 30, width: w, height: 60, rx: 10, fill: C.soft, stroke: col, 'stroke-width': 2 }, svg);
+    el('text', { x, y: y - 4, 'text-anchor': 'middle', 'font-size': 13.5, 'font-weight': 700 }, svg, title);
+    el('text', { x, y: y + 15, 'text-anchor': 'middle', 'font-size': 11.5, class: 'muted' }, svg, sub);
+  };
+  const Y = [170, 150], RL = [650, 62], SP_ = [650, 238];
+  const edge = (x1, y1, x2, y2, col, mk, dash, label, side) => {
+    el('path', { d: `M${x1},${y1}L${x2},${y2}`, stroke: col, 'stroke-width': 2.5, fill: 'none', 'marker-end': `url(#${mk})`, ...(dash ? { 'stroke-dasharray': '7 6' } : {}) }, svg);
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, ang = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+    el('text', { x: mx, y: my + side, 'text-anchor': 'middle', 'font-size': 11.5, fill: col, 'font-weight': 600, class: 'halo', transform: `rotate(${ang.toFixed(1)} ${mx} ${my})` }, svg, label);
+  };
+  edge(Y[0] + 105, Y[1] - 18, RL[0] - 120, RL[1] + 8, C.ink, 'arrInk', false, 'biology: holds at every hospital', -9);
+  if (!spurNew) edge(Y[0] + 105, Y[1] + 18, SP_[0] - 120, SP_[1] - 8, C.bad, 'arrBad', false, 'workflow: sicker patients get the portable scanner', 18);
+  else {
+    edge(Y[0] + 105, Y[1] + 18, SP_[0] - 120, SP_[1] - 8, C.muted, 'arrMuted', true, 'link gone: everyone uses the same scanner', 18);
+    const mx = (Y[0] + 105 + SP_[0] - 120) / 2, my = (Y[1] + 18 + SP_[1] - 8) / 2;
+    el('path', { d: `M${mx - 10},${my - 10}L${mx + 10},${my + 10}M${mx - 10},${my + 10}L${mx + 10},${my - 10}`, stroke: C.bad, 'stroke-width': 3.5 }, svg);
+  }
+  node(Y[0], Y[1], 210, 'Pneumonia (label y)', 'what we want to predict', C.ink);
+  node(RL[0], RL[1], 240, 'Lung shadows', 'the real signal, subtle', C.gen);
+  node(SP_[0], SP_[1], 240, 'Portable-scanner marker', 'a shortcut, easy to spot', spurNew ? C.muted : C.bad);
+  $('spurRead').innerHTML = spurNew
+    ? `<b>New hospital.</b> Every patient is scanned on the same machine, so the marker says nothing about pneumonia. A model that leaned on the marker loses that crutch and its accuracy drops. Only the lung-shadow path still carries signal. A model that described <em>how pneumonia produces the image</em> was relying on the path that survived.`
+    : `<b>Training hospital.</b> Sick patients are often too ill to move, so they are scanned on a portable machine that stamps a marker on the image. The marker agrees with the label for most patients, and it is much easier to detect than subtle shadows. A discriminative model rewarded only for fitting labels will happily lean on it.`;
+}
+$('spurTrain').onclick = () => { spurNew = false; pills(['spurTrain', 'spurNew'], 'spurTrain'); renderSpur(); };
+$('spurNew').onclick = () => { spurNew = true; pills(['spurTrain', 'spurNew'], 'spurNew'); renderSpur(); };
+
+// ---------- 10. Quiz ----------
+const QUIZ = [
+  { s: 'An emergency-room triage model. Many patients arrive without some lab results, because the tests take hours or were never ordered.', a: 'g', why: '<b>Handles missing features (9.4.3).</b> A generative model can marginalize out whichever tests are missing for each patient, with one model. A discriminative model would need imputation or a separate model for each pattern of missing tests.' },
+  { s: 'Tagging the contents of photos uploaded to a social network, trained on hundreds of millions of labeled images. Accuracy is everything.', a: 'd', why: '<b>Better predictive accuracy (9.4.1).</b> Modeling $p(\\boldsymbol{x}\\mid y)$ over raw pixels is enormously hard, while $p(y\\mid\\boldsymbol{x})$ is what you need. With this much labeled data, a discriminative deep network is the standard choice.' },
+  { s: 'A bird-identification app that adds a few new species every month, and can\'t afford to retrain on every species each time.', a: 'g', why: '<b>Fit classes separately (9.4.2).</b> Each species\' density is fit from its own examples, so a new species is one new fit. Nothing already learned changes.' },
+  { s: 'A bank estimates each applicant\'s probability of default and uses that number to set the interest rate.', a: 'd', why: '<b>Well-calibrated probabilities (9.4.1).</b> The probability itself drives the price, so it has to be trustworthy. Logistic regression is the industry standard here. Naive Bayes tends to output overconfident extremes when features are correlated (income, salary band and tax bracket all overlap).' },
+  { s: 'A research hospital has 200 chest scans labeled by radiologists and 50,000 that nobody has labeled.', a: 'g', why: '<b>Handles unlabeled data (9.4.2).</b> Treat the missing labels as latent variables and run EM. The 50,000 unlabeled scans help pin down what each class looks like. A discriminative model can\'t learn anything from an $\\boldsymbol{x}$ with no $y$.' },
+  { s: 'A product-review sentiment classifier whose features are word counts, bigrams like "not good", and pretrained sentence embeddings, all thrown in together.', a: 'd', why: '<b>Handles feature preprocessing (9.4.1).</b> These features overlap and are correlated in complex ways. Logistic regression doesn\'t care; a generative model would have to describe how all of them co-vary (and naive Bayes would double-count them).' },
+  { s: 'A spam filter on a cheap embedded mail appliance. It must update the moment the user clicks "this is spam", with almost no CPU.', a: 'g', why: '<b>Easy to fit (9.4.2).</b> Naive Bayes training is counting, so each click is a few increments. No optimizer, no learning rate and no retraining loop.' },
+  { s: 'An X-ray model trained at one hospital is about to be deployed at five other hospitals with different scanners and patient populations.', a: 'g', why: '<b>May be more robust to spurious features (9.4.2).</b> A generative model that captures how disease produces the image is less likely to lean on hospital-specific shortcuts. Note the chapter\'s &ldquo;may&rdquo;: this is a tendency, not a guarantee, and robustness to shifts like this is still an active research topic.' },
+];
+let quizAns = {};
+function renderQuiz() {
+  $('quizList').innerHTML = QUIZ.map((q, i) => {
+    const a = quizAns[i], done = a != null, ok = a === q.a;
+    return `<div class="quiz-q${done ? ' done' : ''}">
+      <div class="sc"><b>${i + 1}.</b> ${q.s}</div>
+      <div class="row" style="margin:0">
+        <button class="pill pick-g${a === 'g' ? ' on' : ''}" data-q="${i}" data-a="g">Generative</button>
+        <button class="pill pick-d${a === 'd' ? ' on' : ''}" data-q="${i}" data-a="d">Discriminative</button>
+      </div>
+      <div class="fb">${done ? `<span class="verdict ${ok ? 'ok' : 'no'}">${ok ? 'Yes.' : 'Not quite.'}</span> The better fit is <b style="color:var(--${q.a === 'g' ? 'gen' : 'disc'})">${q.a === 'g' ? 'generative' : 'discriminative'}</b>. ${q.why}` : ''}</div>
+    </div>`;
+  }).join('');
+  const n = Object.keys(quizAns).length, right = Object.entries(quizAns).filter(([i, a]) => QUIZ[i].a === a).length;
+  $('quizScore').textContent = n ? `Score: ${right} / ${n} answered (of ${QUIZ.length})` : `${QUIZ.length} questions`;
+  $('quizList').querySelectorAll('button[data-q]').forEach(b => b.onclick = () => { quizAns[b.dataset.q] = b.dataset.a; renderQuiz(); });
+  renderMath($('quizList'));
+}
+$('quizReset').onclick = () => { quizAns = {}; renderQuiz(); };
+
+// ---------- boot ----------
+function renderMath(node) {
+  if (!window.renderMathInElement) return;
+  renderMathInElement(node, {
+    delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
+    ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg'],
+    throwOnError: false,
+  });
+}
+function renderAll() { renderD1(); renderAcc(); renderFeat(); renderCal(); renderFit(); renderMiss(); renderSep(); renderUnl(); renderSpur(); renderQuiz(); }
+function boot() {
+  renderMath(document.body);
+  refreshColors();
+  d1Reset(); unlInit();
+  renderAll();
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { refreshColors(); renderAll(); });
+if (window.renderMathInElement) boot(); else window.addEventListener('load', boot);
+</script>
+</body>
+</html>
