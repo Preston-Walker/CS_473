@@ -1,0 +1,1771 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Deep Metric Learning</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --soft: #fafaf9;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --gridline: #ecebe8;
+    /* five classes: color + a distinct marker shape for each */
+    --k0: #2a78d6; --k1: #eb6834; --k2: #1baf7a; --k3: #6250d6; --k4: #e87ba4;
+    --good: #138a6a;     /* same-class / pull */
+    --bad: #e34948;      /* different-class / push / violations */
+    --semi: #c98500;     /* semi-hard zone */
+    --accent: #6a4bc4;
+    --callout-bg: #fbf3e8;
+    --callout-border: #ecd9b8;
+    --code-bg: #f1f0ed;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+      --border: #34342f; --gridline: #2a2a27;
+      --k0: #3987e5; --k1: #d95926; --k2: #199e70; --k3: #9085e9; --k4: #d55181;
+      --good: #2fb88e; --bad: #e66767; --semi: #d8a530; --accent: #9a8ae6;
+      --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+    --border: #34342f; --gridline: #2a2a27;
+    --k0: #3987e5; --k1: #d95926; --k2: #199e70; --k3: #9085e9; --k4: #d55181;
+    --good: #2fb88e; --bad: #e66767; --semi: #d8a530; --accent: #9a8ae6;
+    --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 30px 16px 70px; }
+  header h1 { font-size: 1.75rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  nav.toc { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a {
+    font-size: 0.78rem; text-decoration: none; color: var(--ink);
+    border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 3px 10px;
+  }
+  nav.toc a:hover { border-color: var(--ink); }
+  section.block {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px 24px 26px; margin-top: 26px; overflow-x: clip; position: relative;
+  }
+  section.block.hl { border-top: 4px solid var(--accent); }
+  @media (max-width: 560px) { section.block { padding: 18px 14px 20px; } }
+  section.block h2 { font-size: 1.22rem; margin: 0 0 4px; }
+  section.block h2 .num { color: var(--muted); font-weight: 600; font-size: 0.9rem; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .part { margin: 40px 0 -8px; }
+  .part h2 { font-size: 1.4rem; margin: 0 0 4px; }
+  .part p { color: var(--muted); margin: 0; font-size: 0.95rem; }
+  .kicker { color: var(--muted); font-size: 0.86rem; margin-bottom: 12px; font-style: italic; }
+  h3 { font-size: 0.98rem; margin: 20px 0 6px; }
+  p { margin: 0 0 12px; font-size: 0.95rem; }
+  ol, ul { font-size: 0.95rem; margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  .eqbox {
+    background: var(--soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 18px; margin: 14px 0; overflow-x: auto;
+  }
+  .eqbox .label { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .callout {
+    margin: 16px 0 0; padding: 10px 14px; border-radius: 8px;
+    background: var(--callout-bg); border: 1px solid var(--callout-border); font-size: 0.9rem;
+  }
+  details { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); }
+  details summary { cursor: pointer; padding: 8px 14px; font-size: 0.88rem; font-weight: 600; }
+  details > div { padding: 0 14px 12px; overflow-x: auto; font-size: 0.9rem; }
+  code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; font-size: 0.88em; }
+  .demo { border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 14px; }
+  .demo-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .two > * { min-width: 0; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+  .panel-h { font-size: 0.84rem; font-weight: 700; margin: 0 0 4px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .row .lbl { font-size: 0.76rem; color: var(--muted); font-weight: 600; margin-right: 2px; }
+  button.pill {
+    font-size: 0.8rem; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink); font-family: inherit;
+  }
+  button.pill:hover { border-color: var(--ink); }
+  button.pill.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button.pill.primary { border-color: var(--accent); font-weight: 600; }
+  button.pill:disabled { opacity: .45; cursor: default; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 6px 0 10px; }
+  .ctrl { display: flex; flex-direction: column; gap: 2px; min-width: 180px; flex: 1; }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .ctrl label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .tiles.five { grid-template-columns: repeat(5, 1fr); }
+  .tiles.three { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px) { .tiles, .tiles.three, .tiles.five { grid-template-columns: 1fr 1fr; } }
+  .tile { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; min-width: 0; }
+  .tile .k { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+  .tile .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 0.72rem; color: var(--muted); }
+  .tile.bad .v { color: var(--bad); }
+  .tile.good .v { color: var(--good); }
+  svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  svg text { fill: var(--ink); font-family: inherit; font-size: 12px; }
+  svg .muted { fill: var(--muted); }
+  svg .axis { stroke: var(--border); }
+  svg .grid { stroke: var(--gridline); }
+  svg text.halo { paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  .plot { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; position: relative; }
+  .plot canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 8px; }
+  .plot svg { position: relative; }
+  .readout { font-size: 0.86rem; background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-variant-numeric: tabular-nums; margin-top: 8px; min-height: 2.6em; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+  .legend > span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend svg { width: 14px; height: 14px; display: inline-block; overflow: visible; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw.line { height: 3px; border-radius: 2px; width: 18px; }
+  .sw.dash { height: 0; width: 18px; border-top: 2px dashed; border-radius: 0; }
+  /* class markers */
+  .k0 { fill: var(--k0); } .k1 { fill: var(--k1); } .k2 { fill: var(--k2); } .k3 { fill: var(--k3); } .k4 { fill: var(--k4); }
+  .mk { stroke: var(--panel); stroke-width: 1; }
+  .mk.hol { fill: var(--panel); stroke-width: 1.5; }
+  .k0.hol { stroke: var(--k0); } .k1.hol { stroke: var(--k1); } .k2.hol { stroke: var(--k2); } .k3.hol { stroke: var(--k3); } .k4.hol { stroke: var(--k4); }
+  #tpsvg, #npsvg { touch-action: none; }
+  .drag { cursor: grab; }
+  .drag:active { cursor: grabbing; }
+  /* architecture gallery */
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .arch-text { display: none; }
+  .arch-text.on { display: block; }
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 10px 0; }
+  @media (max-width: 640px) { .facts { grid-template-columns: 1fr 1fr; } }
+  .fact { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--soft); font-size: 0.84rem; }
+  .fact .k { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  svg .box { fill: var(--soft); stroke: var(--border); stroke-width: 1.2; }
+  svg .netbox { fill: var(--panel); stroke: var(--accent); stroke-width: 1.6; }
+  svg .lossbox { fill: var(--callout-bg); stroke: var(--callout-border); stroke-width: 1.2; }
+  svg .wire { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+  svg .share { fill: none; stroke: var(--accent); stroke-dasharray: 5 4; stroke-width: 1.2; }
+  /* bars */
+  .bars { margin-top: 10px; font-size: 0.82rem; }
+  .brow { display: grid; gap: 4px 10px; align-items: center; margin-bottom: 6px; grid-template-columns: 90px 1fr 56px; }
+  .bars.cx .brow { grid-template-columns: 190px 1fr 210px; }
+  .bars .name { white-space: nowrap; }
+  .bars .track { height: 14px; background: var(--soft); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .bars .fill { height: 100%; border-radius: 0 4px 4px 0; background: var(--accent); transition: width .15s; }
+  .bars .fill.pos { background: var(--good); }
+  .bars .val { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; color: var(--muted); }
+  @media (max-width: 560px) {
+    .bars.cx .brow { grid-template-columns: 1fr auto; }
+    .bars.cx .track { grid-column: 1 / -1; order: 3; }
+  }
+  .badge { display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
+  .badge.easy { color: var(--good); } .badge.semi { color: var(--semi); } .badge.hard { color: var(--bad); }
+  table.cheat { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+  table.cheat th { text-align: left; font-size: 0.74rem; color: var(--muted); border-bottom: 2px solid var(--border); padding: 6px 8px; }
+  table.cheat td { border-bottom: 1px solid var(--border); padding: 8px 8px; vertical-align: top; }
+  table.cheat td:first-child { font-weight: 700; white-space: nowrap; }
+  .scroll-x { overflow-x: auto; }
+  .quiz-q { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 10px 0; background: var(--soft); }
+  .quiz-q .sc { font-size: 0.92rem; margin-bottom: 8px; }
+  .quiz-q .fb { font-size: 0.86rem; margin-top: 8px; display: none; padding: 8px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); }
+  .quiz-q.done .fb { display: block; }
+  .quiz-q button.pill.right { background: var(--good); border-color: var(--good); color: #fff; }
+  .quiz-q button.pill.wrong { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .verdict { font-weight: 700; }
+  .verdict.ok { color: var(--good); } .verdict.no { color: var(--bad); }
+  .score { font-size: 0.9rem; font-weight: 600; }
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; display: none; max-width: 300px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 10px; font-size: 0.8rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); font-variant-numeric: tabular-nums;
+  }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
+  a { color: var(--k0); }
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<div class="wrap">
+  <header>
+    <h1>Deep Metric Learning</h1>
+    <div class="subtitle">A hands-on companion to &sect;16.1&ndash;16.2 of Murphy's <em>Probabilistic Machine Learning: An Introduction</em>. It starts with why a nearest-neighbor method needs a <em>learned</em> distance, then goes through the families in the chapter: linear metrics (LMNN, NCA, LCA), Siamese networks with the contrastive loss, triplet networks, N-pair networks, and classification/proxy networks. It ends with the tricks that make them trainable. Every demo runs live in your browser. Built for CS 473 self-study.</div>
+    <nav class="toc">
+      <a href="#why">Why learn a distance?</a>
+      <a href="#linear">16.2.1 LMNN &amp; NCA</a>
+      <a href="#deep">16.2.2 Embedding networks</a>
+      <a href="#gallery">Network gallery</a>
+      <a href="#siamese">Siamese / contrastive</a>
+      <a href="#triplet">Triplet</a>
+      <a href="#npair">N-pair</a>
+      <a href="#speed">16.2.5 Speed-ups</a>
+      <a href="#play">Training playground</a>
+      <a href="#tricks">16.2.6 Tricks</a>
+      <a href="#quiz">Quiz &amp; cheat sheet</a>
+    </nav>
+  </header>
+
+  <!-- ============================== WHY ============================== -->
+  <section class="block" id="why">
+    <h2><span class="num">16.1 &rarr; 16.2</span>Why learn a distance at all?</h2>
+    <div class="kicker">A nearest-neighbor classifier is only as good as its idea of "near".</div>
+    <p>Section 16.1 builds the <b>K-nearest-neighbor (KNN)</b> classifier: to label a new point, find the $K$ training points closest to it and let them vote. It has no parameters to train. All of its "knowledge" lives in two things: the stored examples, and the <b>distance function</b> $d(\mathbf{x}, \mathbf{x}')$ that decides who counts as a neighbor.</p>
+    <p>The default choice, Euclidean distance on the raw inputs, treats every feature as equally important. That breaks easily:</p>
+    <ul>
+      <li><b>Irrelevant or noisy features</b> add random amounts to every distance and drown out the features that matter. This is part of the curse of dimensionality from &sect;16.1.2.</li>
+      <li><b>Raw pixels</b> are a terrible space for distances. Two photos of the same face under different lighting can be farther apart, pixel by pixel, than photos of two different people.</li>
+    </ul>
+    <p>Section 16.2 fixes this by <em>learning</em> the distance from labeled data. The classic form is the <b>Mahalanobis distance</b>, which is just Euclidean distance after a linear map $\mathbf{W}$:</p>
+    <div class="eqbox">
+      <div class="label">Mahalanobis distance</div>
+      $$d_{\mathbf{M}}(\mathbf{x}, \mathbf{x}') = \sqrt{(\mathbf{x}-\mathbf{x}')^{\mathsf T}\mathbf{M}(\mathbf{x}-\mathbf{x}')}, \qquad \mathbf{M} = \mathbf{W}^{\mathsf T}\mathbf{W} \succeq 0 \;\Rightarrow\; d_{\mathbf{M}}(\mathbf{x}, \mathbf{x}') = \lVert \mathbf{W}\mathbf{x} - \mathbf{W}\mathbf{x}' \rVert_2$$
+    </div>
+    <p>The deep version replaces the linear map with a neural network $f_\theta$ and measures distance between <b>embeddings</b> $\mathbf{e} = f_\theta(\mathbf{x})$. Once you have a good embedding, you can use it for KNN classification, retrieval ("find similar products"), verification ("are these the same person?"), clustering, and the <b>open-set recognition</b> problem from &sect;16.1.4: recognizing classes you never saw in training. That last one is where metric learning beats an ordinary classifier. A softmax over $C$ fixed classes can't say "this is a new person". A distance can still say "this face matches the one photo we enrolled yesterday".</p>
+
+    <div class="demo">
+      <div class="demo-title">DEMO 1 &middot; One noisy feature ruins Euclidean KNN</div>
+      <p class="hint">Three classes differ only in feature 1 (horizontal). Feature 2 (vertical) is pure noise with a large spread. The slider sets $\mathbf{M} = \mathrm{diag}(1, w^2)$, which is how much the noisy feature counts. <b>Click any point</b> to query it. The ellipse is its neighborhood under $d_\mathbf{M}$, drawn out to its 5th-nearest neighbor.</p>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Weight on feature 2, <i>w</i></span> <b id="d1wv">1.00</b></label><input id="d1w" type="range" min="0.05" max="1" step="0.01" value="1"></div>
+      </div>
+      <div class="two">
+        <div class="plot"><svg id="d1svg" viewBox="0 0 400 400"></svg></div>
+        <div>
+          <div class="tiles three" style="grid-template-columns:1fr 1fr; margin-top:0">
+            <div class="tile"><div class="k">Leave-one-out 5-NN accuracy</div><div class="v" id="d1acc">&ndash;</div><div class="s">Each point classified by a vote of its 5 nearest other points</div></div>
+            <div class="tile"><div class="k">Query's 5 neighbors in the same class</div><div class="v" id="d1nn">&ndash;</div><div class="s">The ellipse contents</div></div>
+          </div>
+          <div class="readout" id="d1read"></div>
+          <div class="legend" id="d1leg"></div>
+          <p class="hint" style="margin-top:10px">Slide $w$ toward 0. The ellipse stretches vertically, so KNN ignores feature 2, and accuracy jumps. Here we found the right $\mathbf{M}$ by hand because we knew which feature was noise. Metric learning finds it from labels alone.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== LINEAR ============================== -->
+  <div class="part"><h2>Part 1 &middot; Linear metric learning</h2><p>Learn a single matrix $\mathbf{W}$ (equivalently $\mathbf{M}=\mathbf{W}^{\mathsf T}\mathbf{W}$). This is the shallow ancestor of every network below.</p></div>
+
+  <section class="block" id="linear">
+    <h2><span class="num">16.2.1</span>LMNN, NCA and LCA</h2>
+    <div class="kicker">Three ways to turn "neighbors should share labels" into an objective.</div>
+
+    <h3>Large margin nearest neighbors (LMNN)</h3>
+    <p>For each point $i$, pick a few <b>target neighbors</b> $N_i$. These are the $k$ closest points <em>with the same label</em>, chosen once using plain Euclidean distance. Then ask for two things:</p>
+    <ul>
+      <li><b>Pull:</b> target neighbors should be close.</li>
+      <li><b>Push:</b> any point of a <em>different</em> class must be at least a margin $m$ farther away than every target neighbor. Points that break this rule are called <b>impostors</b>.</li>
+    </ul>
+    <div class="eqbox">
+      <div class="label">LMNN objective</div>
+      $$\mathcal{L}(\mathbf{M}) = (1-\lambda)\underbrace{\sum_i \sum_{j \in N_i} d_\mathbf{M}(\mathbf{x}_i,\mathbf{x}_j)^2}_{\text{pull}} + \lambda \underbrace{\sum_i\sum_{j\in N_i}\sum_{l} \mathbb{I}(y_l \ne y_i)\big[m + d_\mathbf{M}(\mathbf{x}_i,\mathbf{x}_j)^2 - d_\mathbf{M}(\mathbf{x}_i,\mathbf{x}_l)^2\big]_+}_{\text{push (hinge on impostors)}}$$
+    </div>
+    <p>Squared Mahalanobis distances are <em>linear</em> in $\mathbf{M}$, and the hinge $[\cdot]_+$ is convex. So the objective is <b>convex in $\mathbf{M}$</b> over the convex set of PSD matrices, and you can solve it exactly with semidefinite programming. If you write $\mathbf{M}=\mathbf{W}^{\mathsf T}\mathbf{W}$ and run gradient descent on $\mathbf{W}$, you lose convexity. In return you get unconstrained optimization and can make $\mathbf{W}$ rectangular to get a low-dimensional embedding. Notice the push term already compares an (anchor, same-class, different-class) <b>triple</b>. That is the triplet loss in disguise.</p>
+
+    <h3>Neighborhood components analysis (NCA)</h3>
+    <p>NCA replaces "the nearest neighbor" with a <b>soft</b> nearest neighbor. Point $i$ picks neighbor $j$ at random, with a softmax over negative squared distances in the projected space:</p>
+    <div class="eqbox">
+      <div class="label">Stochastic neighbor and expected accuracy</div>
+      $$p^{\mathbf{W}}_{ij} = \frac{\exp(-\lVert \mathbf{W}\mathbf{x}_i - \mathbf{W}\mathbf{x}_j\rVert^2)}{\sum_{l\ne i}\exp(-\lVert \mathbf{W}\mathbf{x}_i - \mathbf{W}\mathbf{x}_l\rVert^2)}, \qquad J(\mathbf{W}) = \sum_{i}\sum_{j \ne i:\, y_j = y_i} p^{\mathbf{W}}_{ij}$$
+    </div>
+    <p>$J(\mathbf{W})$ is the <b>expected number of points correctly classified</b> by this randomized 1-NN rule. NCA minimizes $\mathcal{L}(\mathbf{W}) = 1 - J(\mathbf{W})/N$ by gradient descent. The objective is smooth but <em>not</em> convex. Keep it in mind: a softmax over distances, where the "right answers" are the same-class points, comes back as the N-pair and Proxy-NCA losses.</p>
+
+    <h3>Latent coincidence analysis (LCA)</h3>
+    <p>LCA is the probabilistic cousin. It is trained on <em>pairs</em> labeled similar/dissimilar instead of class labels. Each input gets a noisy latent code $\mathbf{z} \sim \mathcal{N}(\mathbf{W}\mathbf{x}, \sigma^2\mathbf{I})$. Two inputs are "similar" if their latent codes <em>coincide</em>, meaning they land within a small radius of each other. Integrating out the noise gives a match probability that decays like a Gaussian in the projected distance $\lVert \mathbf{W}\mathbf{x} - \mathbf{W}\mathbf{x}'\rVert$. You fit $\mathbf{W}$ (and the noise level) with EM. The noise makes it more tolerant of mislabeled pairs than a hard hinge would be.</p>
+
+    <div class="demo">
+      <div class="demo-title">DEMO 2 &middot; Watch LMNN and NCA learn W</div>
+      <p class="hint">Same idea as Demo 1, but now the useful direction is tilted 25&deg;, so no diagonal $\mathbf{M}$ can isolate it. Press <b>Train</b> to run gradient descent (Adam) on all four entries of $\mathbf{W}$, starting from $\mathbf{W}=\mathbf{I}$ (plain Euclidean). <b>Click a point</b> to inspect it. In <b>NCA</b> mode its lines show $p_{ij}$, with thicker lines for likelier neighbors. In <b>LMNN</b> mode they show its 3 target neighbors and any impostors inside its margin circle.</p>
+      <div class="row">
+        <span class="lbl">Objective</span>
+        <button class="pill on" data-d2mode="nca">NCA</button>
+        <button class="pill" data-d2mode="lmnn">LMNN</button>
+        <span style="width:12px"></span>
+        <button class="pill primary" id="d2run">Train</button>
+        <button class="pill" id="d2reset">Reset to W = I</button>
+      </div>
+      <div class="two">
+        <div>
+          <div class="panel-h">Input space $\mathbf{x}$ (ellipse = learned metric's neighborhood)</div>
+          <div class="plot"><svg id="d2a" viewBox="0 0 400 400"></svg></div>
+        </div>
+        <div>
+          <div class="panel-h">Projected space $\mathbf{z} = \mathbf{W}\mathbf{x}$ (auto-zoomed)</div>
+          <div class="plot"><svg id="d2b" viewBox="0 0 400 400"></svg></div>
+        </div>
+      </div>
+      <div class="legend" id="d2leg"></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">1-NN accuracy, Euclidean</div><div class="v" id="d2raw">&ndash;</div><div class="s">leave-one-out, fixed</div></div>
+        <div class="tile good"><div class="k">1-NN accuracy, learned W</div><div class="v" id="d2acc">&ndash;</div><div class="s">leave-one-out</div></div>
+        <div class="tile"><div class="k" id="d2objk">NCA: J(W)/N</div><div class="v" id="d2obj">&ndash;</div><div class="s" id="d2objs">expected soft 1-NN accuracy</div></div>
+        <div class="tile"><div class="k">Step &middot; W</div><div class="v" id="d2step">0</div><div class="s" id="d2W"></div></div>
+      </div>
+      <div class="callout">What to notice: both objectives <b>shrink the tilted noise direction</b> and keep or stretch the useful one. The ellipse in input space becomes a long thin cigar along the noise. LMNN stops changing once no impostors are left, because the hinge is flat after that. NCA keeps growing $\mathbf{W}$ a little to make its soft neighbors sharper.</div>
+    </div>
+  </section>
+
+  <!-- ============================== DEEP ============================== -->
+  <div class="part"><h2>Part 2 &middot; Deep metric learning</h2><p>Replace $\mathbf{W}\mathbf{x}$ with a neural network. The real design choice is <em>what kind of tuple</em> the network sees at each training step.</p></div>
+
+  <section class="block" id="deep">
+    <h2><span class="num">16.2.2</span>Embedding networks and the unit sphere</h2>
+    <div class="kicker">Learn $\mathbf{e} = f_\theta(\mathbf{x})$ so that plain Euclidean distance between embeddings means "semantic distance".</div>
+    <p>For images, audio or text, no linear $\mathbf{W}$ on raw inputs can capture "same identity". So we learn a deep network $f_\theta:\mathcal{X}\to\mathbb{R}^L$, often a CNN or transformer with the classification head removed, and define $d_\theta(\mathbf{x}, \mathbf{x}') = \lVert f_\theta(\mathbf{x}) - f_\theta(\mathbf{x}')\rVert$.</p>
+    <p>Almost every modern method <b>L2-normalizes</b> the embedding, $\hat{\mathbf{e}} = \mathbf{e}/\lVert\mathbf{e}\rVert$, so all embeddings live on the unit hypersphere. Then distance and cosine similarity carry the same information:</p>
+    <div class="eqbox">
+      <div class="label">Distance on the sphere</div>
+      $$\lVert \hat{\mathbf{e}} - \hat{\mathbf{e}}'\rVert^2 = \underbrace{\lVert\hat{\mathbf{e}}\rVert^2}_{1} + \underbrace{\lVert\hat{\mathbf{e}}'\rVert^2}_{1} - 2\,\hat{\mathbf{e}}^{\mathsf T}\hat{\mathbf{e}}' = 2\big(1 - \cos\angle(\mathbf{e}, \mathbf{e}')\big)$$
+    </div>
+    <p>Why normalize? (1) Distances are bounded in $[0, 2]$, so a margin like $m=0.5$ means the same thing throughout training. (2) The network can't "cheat" a margin-based loss by scaling every embedding up, which makes all the gaps bigger without making the embedding any better. (3) Retrieval reduces to maximum inner product search, which has fast approximate algorithms.</p>
+    <p>All networks below share one idea. <b>The same network $f_\theta$ (shared weights) is applied to every element of a tuple</b>, and the loss compares the resulting embeddings. They differ in the tuple and the loss.</p>
+  </section>
+
+  <section class="block hl" id="gallery">
+    <h2><span class="num">16.2.3&ndash;16.2.5</span>Gallery of network types</h2>
+    <div class="kicker">Pick a type to see its wiring, its loss and its training cost.</div>
+    <div class="tabs" id="galtabs">
+      <button class="pill on" data-arch="siamese">Siamese (pairs)</button>
+      <button class="pill" data-arch="triplet">Triplet</button>
+      <button class="pill" data-arch="npair">N-pair</button>
+      <button class="pill" data-arch="cls">Classification</button>
+      <button class="pill" data-arch="proxy">Proxy-NCA</button>
+    </div>
+    <div class="plot" style="padding:6px"><svg id="galsvg" viewBox="0 0 680 300"></svg></div>
+
+    <div class="arch-text on" data-arch="siamese">
+      <div class="facts">
+        <div class="fact"><div class="k">One example</div>2 inputs + a same/different bit</div>
+        <div class="fact"><div class="k">Loss</div>Contrastive (&sect;16.2.4.1)</div>
+        <div class="fact"><div class="k">Tuples per epoch</div>$O(N^2)$ pairs</div>
+        <div class="fact"><div class="k">Needs mining?</div>Helps a lot: most negative pairs are easy</div>
+      </div>
+      <p>The original deep metric learning network (Chopra, Hadsell &amp; LeCun, 2005). It has two copies of $f_\theta$ with <b>tied weights</b>, so it is really one network run twice. Same-class pairs are pulled together like a spring. Different-class pairs are pushed apart, but only until they are a margin $m$ apart:</p>
+      $$\mathcal{L}(\theta;\mathbf{x}_i,\mathbf{x}_j) = \mathbb{I}(y_i = y_j)\, d_\theta(\mathbf{x}_i,\mathbf{x}_j)^2 + \mathbb{I}(y_i \neq y_j)\,\big[m - d_\theta(\mathbf{x}_i,\mathbf{x}_j)\big]_+^2$$
+      <p class="hint">Weakness: it asks for <em>absolute</em> distances (positives at 0, negatives beyond $m$) for every class, even though classes really vary in how spread out they are. The triplet loss only asks for <em>relative</em> order.</p>
+    </div>
+    <div class="arch-text" data-arch="triplet">
+      <div class="facts">
+        <div class="fact"><div class="k">One example</div>Anchor, positive, negative</div>
+        <div class="fact"><div class="k">Loss</div>Triplet (&sect;16.2.4.2)</div>
+        <div class="fact"><div class="k">Tuples per epoch</div>$O(N^3)$ triplets</div>
+        <div class="fact"><div class="k">Needs mining?</div>Essential (semi-hard negatives)</div>
+      </div>
+      <p>Three tied copies of $f_\theta$ (popularized by FaceNet, Schroff et al. 2015). The loss only asks that the anchor be closer to the positive than to the negative, by a margin:</p>
+      $$\mathcal{L}(\theta;\mathbf{x}_i,\mathbf{x}_i^+,\mathbf{x}_i^-) = \big[d_\theta(\mathbf{x}_i,\mathbf{x}_i^+)^2 - d_\theta(\mathbf{x}_i,\mathbf{x}_i^-)^2 + m\big]_+$$
+      <p class="hint">Relative constraints let a tight class and a loose class coexist. The price is that the number of possible triplets is cubic, and most of them already satisfy the margin and contribute zero gradient. That is why <a href="#speed">mining</a> matters.</p>
+    </div>
+    <div class="arch-text" data-arch="npair">
+      <div class="facts">
+        <div class="fact"><div class="k">One example</div>Anchor, positive, and $N-1$ negatives</div>
+        <div class="fact"><div class="k">Loss</div>N-pair / softmax (&sect;16.2.4.3)</div>
+        <div class="fact"><div class="k">Tuples per batch</div>$N$ pairs give $N^2$ comparisons</div>
+        <div class="fact"><div class="k">Needs mining?</div>Less: softmax weights the hard ones</div>
+      </div>
+      <p>The triplet loss looks at one negative at a time. The N-pair loss (Sohn, 2016) compares the anchor against <em>many</em> negatives at once using a softmax over similarities:</p>
+      $$\mathcal{L} = -\log\frac{\exp(\mathbf{e}_i^{\mathsf T}\mathbf{e}_i^+)}{\exp(\mathbf{e}_i^{\mathsf T}\mathbf{e}_i^+) + \sum_{k=1}^{N-1}\exp(\mathbf{e}_i^{\mathsf T}\mathbf{e}_k^-)} = \log\Big(1 + \sum_{k=1}^{N-1}\exp\big(\mathbf{e}_i^{\mathsf T}\mathbf{e}_k^- - \mathbf{e}_i^{\mathsf T}\mathbf{e}_i^+\big)\Big)$$
+      <p class="hint">Batching trick: take $N$ (anchor, positive) pairs from $N$ <em>different</em> classes. Every other pair's positive then serves as a negative for free, so $2N$ forward passes give $N^2$ comparisons. With $N=2$ it reduces to $\log(1+e^{\mathbf{e}^{\mathsf T}\mathbf{e}^- - \mathbf{e}^{\mathsf T}\mathbf{e}^+})$, a smooth triplet loss with no margin. With normalized embeddings and a temperature this is the InfoNCE loss used in self-supervised contrastive learning.</p>
+    </div>
+    <div class="arch-text" data-arch="cls">
+      <div class="facts">
+        <div class="fact"><div class="k">One example</div>1 input + its class label</div>
+        <div class="fact"><div class="k">Loss</div>Cross-entropy (&sect;16.2.3)</div>
+        <div class="fact"><div class="k">Cost per epoch</div>$O(NC)$</div>
+        <div class="fact"><div class="k">Needs mining?</div>No</div>
+      </div>
+      <p>The simplest option: train an ordinary $C$-way classifier, then throw away the final layer and use the penultimate features as the embedding. Each class has a weight vector $\mathbf{w}_c$, and the logit $\mathbf{w}_c^{\mathsf T}\mathbf{e}$ already measures similarity between the embedding and a class "template". Normalizing both $\mathbf{e}$ and $\mathbf{w}_c$ (cosine-softmax) turns this into a direct angular metric. Margin variants of that idea (for example the ArcFace family) are a strong baseline for faces.</p>
+      <p class="hint">Cost is linear in $N$, and there are no tuples to sample. The catch is that the objective is about separating <em>these</em> $C$ classes, not about distances directly. Embeddings of unseen classes are often good, but nothing in the loss guarantees it.</p>
+    </div>
+    <div class="arch-text" data-arch="proxy">
+      <div class="facts">
+        <div class="fact"><div class="k">One example</div>1 input + its class label</div>
+        <div class="fact"><div class="k">Loss</div>NCA against proxies (&sect;16.2.5.2)</div>
+        <div class="fact"><div class="k">Cost per epoch</div>$O(NC)$</div>
+        <div class="fact"><div class="k">Needs mining?</div>No</div>
+      </div>
+      <p>Proxy-NCA (Movshovitz-Attias et al., 2017) keeps the <em>metric</em> loss but replaces the other data points with one learnable <b>proxy</b> vector $\mathbf{p}_c$ per class. A proxy is a stand-in for "where class $c$ lives". The NCA softmax is then computed against the $C$ proxies instead of all $N$ points:</p>
+      $$\mathcal{L}(\mathbf{x}, y) = -\log\frac{\exp\big(-d(\mathbf{e}, \mathbf{p}_y)\big)}{\sum_{c\ne y}\exp\big(-d(\mathbf{e}, \mathbf{p}_c)\big)}$$
+      <p class="hint">This turns an $O(N^3)$ triplet problem into an $O(NC)$ one. You can bound the triplet loss by the proxy loss, so making proxies tight also makes the triplets tight. The "optimize an upper bound" method of &sect;16.2.5.3 (Do et al., 2019) uses the same idea with class <em>centroids</em> in place of learned proxies.</p>
+    </div>
+  </section>
+
+  <!-- ============================== SIAMESE ============================== -->
+  <section class="block" id="siamese">
+    <h2><span class="num">16.2.4.1</span>Siamese networks: the contrastive loss as springs</h2>
+    <div class="kicker">Positives feel a spring pulling them to zero. Negatives feel a spring that only works inside radius $m$.</div>
+    <p>Take the gradient of each term with respect to the distance $d$. A positive pair gets $\partial/\partial d\,[d^2] = 2d$, a pull that grows with distance and never switches off. A negative pair gets $-2(m-d)$ while $d &lt; m$ and <b>exactly zero</b> once $d \ge m$. Negatives that are already far enough away contribute nothing. Most random negative pairs are like that after a little training, so a Siamese network trained on random pairs wastes most of its compute.</p>
+    <div class="demo">
+      <div class="demo-title">DEMO 3 &middot; Contrastive loss and its forces</div>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Pair distance <i>d</i></span> <b id="ctdv">0.60</b></label><input id="ctd" type="range" min="0" max="2" step="0.01" value="0.6"></div>
+        <div class="ctrl"><label><span>Margin <i>m</i></span> <b id="ctmv">1.00</b></label><input id="ctm" type="range" min="0.2" max="1.8" step="0.01" value="1"></div>
+      </div>
+      <div class="two">
+        <div class="plot"><svg id="ctsvg" viewBox="0 0 420 260"></svg></div>
+        <div>
+          <div class="plot"><svg id="ctstrip" viewBox="0 0 420 150"></svg></div>
+          <div class="tiles" style="grid-template-columns:1fr 1fr">
+            <div class="tile"><div class="k">Same-class pair</div><div class="v" id="ctpos">&ndash;</div><div class="s" id="ctposs"></div></div>
+            <div class="tile"><div class="k">Different-class pair</div><div class="v" id="ctneg">&ndash;</div><div class="s" id="ctnegs"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="sw line" style="background:var(--good)"></i>same class: $d^2$</span>
+        <span><i class="sw line" style="background:var(--bad)"></i>different class: $[m-d]_+^2$</span>
+        <span><i class="sw dash" style="border-color:var(--muted)"></i>margin $m$</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== TRIPLET ============================== -->
+  <section class="block" id="triplet">
+    <h2><span class="num">16.2.4.2 &amp; 16.2.5.1</span>Triplet networks and easy / semi-hard / hard negatives</h2>
+    <div class="kicker">Fix the anchor and the positive. Where the negative sits decides whether it teaches anything.</div>
+    <p>Take an anchor $a$ and positive $p$. The negative $n$ falls into one of three zones around the anchor, which the chapter illustrates the same way:</p>
+    <ul>
+      <li><span class="badge hard">hard</span> $d(a,n) &lt; d(a,p)$: the negative is closer than the positive, so the order is wrong. These give the largest gradient. But the very hardest ones are often mislabeled or ambiguous, and training on <em>only</em> them early on can collapse the embedding.</li>
+      <li><span class="badge semi">semi-hard</span> $d(a,p) \le d(a,n) &lt; \sqrt{d(a,p)^2 + m}$: the order is right but inside the margin, so the loss is still positive. FaceNet trained on these. They give useful, stable gradients.</li>
+      <li><span class="badge easy">easy</span> beyond the margin: the loss is zero and the gradient is zero. Nearly all random triplets end up here.</li>
+    </ul>
+    <p>The gradient of the triplet loss (when it is active) is a three-way tug: $\partial\mathcal{L}/\partial\mathbf{e}_p = -2(\mathbf{e}_a - \mathbf{e}_p)$ pulls $p$ toward $a$, $\partial\mathcal{L}/\partial\mathbf{e}_n = 2(\mathbf{e}_a-\mathbf{e}_n)$ pushes $n$ away from $a$, and the anchor moves toward $p$ and away from $n$.</p>
+    <div class="demo">
+      <div class="demo-title">DEMO 4 &middot; Drag the anchor, positive and negative</div>
+      <p class="hint">The shaded rings are the zones for the <em>negative</em>, given where $a$ and $p$ are. Arrows show each point's descent direction, and they vanish when the loss is zero. <b>Step</b> takes one gradient step on the three embeddings. <b>Run</b> keeps stepping until the triplet is satisfied.</p>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Margin <i>m</i> (on squared distance)</span> <b id="tpmv">0.80</b></label><input id="tpm" type="range" min="0.05" max="2.5" step="0.05" value="0.8"></div>
+      </div>
+      <div class="row">
+        <button class="pill primary" id="tpstep">Step</button>
+        <button class="pill" id="tprun">Run</button>
+        <span class="lbl" style="margin-left:8px">Put negative in:</span>
+        <button class="pill" data-tpzone="hard">hard</button>
+        <button class="pill" data-tpzone="semi">semi-hard</button>
+        <button class="pill" data-tpzone="easy">easy</button>
+      </div>
+      <div class="plot"><svg id="tpsvg" viewBox="0 0 560 330"></svg></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">$d(a,p)^2$</div><div class="v" id="tpap">&ndash;</div></div>
+        <div class="tile"><div class="k">$d(a,n)^2$</div><div class="v" id="tpan">&ndash;</div></div>
+        <div class="tile"><div class="k">Triplet loss</div><div class="v" id="tploss">&ndash;</div></div>
+        <div class="tile"><div class="k">Negative is</div><div class="v" id="tpzone">&ndash;</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== N-PAIR ============================== -->
+  <section class="block" id="npair">
+    <h2><span class="num">16.2.4.3</span>N-pair networks: one positive against many negatives</h2>
+    <div class="kicker">A softmax over similarities lets the hardest negatives claim most of the gradient by themselves.</div>
+    <p>Differentiate the N-pair loss with respect to the anchor embedding. Write $q_j$ for the softmax probability the loss assigns to candidate $j$ (the positive or one of the negatives):</p>
+    <div class="eqbox">$$\frac{\partial \mathcal{L}}{\partial \mathbf{e}_a} = s\Big(\sum_{j} q_j\, \mathbf{e}_j - \mathbf{e}^+\Big) \quad\Longrightarrow\quad -\nabla = s\Big(\underbrace{(1-q_+)\,\mathbf{e}^+}_{\text{pull to positive}} - \underbrace{\textstyle\sum_{k} q_k\, \mathbf{e}_k^-}_{\text{push from negatives, weighted by } q_k}\Big)$$</div>
+    <p>Each negative pushes in proportion to its probability $q_k$, and that probability is largest for the negatives <em>most similar to the anchor</em>. So the loss mines hard negatives on its own, softly, within every batch. Here $s$ is an inverse temperature, used when embeddings are normalized: larger $s$ means a sharper softmax and more focus on the single hardest negative.</p>
+    <div class="demo">
+      <div class="demo-title">DEMO 5 &middot; Normalized embeddings on a circle (a 2-D unit sphere)</div>
+      <p class="hint">Drag any point around the circle. The anchor's arrow is its descent direction, projected onto the circle. The bars show the softmax over candidates. The triplet comparison uses only <b>negative 1</b>, with margin 0.4.</p>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Number of negatives, $N-1$</span> <b id="npkv">4</b></label><input id="npk" type="range" min="1" max="6" step="1" value="4"></div>
+        <div class="ctrl"><label><span>Scale $s$ (inverse temperature)</span> <b id="npsv">4.0</b></label><input id="nps" type="range" min="0.5" max="16" step="0.5" value="4"></div>
+      </div>
+      <div class="two">
+        <div class="plot"><svg id="npsvg" viewBox="0 0 360 360"></svg></div>
+        <div>
+          <div class="panel-h">Softmax over candidates, $q_j$</div>
+          <div class="bars" id="npbars"></div>
+          <div class="tiles" style="grid-template-columns:1fr 1fr">
+            <div class="tile"><div class="k">N-pair loss</div><div class="v" id="nploss">&ndash;</div><div class="s">$-\log q_+$</div></div>
+            <div class="tile"><div class="k">Triplet loss with neg 1 only</div><div class="v" id="nptrip">&ndash;</div><div class="s" id="nptrips"></div></div>
+          </div>
+          <p class="hint" style="margin-top:10px">Try this: drag negative 1 far away and put negative 2 right next to the anchor. The triplet loss using negative 1 drops to <b>0</b>, so that triplet has no idea negative 2 exists. The N-pair loss sees everything and pushes hardest against negative 2.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== SPEED ============================== -->
+  <section class="block" id="speed">
+    <h2><span class="num">16.2.5</span>Speeding up ranking losses: mining, proxies, upper bounds</h2>
+    <div class="kicker">Pair and triplet losses are defined over a combinatorial number of tuples. Three fixes.</div>
+    <ol>
+      <li><b>Mining (&sect;16.2.5.1).</b> Don't sample tuples at random. Look for the informative ones, usually inside each mini-batch to keep it cheap. <em>Hard</em> mining takes the closest negative (and farthest positive) per anchor. <em>Semi-hard</em> mining takes negatives inside the margin but farther than the positive. Semi-hard is safer early in training.</li>
+      <li><b>Proxies (&sect;16.2.5.2).</b> Compare each point to $C$ learned class proxies instead of to other points. The cost drops from $O(N^3)$ to $O(NC)$, and no mining is needed.</li>
+      <li><b>Optimize an upper bound (&sect;16.2.5.3).</b> Bound the triplet loss by terms that involve class <em>centroids</em>. These are cheap to compute, also $O(NC)$, and minimizing the bound pushes the true triplet loss down too.</li>
+    </ol>
+    <div class="demo">
+      <div class="demo-title">DEMO 6 &middot; How many terms is one epoch? (balanced classes)</div>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Training examples $N$</span> <b id="cxnv"></b></label><input id="cxn" type="range" min="2" max="7" step="0.1" value="5"></div>
+        <div class="ctrl"><label><span>Classes $C$</span> <b id="cxcv"></b></label><input id="cxc" type="range" min="0.3" max="5" step="0.1" value="2"></div>
+      </div>
+      <div class="bars cx" id="cxbars"></div>
+      <p class="hint" style="margin-top:10px">Bars use a log scale. The time is for evaluating one loss term per nanosecond (10<sup>9</sup>/s) and ignores the network's forward pass, which is far more expensive. At ImageNet scale ($N \approx 10^6$) the full set of triplets is out of reach, which is why sampling, mining and proxies exist.</p>
+    </div>
+  </section>
+
+  <!-- ============================== PLAYGROUND ============================== -->
+  <section class="block hl" id="play">
+    <h2><span class="num">Lab</span>Training playground: every network type on the same data</h2>
+    <div class="kicker">A real neural network ($2\to32\to32\to2$, tanh), trained live in your browser with Adam.</div>
+    <p>The inputs are five interleaved spiral arms. Classes <b>A&ndash;E</b> each have a color <em>and</em> a marker shape. The network maps each 2-D input to a 2-D embedding. With <b>normalize</b> on, the embedding is projected onto the unit circle, the 2-D version of the hypersphere. Points on the circle are drawn with a small random radial jitter so overlapping points stay visible.</p>
+    <p>Retrieval quality is measured the standard way: <b>Recall@1</b> on a held-out test set. For every test point we find its nearest other test point in embedding space and check whether it has the same class. Turn on <b>hold out class E</b> to train on A&ndash;D only, then see whether the network still gives the never-seen class its own region. That is the open-set setting from &sect;16.1.4.</p>
+    <div class="demo">
+      <div class="row">
+        <span class="lbl">Network / loss</span>
+        <button class="pill on" data-pgloss="contrastive">Siamese (contrastive)</button>
+        <button class="pill" data-pgloss="triplet">Triplet</button>
+        <button class="pill" data-pgloss="npair">N-pair</button>
+        <button class="pill" data-pgloss="proxy">Proxy-NCA</button>
+        <button class="pill" data-pgloss="softmax">Classification</button>
+      </div>
+      <div class="row" id="pgminingrow" style="display:none">
+        <span class="lbl">Triplet mining</span>
+        <button class="pill on" data-pgmine="random">Random</button>
+        <button class="pill" data-pgmine="semi">Semi-hard</button>
+        <button class="pill" data-pgmine="hard">Hardest (batch-hard)</button>
+      </div>
+      <div class="row">
+        <span class="lbl">Options</span>
+        <button class="pill on" id="pgnorm">Normalize to circle: on</button>
+        <button class="pill" id="pghold">Hold out class E: off</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl" id="pgmarginctrl"><label><span>Margin <i>m</i></span> <b id="pgmv">1.00</b></label><input id="pgm" type="range" min="0.05" max="2" step="0.05" value="1"></div>
+        <div class="ctrl"><label><span>Learning rate</span> <b id="pglrv">0.010</b></label><input id="pglr" type="range" min="-3.3" max="-1.3" step="0.1" value="-2"></div>
+      </div>
+      <div class="row">
+        <button class="pill primary" id="pgrun">Train</button>
+        <button class="pill" id="pgreset">Re-initialize network</button>
+        <span class="hint" id="pgnote"></span>
+      </div>
+      <div class="two">
+        <div>
+          <div class="panel-h">Input space (shading = nearest class centroid in embedding space)</div>
+          <div class="plot"><canvas id="pgcanvas" width="72" height="72"></canvas><svg id="pgin" viewBox="0 0 360 360"></svg></div>
+        </div>
+        <div>
+          <div class="panel-h" id="pgembh">Embedding space $f_\theta(\mathbf{x})$</div>
+          <div class="plot"><svg id="pgemb" viewBox="0 0 360 360"></svg></div>
+        </div>
+      </div>
+      <div class="legend" id="pgleg"></div>
+      <div class="tiles five">
+        <div class="tile"><div class="k">Steps</div><div class="v" id="pgsteps">0</div><div class="s" id="pgbatch"></div></div>
+        <div class="tile"><div class="k">Batch loss (smoothed)</div><div class="v" id="pgloss">&ndash;</div></div>
+        <div class="tile good"><div class="k">Recall@1, classes seen in training</div><div class="v" id="pgr1">&ndash;</div></div>
+        <div class="tile"><div class="k">Recall@1, held-out class E</div><div class="v" id="pgr1u">&ndash;</div><div class="s" id="pgr1us">turn on hold-out</div></div>
+        <div class="tile"><div class="k">Random triplets with loss &gt; 0</div><div class="v" id="pgact">&ndash;</div><div class="s">triplet loss only</div></div>
+      </div>
+      <div class="panel-h" style="margin-top:14px">Training curves</div>
+      <div class="plot"><svg id="pgchart" viewBox="0 0 680 200"></svg></div>
+      <div class="legend">
+        <span><i class="sw line" style="background:var(--k0)"></i>Recall@1 (seen classes)</span>
+        <span><i class="sw dash" style="border-color:var(--k4)"></i>Recall@1 (held-out class)</span>
+        <span><i class="sw line" style="background:var(--muted)"></i>% random triplets still active</span>
+      </div>
+    </div>
+    <details>
+      <summary>Experiments to try</summary>
+      <div>
+        <ol>
+          <li><b>Mining.</b> Pick <em>Triplet + Random</em> and train. Within a few dozen steps the gray "active triplets" curve drops below about 10%. More than 9 of every 10 random triplets are already easy, so most of each batch contributes zero gradient. Re-initialize, switch to <em>Semi-hard</em>, and compare Recall@1 at the same early step count. In our runs semi-hard was ahead after about 60 steps (98% vs. 86%). This toy problem is easy, so both get there eventually. On real datasets with millions of mostly easy triplets the gap is much larger.</li>
+          <li><b>Hardest negatives.</b> Try <em>Hardest (batch-hard)</em> with the default settings. In our runs it got stuck near 40&ndash;50% Recall@1, with 100% of random triplets still violating the margin. The classes collapse into a tangle instead of separating. Early on, every point's hardest negative sits right on top of it, and pushing against those fights the pull from the positives. That is the collapse FaceNet warned about and the reason semi-hard became the default.</li>
+          <li><b>Normalization.</b> Turn normalization <em>off</em> and compare the two ranking losses. Watch the axis-span label in the embedding panel. With <em>Triplet</em> the embedding keeps growing (to about &plusmn;8 in our runs), because scaling everything up makes every gap larger relative to a fixed margin. That is a "free" way to reduce the loss. With <em>Contrastive</em> it stays small (about &plusmn;1.6), because the absolute targets (positives at 0, negatives at $m$) pin the scale.</li>
+          <li><b>Proxies and classifiers.</b> <em>Proxy-NCA</em> and <em>Classification</em> train fast with no mining. Proxies appear as large outlined markers on the circle, and classifier weight directions as dashed rays. Their cost per step is linear in the batch size.</li>
+          <li><b>Open set.</b> Hold out class E and train each loss. Losses that only separate the four training classes may squeeze E into a neighbor's region. Compare the two Recall@1 tiles.</li>
+        </ol>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============================== TRICKS ============================== -->
+  <section class="block" id="tricks">
+    <h2><span class="num">16.2.6</span>Other training tricks, and a reality check</h2>
+    <div class="kicker">The details that decide whether any of the above works in practice.</div>
+    <ul>
+      <li><b>Normalize the embedding</b> (put it on the sphere). This is nearly universal, for the reasons in &sect;16.2.2. A related idea encourages all embeddings to have similar norms <em>before</em> normalization, a "spherical embedding constraint", so the angular distances behave consistently.</li>
+      <li><b>Start from a pretrained backbone.</b> Most image metric learning fine-tunes an ImageNet-pretrained CNN. The pretrained features already put semantically similar images somewhat close.</li>
+      <li><b>Batch construction matters.</b> In-batch mining needs several examples per class in each batch. Samplers draw $P$ classes $\times$ $K$ images each, which is exactly what the playground does with $K=6$ for the pair and triplet losses.</li>
+      <li><b>Evaluate on unseen classes.</b> Standard benchmarks (birds, cars, products) split by <em>class</em>: you train on half the classes and test retrieval on the other half. Only that setup tests the open-set promise.</li>
+      <li><b>Be skeptical of leaderboard gains.</b> Musgrave et al. (2020, "A Metric Learning Reality Check") re-ran many published losses with the same backbone, embedding size, augmentation and tuning budget. Most claimed improvements over the classic contrastive and triplet losses shrank to almost nothing. A well-tuned simple loss is a strong baseline.</li>
+    </ul>
+  </section>
+
+  <!-- ============================== QUIZ ============================== -->
+  <section class="block" id="quiz">
+    <h2><span class="num">Check</span>Quiz &amp; cheat sheet</h2>
+    <div class="kicker">Click an answer to see the reasoning.</div>
+    <div id="quizbox"></div>
+    <div class="score" id="quizscore"></div>
+
+    <h3>Cheat sheet</h3>
+    <div class="scroll-x">
+    <table class="cheat">
+      <tr><th>Network</th><th>Training tuple</th><th>Loss</th><th>Cost / epoch</th><th>Strength</th><th>Watch out for</th></tr>
+      <tr><td>LMNN</td><td>point, target neighbors, impostors</td><td>pull + hinge push</td><td>$O(N^2k)$</td><td>convex in $\mathbf{M}$ (SDP)</td><td>linear only; target neighbors fixed in Euclidean space</td></tr>
+      <tr><td>NCA</td><td>all points</td><td>soft 1-NN accuracy</td><td>$O(N^2)$</td><td>directly optimizes KNN accuracy</td><td>non-convex; quadratic cost</td></tr>
+      <tr><td>LCA</td><td>labeled pairs</td><td>latent-coincidence likelihood (EM)</td><td>$O(\#\text{pairs})$</td><td>probabilistic; tolerant of noisy pairs</td><td>linear only</td></tr>
+      <tr><td>Siamese</td><td>$(\mathbf{x}_i, \mathbf{x}_j, y_{ij})$</td><td>contrastive</td><td>$O(N^2)$</td><td>simple; only needs similar/dissimilar labels</td><td>absolute targets; many easy negatives</td></tr>
+      <tr><td>Triplet</td><td>$(a, p, n)$</td><td>$[d_{ap}^2 - d_{an}^2 + m]_+$</td><td>$O(N^3)$</td><td>relative constraints</td><td>needs (semi-)hard mining; can collapse</td></tr>
+      <tr><td>N-pair</td><td>$a$, $p$, $N-1$ negatives</td><td>softmax / InfoNCE</td><td>$N^2$ comparisons per batch of $N$ pairs</td><td>implicit soft hard-mining</td><td>temperature; needs many classes per batch</td></tr>
+      <tr><td>Classification</td><td>$(\mathbf{x}, y)$</td><td>cross-entropy (often cosine + margin)</td><td>$O(NC)$</td><td>easy, fast, strong baseline</td><td>indirect objective; large $C$ means a big head</td></tr>
+      <tr><td>Proxy-NCA</td><td>$(\mathbf{x}, y)$ + $C$ proxies</td><td>NCA vs proxies</td><td>$O(NC)$</td><td>metric loss without mining</td><td>proxies need tuning (lr, scale)</td></tr>
+    </table>
+    </div>
+    <div class="callout"><b>One-sentence summary.</b> Every deep metric learning network is one shared embedding network $f_\theta$ run on a tuple. The tuple (pair, triplet, N-tuple, or point + class vectors) sets both what the loss can express and how many training terms you must sample from.</div>
+  </section>
+
+  <div class="foot">Companion to K. P. Murphy, <em>Probabilistic Machine Learning: An Introduction</em> (MIT Press, 2022), &sect;16.1&ndash;16.2. All data are simulated from fixed seeds. The networks, losses and gradients are written from scratch in plain JavaScript, with no ML library. Equations follow the chapter's notation, but this page is a study aid, not a substitute for the text.</div>
+</div>
+
+<script>
+// ============================================================
+// Shared helpers
+// ============================================================
+const NS = 'http://www.w3.org/2000/svg';
+const $ = id => document.getElementById(id);
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function gauss(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function hexRgb(h) {
+  h = h.replace('#', '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function svgPt(svg, evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+const lin = (d0, d1, r0, r1) => v => r0 + (v - d0) / (d1 - d0) * (r1 - r0);
+const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : '–');
+const pct = v => (Number.isFinite(v) ? Math.round(v * 100) + '%' : '–');
+const CLASS = ['A', 'B', 'C', 'D', 'E'];
+
+// Marker shapes give every class a non-color identity (circle, square, triangle, diamond, plus).
+function shapePath(k, r) {
+  switch (k % 5) {
+    case 0: return `M${-r},0a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0Z`;
+    case 1: { const s = r * 0.88; return `M${-s},${-s}H${s}V${s}H${-s}Z`; }
+    case 2: return `M0,${-r * 1.2}L${r * 1.12},${r * 0.8}H${-r * 1.12}Z`;
+    case 3: return `M0,${-r * 1.3}L${r * 1.1},0L0,${r * 1.3}L${-r * 1.1},0Z`;
+    default: { const a = r * 0.42, b = r * 1.2;
+      return `M${-a},${-b}H${a}V${-a}H${b}V${a}H${a}V${b}H${-a}V${a}H${-b}V${-a}H${-a}Z`; }
+  }
+}
+function marker(parent, k, x, y, r, hollow) {
+  return el('path', { d: shapePath(k, r), transform: `translate(${x},${y})`, class: `mk k${k}${hollow ? ' hol' : ''}` }, parent);
+}
+function classLegend(node, n, extra = '') {
+  node.innerHTML = '';
+  for (let k = 0; k < n; k++) {
+    const s = document.createElement('span');
+    s.innerHTML = `<svg viewBox="-7 -7 14 14">${''}</svg>Class ${CLASS[k]}`;
+    el('path', { d: shapePath(k, 5), class: `mk k${k}` }, s.querySelector('svg'));
+    node.appendChild(s);
+  }
+  if (extra) node.insertAdjacentHTML('beforeend', extra);
+}
+function arrowDefs(svg) {
+  const defs = el('defs', {}, svg);
+  for (const [id, col] of [['ah-good', 'var(--good)'], ['ah-bad', 'var(--bad)'], ['ah-ink', 'var(--ink)'], ['ah-acc', 'var(--accent)'], ['ah-mut', 'var(--muted)']]) {
+    const m = el('marker', { id: svg.id + id, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' }, defs);
+    el('path', { d: 'M0,0L10,5L0,10Z', style: `fill:${col}` }, m);
+  }
+}
+function arrow(parent, x1, y1, x2, y2, kind, w = 2) {
+  return el('line', { x1, y1, x2, y2, style: `stroke:var(--${kind === 'ink' ? 'ink' : kind === 'acc' ? 'accent' : kind === 'mut' ? 'muted' : kind})`, 'stroke-width': w, 'marker-end': `url(#${parent.ownerSVGElement ? parent.ownerSVGElement.id : parent.id}ah-${kind})` }, parent);
+}
+// Adam on a flat parameter array
+class Adam {
+  constructor(n) { this.m = new Float64Array(n); this.v = new Float64Array(n); this.t = 0; }
+  step(p, g, lr) {
+    this.t++;
+    const b1 = 0.9, b2 = 0.999, c1 = 1 - Math.pow(b1, this.t), c2 = 1 - Math.pow(b2, this.t);
+    for (let i = 0; i < p.length; i++) {
+      this.m[i] = b1 * this.m[i] + (1 - b1) * g[i];
+      this.v[i] = b2 * this.v[i] + (1 - b2) * g[i] * g[i];
+      p[i] -= lr * (this.m[i] / c1) / (Math.sqrt(this.v[i] / c2) + 1e-8);
+    }
+  }
+}
+function ellipseFor(W, r) {
+  // {x : ||W x|| = r}; M = W^T W
+  const a = W[0] * W[0] + W[2] * W[2], b = W[0] * W[1] + W[2] * W[3], c = W[1] * W[1] + W[3] * W[3];
+  const mid = (a + c) / 2, rad = Math.sqrt(((a - c) / 2) ** 2 + b * b);
+  const l1 = Math.max(mid + rad, 1e-9), l2 = Math.max(mid - rad, 1e-9);
+  const th = 0.5 * Math.atan2(2 * b, a - c);
+  return { r1: Math.min(r / Math.sqrt(l1), 60), r2: Math.min(r / Math.sqrt(l2), 60), deg: th * 180 / Math.PI };
+}
+function knnAcc(Z, Y, k) {
+  let ok = 0;
+  for (let i = 0; i < Z.length; i++) {
+    const nb = Z.map((z, j) => ({ j, d: (Z[i][0] - z[0]) ** 2 + (Z[i][1] - z[1]) ** 2 })).filter(o => o.j !== i).sort((a, b) => a.d - b.d).slice(0, k);
+    const votes = {}; nb.forEach(o => { votes[Y[o.j]] = (votes[Y[o.j]] || 0) + 1; });
+    const best = Object.keys(votes).reduce((a, b) => (votes[a] >= votes[b] ? a : b));
+    if (+best === Y[i]) ok++;
+  }
+  return ok / Z.length;
+}
+function looAcc(Z, Y) {
+  let ok = 0;
+  for (let i = 0; i < Z.length; i++) {
+    let best = Infinity, bj = -1;
+    for (let j = 0; j < Z.length; j++) {
+      if (j === i) continue;
+      const dx = Z[i][0] - Z[j][0], dy = Z[i][1] - Z[j][1], d = dx * dx + dy * dy;
+      if (d < best) { best = d; bj = j; }
+    }
+    if (Y[bj] === Y[i]) ok++;
+  }
+  return ok / Z.length;
+}
+function apply(W, x) { return [W[0] * x[0] + W[1] * x[1], W[2] * x[0] + W[3] * x[1]]; }
+function makeStripes(seed, angDeg, n) {
+  const r = rng(seed), a = angDeg * Math.PI / 180, u = [Math.cos(a), Math.sin(a)], v = [-u[1], u[0]], pts = [];
+  for (let c = 0; c < 3; c++) for (let i = 0; i < n; i++) {
+    const s = (c - 1) * 0.4 + 0.09 * gauss(r), t = Math.max(-4.1, Math.min(4.1, 2.5 * gauss(r)));
+    pts.push({ x: [s * u[0] + t * v[0], s * u[1] + t * v[1]], y: c });
+  }
+  return pts;
+}
+function axesBox(svg, sx, sy, lo, hi, step) {
+  const g = el('g', {}, svg);
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) {
+    el('line', { x1: sx(v), x2: sx(v), y1: sy(lo), y2: sy(hi), class: 'grid' }, g);
+    el('line', { x1: sx(lo), x2: sx(hi), y1: sy(v), y2: sy(v), class: 'grid' }, g);
+  }
+  el('line', { x1: sx(lo), x2: sx(hi), y1: sy(0), y2: sy(0), class: 'axis' }, g);
+  el('line', { x1: sx(0), x2: sx(0), y1: sy(lo), y2: sy(hi), class: 'axis' }, g);
+  return g;
+}
+
+// ============================================================
+// DEMO 1: diagonal Mahalanobis by hand
+// ============================================================
+(function demo1() {
+  const pts = makeStripes(11, 0, 20), Y = pts.map(p => p.y);
+  const svg = $('d1svg'), LO = -4.5, HI = 4.5;
+  const sx = lin(LO, HI, 10, 390), sy = lin(LO, HI, 390, 10), S = 380 / (HI - LO);
+  axesBox(svg, sx, sy, LO, HI, 1);
+  el('text', { x: 388, y: sy(0) - 6, 'text-anchor': 'end', class: 'muted halo' }, svg).textContent = 'feature 1 (signal)';
+  el('text', { x: sx(0) + 6, y: 22, class: 'muted halo' }, svg).textContent = 'feature 2 (noise)';
+  const ell = el('ellipse', { style: 'fill:var(--accent);fill-opacity:.08;stroke:var(--accent);stroke-width:1.5' }, svg);
+  const links = el('g', {}, svg);
+  const marks = pts.map(p => marker(svg, p.y, sx(p.x[0]), sy(p.x[1]), 4.5));
+  const ring = el('circle', { r: 9, style: 'fill:none;stroke:var(--ink);stroke-width:2' }, svg);
+  let sel = 30;
+  svg.addEventListener('pointerdown', e => {
+    const q = svgPt(svg, e); let best = 1e9;
+    pts.forEach((p, i) => { const d = (sx(p.x[0]) - q.x) ** 2 + (sy(p.x[1]) - q.y) ** 2; if (d < best) { best = d; sel = i; } });
+    draw();
+  });
+  classLegend($('d1leg'), 3, '<span><i class="sw line" style="background:var(--good)"></i>neighbor, same class</span><span><i class="sw line" style="background:var(--bad)"></i>neighbor, other class</span>');
+  function draw() {
+    const w = +$('d1w').value; $('d1wv').textContent = w.toFixed(2);
+    const W = [1, 0, 0, w];
+    const Z = pts.map(p => apply(W, p.x));
+    $('d1acc').textContent = pct(knnAcc(Z, Y, 5));
+    const zi = Z[sel];
+    const nb = Z.map((z, j) => ({ j, d: Math.hypot(z[0] - zi[0], z[1] - zi[1]) })).filter(o => o.j !== sel).sort((a, b) => a.d - b.d).slice(0, 5);
+    const r = nb[4].d * 1.02, E = ellipseFor(W, r), p0 = pts[sel].x;
+    ell.setAttribute('rx', E.r1 * S); ell.setAttribute('ry', E.r2 * S);
+    ell.setAttribute('transform', `translate(${sx(p0[0])},${sy(p0[1])}) rotate(${-E.deg})`);
+    clear(links);
+    let same = 0;
+    nb.forEach(o => {
+      const q = pts[o.j].x, ok = Y[o.j] === Y[sel]; same += ok;
+      el('line', { x1: sx(p0[0]), y1: sy(p0[1]), x2: sx(q[0]), y2: sy(q[1]), style: `stroke:var(--${ok ? 'good' : 'bad'});stroke-width:1.8` }, links);
+    });
+    ring.setAttribute('cx', sx(p0[0])); ring.setAttribute('cy', sy(p0[1]));
+    $('d1nn').textContent = `${same} / 5`;
+    $('d1read').innerHTML = `Query: class ${CLASS[Y[sel]]}. Majority vote of its 5 neighbors: <b>${same >= 3 ? 'correct' : 'wrong'}</b>. Feature 2 counts ${w < 0.999 ? (1 / w).toFixed(1) + '&times; less' : 'the same'} as feature 1.`;
+  }
+  $('d1w').addEventListener('input', draw);
+  draw();
+})();
+
+// ============================================================
+// DEMO 2: learn W with NCA or LMNN
+// ============================================================
+(function demo2() {
+  const pts = makeStripes(7, 25, 20), N = pts.length, X = pts.map(p => p.x), Y = pts.map(p => p.y);
+  const svgA = $('d2a'), svgB = $('d2b'), LO = -4.5, HI = 4.5;
+  const sx = lin(LO, HI, 10, 390), sy = lin(LO, HI, 390, 10), S = 380 / (HI - LO);
+  axesBox(svgA, sx, sy, LO, HI, 1);
+  const ell = el('ellipse', { style: 'fill:var(--accent);fill-opacity:.08;stroke:var(--accent);stroke-width:1.5' }, svgA);
+  const linksA = el('g', {}, svgA);
+  pts.forEach(p => marker(svgA, p.y, sx(p.x[0]), sy(p.x[1]), 4.5));
+  const ringA = el('circle', { r: 9, style: 'fill:none;stroke:var(--ink);stroke-width:2' }, svgA);
+  const gridB = el('g', {}, svgB), perim = el('circle', { style: 'fill:var(--bad);fill-opacity:.05;stroke:var(--bad);stroke-dasharray:4 3;stroke-width:1.2' }, svgB);
+  const linksB = el('g', {}, svgB);
+  const marksB = pts.map(p => marker(svgB, p.y, 0, 0, 4.5));
+  const ringB = el('circle', { r: 9, style: 'fill:none;stroke:var(--ink);stroke-width:2' }, svgB);
+  let W = new Float64Array([1, 0, 0, 1]), opt = new Adam(4), step = 0, mode = 'nca', running = false, sel = 12, zoom = 5;
+  const K = 3, MARGIN = 1, LAM = 0.5;
+  // target neighbors: k nearest same-class points in Euclidean space (fixed)
+  const targets = X.map((xi, i) => X.map((xj, j) => ({ j, d: (xi[0] - xj[0]) ** 2 + (xi[1] - xj[1]) ** 2 }))
+    .filter(o => o.j !== i && Y[o.j] === Y[i]).sort((a, b) => a.d - b.d).slice(0, K).map(o => o.j));
+  $('d2raw').textContent = pct(looAcc(X, Y));
+
+  function lossGrad(Wm, wantGrad) {
+    const Z = X.map(x => apply(Wm, x)), G = Z.map(() => [0, 0]);
+    let obj = 0;
+    if (mode === 'nca') {
+      for (let i = 0; i < N; i++) {
+        const s = new Float64Array(N); let mx = -Infinity;
+        for (let k = 0; k < N; k++) { if (k === i) continue; s[k] = -((Z[i][0] - Z[k][0]) ** 2 + (Z[i][1] - Z[k][1]) ** 2); if (s[k] > mx) mx = s[k]; }
+        let tot = 0; const p = new Float64Array(N);
+        for (let k = 0; k < N; k++) { if (k === i) continue; p[k] = Math.exp(s[k] - mx); tot += p[k]; }
+        let pi = 0;
+        for (let k = 0; k < N; k++) { p[k] /= tot; if (k !== i && Y[k] === Y[i]) pi += p[k]; }
+        obj += pi;
+        if (!wantGrad) continue;
+        for (let k = 0; k < N; k++) {
+          if (k === i) continue;
+          const c = p[k] * ((Y[k] === Y[i] ? 1 : 0) - pi); // dJ/ds_ik
+          const dx = Z[i][0] - Z[k][0], dy = Z[i][1] - Z[k][1];
+          // minimizing L = -J/N
+          G[i][0] += c * 2 * dx / N; G[i][1] += c * 2 * dy / N;
+          G[k][0] -= c * 2 * dx / N; G[k][1] -= c * 2 * dy / N;
+        }
+      }
+      obj /= N;
+    } else {
+      const d2 = (a, b) => (Z[a][0] - Z[b][0]) ** 2 + (Z[a][1] - Z[b][1]) ** 2;
+      for (let i = 0; i < N; i++) for (const j of targets[i]) {
+        const dij = d2(i, j);
+        obj += (1 - LAM) * dij / N;
+        if (wantGrad) for (let c = 0; c < 2; c++) { const g = (1 - LAM) * 2 * (Z[i][c] - Z[j][c]) / N; G[i][c] += g; G[j][c] -= g; }
+        for (let l = 0; l < N; l++) {
+          if (Y[l] === Y[i]) continue;
+          const h = MARGIN + dij - d2(i, l);
+          if (h <= 0) continue;
+          obj += LAM * h / N;
+          if (wantGrad) for (let c = 0; c < 2; c++) {
+            const gij = LAM * 2 * (Z[i][c] - Z[j][c]) / N, gil = LAM * 2 * (Z[i][c] - Z[l][c]) / N;
+            G[i][c] += gij - gil; G[j][c] -= gij; G[l][c] += gil;
+          }
+        }
+      }
+    }
+    const gW = new Float64Array(4);
+    if (wantGrad) for (let i = 0; i < N; i++) { gW[0] += G[i][0] * X[i][0]; gW[1] += G[i][0] * X[i][1]; gW[2] += G[i][1] * X[i][0]; gW[3] += G[i][1] * X[i][1]; }
+    return { obj, gW, Z };
+  }
+  function draw() {
+    const { obj, Z } = lossGrad(W, false);
+    // zoom for projected space
+    let m = 0; Z.forEach(z => { m = Math.max(m, Math.abs(z[0]), Math.abs(z[1])); });
+    zoom = zoom * 0.85 + Math.max(m * 1.12, 0.5) * 0.15;
+    const bx = lin(-zoom, zoom, 10, 390), by = lin(-zoom, zoom, 390, 10), SB = 380 / (2 * zoom);
+    clear(gridB);
+    el('line', { x1: 10, x2: 390, y1: by(0), y2: by(0), class: 'axis' }, gridB);
+    el('line', { x1: bx(0), x2: bx(0), y1: 10, y2: 390, class: 'axis' }, gridB);
+    marksB.forEach((mk, i) => mk.setAttribute('transform', `translate(${bx(Z[i][0])},${by(Z[i][1])})`));
+    const zi = Z[sel], d2 = j => (Z[j][0] - zi[0]) ** 2 + (Z[j][1] - zi[1]) ** 2;
+    const nb = Z.map((z, j) => ({ j, d: Math.sqrt(d2(j)) })).filter(o => o.j !== sel).sort((a, b) => a.d - b.d);
+    const E = ellipseFor(W, nb[K - 1].d * 1.02), p0 = X[sel];
+    ell.setAttribute('rx', E.r1 * S); ell.setAttribute('ry', E.r2 * S);
+    ell.setAttribute('transform', `translate(${sx(p0[0])},${sy(p0[1])}) rotate(${-E.deg})`);
+    ringA.setAttribute('cx', sx(p0[0])); ringA.setAttribute('cy', sy(p0[1]));
+    ringB.setAttribute('cx', bx(zi[0])); ringB.setAttribute('cy', by(zi[1]));
+    clear(linksA); clear(linksB);
+    const link = (j, col, w, op) => {
+      el('line', { x1: sx(p0[0]), y1: sy(p0[1]), x2: sx(X[j][0]), y2: sy(X[j][1]), style: `stroke:var(--${col});stroke-width:${w};stroke-opacity:${op}` }, linksA);
+      el('line', { x1: bx(zi[0]), y1: by(zi[1]), x2: bx(Z[j][0]), y2: by(Z[j][1]), style: `stroke:var(--${col});stroke-width:${w};stroke-opacity:${op}` }, linksB);
+    };
+    if (mode === 'nca') {
+      perim.setAttribute('r', 0);
+      const s = nb.map(o => Math.exp(-(o.d * o.d - nb[0].d * nb[0].d))); const t = s.reduce((a, b) => a + b, 0);
+      nb.forEach((o, k) => { const p = s[k] / t; if (p > 0.01) link(o.j, Y[o.j] === Y[sel] ? 'good' : 'bad', 0.8 + 5 * p, Math.min(1, 0.25 + p * 1.5)); });
+      $('d2objk').textContent = 'NCA: J(W) / N'; $('d2obj').textContent = pct(obj); $('d2objs').textContent = 'expected soft 1-NN accuracy';
+    } else {
+      const far = Math.max(...targets[sel].map(d2));
+      const R = Math.sqrt(far + MARGIN);
+      perim.setAttribute('cx', bx(zi[0])); perim.setAttribute('cy', by(zi[1])); perim.setAttribute('r', R * SB);
+      targets[sel].forEach(j => link(j, 'good', 2.2, 1));
+      let imp = 0;
+      for (let l = 0; l < N; l++) if (Y[l] !== Y[sel] && d2(l) < far + MARGIN) { imp++; link(l, 'bad', 1.6, 0.9); }
+      $('d2objk').textContent = 'LMNN loss'; $('d2obj').textContent = fmt(obj, 3); $('d2objs').textContent = `${imp} impostor${imp === 1 ? '' : 's'} for selected point`;
+    }
+    $('d2acc').textContent = pct(looAcc(Z, Y));
+    $('d2step').textContent = step;
+    $('d2W').textContent = `W = [[${fmt(W[0])}, ${fmt(W[1])}], [${fmt(W[2])}, ${fmt(W[3])}]]`;
+  }
+  function legend() {
+    classLegend($('d2leg'), 3, mode === 'nca'
+      ? '<span><i class="sw line" style="background:var(--good)"></i>p<sub>ij</sub> to same class</span><span><i class="sw line" style="background:var(--bad)"></i>p<sub>ij</sub> to other class</span>'
+      : '<span><i class="sw line" style="background:var(--good)"></i>target neighbor</span><span><i class="sw line" style="background:var(--bad)"></i>impostor</span><span><i class="sw dash" style="border-color:var(--bad)"></i>margin perimeter</span>');
+  }
+  let gen = 0;
+  function tick(my) {
+    if (!running || my !== gen) return;
+    for (let s = 0; s < 3; s++) { const { gW } = lossGrad(W, true); opt.step(W, gW, 0.02); step++; }
+    draw();
+    if (step >= 1500) { running = false; $('d2run').textContent = 'Train'; return; }
+    requestAnimationFrame(() => tick(my));
+  }
+  $('d2run').addEventListener('click', () => {
+    running = !running; $('d2run').textContent = running ? 'Pause' : 'Train';
+    if (running) { if (step >= 1500) step = 0; const my = ++gen; requestAnimationFrame(() => tick(my)); }
+  });
+  $('d2reset').addEventListener('click', () => { W = new Float64Array([1, 0, 0, 1]); opt = new Adam(4); step = 0; draw(); });
+  document.querySelectorAll('[data-d2mode]').forEach(b => b.addEventListener('click', () => {
+    mode = b.dataset.d2mode;
+    document.querySelectorAll('[data-d2mode]').forEach(o => o.classList.toggle('on', o === b));
+    W = new Float64Array([1, 0, 0, 1]); opt = new Adam(4); step = 0; legend(); draw();
+  }));
+  const pick = (svg, toPt) => svg.addEventListener('pointerdown', e => {
+    const q = svgPt(svg, e); let best = 1e9;
+    X.forEach((x, i) => { const p = toPt(i); const d = (p[0] - q.x) ** 2 + (p[1] - q.y) ** 2; if (d < best) { best = d; sel = i; } });
+    draw();
+  });
+  pick(svgA, i => [sx(X[i][0]), sy(X[i][1])]);
+  pick(svgB, i => { const z = apply(W, X[i]); const bx = lin(-zoom, zoom, 10, 390), by = lin(-zoom, zoom, 390, 10); return [bx(z[0]), by(z[1])]; });
+  legend(); draw();
+})();
+
+// ============================================================
+// Architecture gallery
+// ============================================================
+(function gallery() {
+  const svg = $('galsvg');
+  arrowDefs(svg);
+  const SPEC = {
+    siamese: { rows: [['x_i', 'input 1', 0], ['x_j', 'input 2', 1]], loss: ['Contrastive loss', 'same? pull d²', 'diff? push [m−d]₊²'], side: 'y_ij = 𝕀(y_i = y_j)' },
+    triplet: { rows: [['x_a', 'anchor', 0], ['x⁺', 'positive', 0], ['x⁻', 'negative', 1]], loss: ['Triplet loss', '[d(a,p)² − d(a,n)²', '+ m]₊'] },
+    npair: { rows: [['x_a', 'anchor', 0], ['x⁺', 'positive', 0], ['x₁⁻', 'negative 1', 1], ['x₂⁻', 'negative 2', 2], ['x₃⁻', 'negative 3', 3]], loss: ['N-pair loss', 'softmax over', 'eₐᵀe⁺, eₐᵀeₖ⁻'] },
+    cls: { rows: [['x', 'input + label y', 0]], loss: ['Cross-entropy', 'softmax over', 'w_cᵀe'], table: 'Class weights w₁ … w_C' },
+    proxy: { rows: [['x', 'input + label y', 0]], loss: ['Proxy-NCA', 'softmax over', '−d(e, p_c)'], table: 'Learned proxies p₁ … p_C' },
+  };
+  function draw(key) {
+    const s = SPEC[key];
+    [...svg.childNodes].forEach(n => { if (n.tagName !== 'defs') svg.removeChild(n); });
+    const n = s.rows.length, H = 300, gap = Math.min(56, (H - 40) / n), y0 = H / 2 - gap * (n - 1) / 2;
+    const ly = H / 2;
+    // shared-weights bracket
+    if (n > 1) {
+      el('rect', { x: 168, y: y0 - 26, width: 104, height: gap * (n - 1) + 52, rx: 12, class: 'share' }, svg);
+      el('text', { x: 220, y: y0 - 32, 'text-anchor': 'middle', style: 'fill:var(--accent);font-size:11px;font-weight:600' }, svg).textContent = 'shared weights θ';
+    }
+    s.rows.forEach((r, i) => {
+      const y = y0 + i * gap;
+      el('rect', { x: 14, y: y - 17, width: 120, height: 34, rx: 7, class: 'box' }, svg);
+      marker(svg, r[2], 30, y, 6);
+      el('text', { x: 44, y: y - 2, style: 'font-weight:700' }, svg).textContent = r[0];
+      el('text', { x: 44, y: y + 12, class: 'muted', style: 'font-size:10px' }, svg).textContent = r[1];
+      el('line', { x1: 134, y1: y, x2: 176, y2: y, class: 'wire', 'marker-end': `url(#galsvgah-mut)` }, svg);
+      el('rect', { x: 178, y: y - 16, width: 84, height: 32, rx: 7, class: 'netbox' }, svg);
+      el('text', { x: 220, y: y + 4, 'text-anchor': 'middle', style: 'font-weight:600' }, svg).textContent = 'f_θ';
+      el('line', { x1: 262, y1: y, x2: 300, y2: y, class: 'wire', 'marker-end': `url(#galsvgah-mut)` }, svg);
+      el('circle', { cx: 312, cy: y, r: 10, class: 'box' }, svg);
+      el('text', { x: 312, y: y + 4, 'text-anchor': 'middle', style: 'font-size:10px' }, svg).textContent = 'e';
+      if (n > 1) el('path', { d: `M322,${y} C400,${y} 420,${ly} 488,${ly}`, class: 'wire' }, svg);
+    });
+    if (n === 1) {
+      const y = y0;
+      el('line', { x1: 322, y1: y, x2: 486, y2: y, class: 'wire', 'marker-end': `url(#galsvgah-mut)` }, svg);
+      // table of class vectors
+      el('rect', { x: 340, y: y + 42, width: 130, height: 70, rx: 8, class: 'box' }, svg);
+      for (let k = 0; k < 5; k++) marker(svg, k, 360 + k * 22, y + 64, 6);
+      el('text', { x: 405, y: y + 96, 'text-anchor': 'middle', class: 'muted', style: 'font-size:10.5px' }, svg).textContent = s.table;
+      el('path', { d: `M470,${y + 76} C500,${y + 76} 520,${y + 40} 540,${y + 24}`, class: 'wire', 'marker-end': `url(#galsvgah-mut)` }, svg);
+    }
+    el('rect', { x: 488, y: ly - 36, width: 178, height: 72, rx: 10, class: 'lossbox' }, svg);
+    el('text', { x: 577, y: ly - 14, 'text-anchor': 'middle', style: 'font-weight:700' }, svg).textContent = s.loss[0];
+    el('text', { x: 577, y: ly + 4, 'text-anchor': 'middle', style: 'font-size:11px' }, svg).textContent = s.loss[1];
+    el('text', { x: 577, y: ly + 20, 'text-anchor': 'middle', style: 'font-size:11px' }, svg).textContent = s.loss[2];
+    if (s.side) {
+      el('text', { x: 577, y: ly + 58, 'text-anchor': 'middle', class: 'muted', style: 'font-size:11px' }, svg).textContent = 'label: ' + s.side;
+      el('line', { x1: 577, y1: ly + 46, x2: 577, y2: ly + 38, class: 'wire', 'marker-end': `url(#galsvgah-mut)` }, svg);
+    }
+    if (key === 'npair') el('text', { x: 14, y: H - 4, class: 'muted', style: 'font-size:10.5px' }, svg).textContent = 'Negatives are the positives of the other pairs in the batch (different classes), so they cost no extra forward passes.';
+  }
+  document.querySelectorAll('#galtabs [data-arch]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.arch;
+    document.querySelectorAll('#galtabs [data-arch]').forEach(o => o.classList.toggle('on', o === b));
+    document.querySelectorAll('.arch-text').forEach(t => t.classList.toggle('on', t.dataset.arch === k));
+    draw(k);
+  }));
+  draw('siamese');
+})();
+
+// ============================================================
+// DEMO 3: contrastive loss
+// ============================================================
+(function contrastive() {
+  const svg = $('ctsvg'), strip = $('ctstrip');
+  arrowDefs(strip);
+  const sx = lin(0, 2, 44, 405), sy = lin(0, 3, 230, 14);
+  function draw() {
+    const d = +$('ctd').value, m = +$('ctm').value;
+    $('ctdv').textContent = d.toFixed(2); $('ctmv').textContent = m.toFixed(2);
+    clear(svg);
+    for (let v = 0; v <= 3; v += 0.5) {
+      el('line', { x1: 44, x2: 405, y1: sy(v), y2: sy(v), class: 'grid' }, svg);
+      el('text', { x: 38, y: sy(v) + 4, 'text-anchor': 'end', class: 'muted', style: 'font-size:10px' }, svg).textContent = v.toFixed(1);
+    }
+    for (let v = 0; v <= 2; v += 0.5) el('text', { x: sx(v), y: 246, 'text-anchor': 'middle', class: 'muted', style: 'font-size:10px' }, svg).textContent = v.toFixed(1);
+    el('text', { x: 405, y: 258, 'text-anchor': 'end', class: 'muted', style: 'font-size:10.5px' }, svg).textContent = 'distance d';
+    el('text', { x: 46, y: 10, class: 'muted', style: 'font-size:10.5px' }, svg).textContent = 'loss';
+    el('line', { x1: sx(m), x2: sx(m), y1: 14, y2: 230, style: 'stroke:var(--muted);stroke-dasharray:4 3' }, svg);
+    el('text', { x: sx(m) + 4, y: 26, class: 'muted halo', style: 'font-size:11px' }, svg).textContent = 'm';
+    let pp = '', pn = '';
+    for (let i = 0; i <= 200; i++) {
+      const x = i / 100, yp = Math.min(3, x * x), yn = Math.min(3, Math.max(0, m - x) ** 2);
+      pp += (i ? 'L' : 'M') + sx(x).toFixed(1) + ',' + sy(yp).toFixed(1);
+      pn += (i ? 'L' : 'M') + sx(x).toFixed(1) + ',' + sy(yn).toFixed(1);
+    }
+    el('path', { d: pp, style: 'fill:none;stroke:var(--good);stroke-width:2.2' }, svg);
+    el('path', { d: pn, style: 'fill:none;stroke:var(--bad);stroke-width:2.2' }, svg);
+    el('line', { x1: sx(d), x2: sx(d), y1: 14, y2: 230, style: 'stroke:var(--ink);stroke-width:1' }, svg);
+    const lp = d * d, ln = Math.max(0, m - d) ** 2;
+    el('circle', { cx: sx(d), cy: sy(Math.min(3, lp)), r: 5, style: 'fill:var(--good);stroke:var(--panel);stroke-width:2' }, svg);
+    el('circle', { cx: sx(d), cy: sy(ln), r: 5, style: 'fill:var(--bad);stroke:var(--panel);stroke-width:2' }, svg);
+    $('ctpos').textContent = fmt(lp, 3); $('ctposs').textContent = `pull force 2d = ${fmt(2 * d)}`;
+    $('ctneg').textContent = fmt(ln, 3);
+    $('ctnegs').textContent = d < m ? `push force 2(m−d) = ${fmt(2 * (m - d))}` : 'd ≥ m: zero gradient';
+    // strip: anchor and two partners
+    [...strip.childNodes].forEach(n => { if (n.tagName !== 'defs') strip.removeChild(n); });
+    const tx = lin(0, 2, 60, 400);
+    [[40, 'same class', 'good', 0, -1], [105, 'different class', 'bad', 1, ln > 0 ? 1 : 0]].forEach(([y, lab, col, k, dir]) => {
+      el('text', { x: 6, y: y - 22, class: 'muted', style: 'font-size:10.5px' }, strip).textContent = lab;
+      el('line', { x1: tx(0), x2: tx(d), y1: y, y2: y, style: `stroke:var(--${col});stroke-width:1.5;stroke-dasharray:${col === 'bad' ? '3 3' : 'none'}` }, strip);
+      if (col === 'bad') el('line', { x1: tx(m), x2: tx(m), y1: y - 12, y2: y + 12, style: 'stroke:var(--muted);stroke-dasharray:3 2' }, strip);
+      marker(strip, 0, tx(0), y, 7);
+      marker(strip, k, tx(d), y, 7);
+      const f = col === 'good' ? 2 * d : (d < m ? 2 * (m - d) : 0);
+      if (f > 0.02) arrow(strip, tx(d) + dir * 12, y, tx(d) + dir * (12 + 18 * f), y, col, 2.2);
+    });
+    el('text', { x: tx(0), y: 140, 'text-anchor': 'middle', class: 'muted', style: 'font-size:10px' }, strip).textContent = 'anchor';
+  }
+  $('ctd').addEventListener('input', draw); $('ctm').addEventListener('input', draw);
+  draw();
+})();
+
+// ============================================================
+// DEMO 4: triplet zones
+// ============================================================
+(function triplet() {
+  const svg = $('tpsvg');
+  arrowDefs(svg);
+  const sx = lin(-2.8, 2.8, 0, 560), sy = lin(-1.65, 1.65, 330, 0), S = 100;
+  const P = { a: [-0.7, -0.1], p: [0.25, 0.45], n: [0.15, -0.35] };
+  const gZones = el('g', {}, svg), gLab = el('g', {}, svg), gLinks = el('g', {}, svg), gArr = el('g', {}, svg), gPts = el('g', {}, svg);
+  let drag = null, timer = null;
+  const d2 = (u, v) => (u[0] - v[0]) ** 2 + (u[1] - v[1]) ** 2;
+  function zone(m) {
+    const ap = d2(P.a, P.p), an = d2(P.a, P.n);
+    return an < ap ? 'hard' : an < ap + m ? 'semi' : 'easy';
+  }
+  function draw() {
+    const m = +$('tpm').value; $('tpmv').textContent = m.toFixed(2);
+    const ap = d2(P.a, P.p), an = d2(P.a, P.n), L = Math.max(0, ap - an + m);
+    clear(gZones); clear(gLab); clear(gLinks); clear(gArr); clear(gPts);
+    const cx = sx(P.a[0]), cy = sy(P.a[1]), r1 = Math.sqrt(ap) * S, r2 = Math.sqrt(ap + m) * S;
+    el('rect', { x: 0, y: 0, width: 560, height: 330, style: 'fill:var(--good);fill-opacity:.06' }, gZones);
+    el('circle', { cx, cy, r: r2, style: 'fill:var(--panel)' }, gZones);
+    el('circle', { cx, cy, r: r2, style: 'fill:var(--semi);fill-opacity:.16;stroke:var(--semi);stroke-width:1.2' }, gZones);
+    el('circle', { cx, cy, r: r1, style: 'fill:var(--panel)' }, gZones);
+    el('circle', { cx, cy, r: r1, style: 'fill:var(--bad);fill-opacity:.12;stroke:var(--bad);stroke-width:1.2' }, gZones);
+    el('text', { x: cx, y: cy - r1 + 14, 'text-anchor': 'middle', class: 'halo', style: 'fill:var(--bad);font-size:11px;font-weight:700' }, gLab).textContent = 'hard';
+    el('text', { x: cx, y: cy - (r1 + r2) / 2 + 4, 'text-anchor': 'middle', class: 'halo', style: 'fill:var(--semi);font-size:11px;font-weight:700' }, gLab).textContent = 'semi-hard';
+    el('text', { x: 552, y: 18, 'text-anchor': 'end', class: 'halo', style: 'fill:var(--good);font-size:11px;font-weight:700' }, gLab).textContent = 'easy (loss = 0)';
+    el('line', { x1: cx, y1: cy, x2: sx(P.p[0]), y2: sy(P.p[1]), style: 'stroke:var(--good);stroke-width:1.5' }, gLinks);
+    el('line', { x1: cx, y1: cy, x2: sx(P.n[0]), y2: sy(P.n[1]), style: 'stroke:var(--bad);stroke-width:1.5;stroke-dasharray:4 3' }, gLinks);
+    if (L > 0) {
+      const k = 0.18; // arrow length per unit gradient
+      const g = { a: [2 * (P.p[0] - P.n[0]), 2 * (P.p[1] - P.n[1])], p: [2 * (P.a[0] - P.p[0]), 2 * (P.a[1] - P.p[1])], n: [2 * (P.n[0] - P.a[0]), 2 * (P.n[1] - P.a[1])] };
+      for (const key of ['a', 'p', 'n']) {
+        const v = g[key], len = Math.hypot(v[0], v[1]);
+        if (len < 1e-6) continue;
+        const ux = v[0] / len, uy = v[1] / len, x0 = sx(P[key][0]) + ux * 12, y0 = sy(P[key][1]) - uy * 12;
+        arrow(gArr, x0, y0, x0 + v[0] * k * S, y0 - v[1] * k * S, key === 'n' ? 'bad' : key === 'p' ? 'good' : 'ink', 2.4);
+      }
+    }
+    for (const [key, k, lab] of [['a', 0, 'anchor'], ['p', 0, 'positive'], ['n', 1, 'negative']]) {
+      const g = el('g', { class: 'drag', 'data-k': key, transform: `translate(${sx(P[key][0])},${sy(P[key][1])})` }, gPts);
+      el('circle', { r: 16, style: 'fill:transparent' }, g);
+      el('path', { d: shapePath(k, 8), class: `mk k${k}`, style: key === 'a' ? 'stroke:var(--ink);stroke-width:2' : '' }, g);
+      el('text', { x: 0, y: 24, 'text-anchor': 'middle', class: 'halo', style: 'font-size:11px;font-weight:600' }, g).textContent = lab;
+    }
+    $('tpap').textContent = fmt(ap); $('tpan').textContent = fmt(an); $('tploss').textContent = fmt(L, 3);
+    const z = zone(m);
+    $('tpzone').innerHTML = `<span class="badge ${z}">${z === 'semi' ? 'semi-hard' : z}</span>`;
+    return L;
+  }
+  function stepOnce() {
+    const m = +$('tpm').value, ap = d2(P.a, P.p), an = d2(P.a, P.n);
+    if (ap - an + m <= 0) return false;
+    const lr = 0.04, a = P.a.slice(), p = P.p.slice(), n = P.n.slice();
+    for (let c = 0; c < 2; c++) {
+      P.a[c] -= lr * 2 * (n[c] - p[c]);
+      P.p[c] -= lr * -2 * (a[c] - p[c]);
+      P.n[c] -= lr * 2 * (a[c] - n[c]);
+    }
+    for (const key of ['a', 'p', 'n']) { P[key][0] = Math.max(-2.6, Math.min(2.6, P[key][0])); P[key][1] = Math.max(-1.5, Math.min(1.5, P[key][1])); }
+    return true;
+  }
+  $('tpstep').addEventListener('click', () => { stepOnce(); draw(); });
+  $('tprun').addEventListener('click', () => {
+    if (timer) { clearInterval(timer); timer = null; $('tprun').textContent = 'Run'; return; }
+    $('tprun').textContent = 'Stop';
+    let n = 0;
+    timer = setInterval(() => {
+      const moved = stepOnce(); draw();
+      if (!moved || ++n > 300) { clearInterval(timer); timer = null; $('tprun').textContent = 'Run'; }
+    }, 40);
+  });
+  document.querySelectorAll('[data-tpzone]').forEach(b => b.addEventListener('click', () => {
+    const m = +$('tpm').value, ap = d2(P.a, P.p), r1 = Math.sqrt(ap), r2 = Math.sqrt(ap + m);
+    const r = b.dataset.tpzone === 'hard' ? r1 * 0.6 : b.dataset.tpzone === 'semi' ? (r1 + r2) / 2 : r2 + 0.45;
+    // place the negative at radius r, opposite-ish to the positive
+    const ang = Math.atan2(P.p[1] - P.a[1], P.p[0] - P.a[0]) - 1.6;
+    P.n = [P.a[0] + r * Math.cos(ang), P.a[1] + r * Math.sin(ang)];
+    draw();
+  }));
+  svg.addEventListener('pointerdown', e => {
+    const g = e.target.closest('[data-k]'); if (!g) return;
+    drag = g.dataset.k; svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const q = svgPt(svg, e);
+    P[drag] = [Math.max(-2.6, Math.min(2.6, (q.x - 280) / S)), Math.max(-1.5, Math.min(1.5, (165 - q.y) / S))];
+    draw();
+  });
+  const end = () => { drag = null; };
+  svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+  $('tpm').addEventListener('input', draw);
+  draw();
+})();
+
+// ============================================================
+// DEMO 5: N-pair on the circle
+// ============================================================
+(function npair() {
+  const svg = $('npsvg');
+  arrowDefs(svg);
+  const C = 180, R = 130;
+  const ang = { a: 90, p: 45, n: [130, 250, 300, 20, 190, 330] };
+  let drag = null;
+  const vec = d => [Math.cos(d * Math.PI / 180), Math.sin(d * Math.PI / 180)];
+  const pos = d => [C + R * Math.cos(d * Math.PI / 180), C - R * Math.sin(d * Math.PI / 180)];
+  function draw() {
+    const k = +$('npk').value, s = +$('nps').value;
+    $('npkv').textContent = k; $('npsv').textContent = s.toFixed(1);
+    [...svg.childNodes].forEach(n => { if (n.tagName !== 'defs') svg.removeChild(n); });
+    el('circle', { cx: C, cy: C, r: R, style: 'fill:none;stroke:var(--border);stroke-width:1.5' }, svg);
+    el('circle', { cx: C, cy: C, r: 2, style: 'fill:var(--muted)' }, svg);
+    const ea = vec(ang.a), cand = [{ id: 'p', d: ang.p, lab: 'positive' }];
+    for (let i = 0; i < k; i++) cand.push({ id: i, d: ang.n[i], lab: 'neg ' + (i + 1) });
+    const logits = cand.map(c => { const e = vec(c.d); return s * (ea[0] * e[0] + ea[1] * e[1]); });
+    const mx = Math.max(...logits), ex = logits.map(l => Math.exp(l - mx)), Z = ex.reduce((a, b) => a + b, 0), q = ex.map(v => v / Z);
+    // links weighted by q
+    const pa = pos(ang.a);
+    cand.forEach((c, i) => {
+      const pc = pos(c.d);
+      el('line', { x1: pa[0], y1: pa[1], x2: pc[0], y2: pc[1], style: `stroke:var(--${c.id === 'p' ? 'good' : 'bad'});stroke-width:${0.8 + 6 * q[i]};stroke-opacity:${0.25 + 0.75 * q[i]}` }, svg);
+    });
+    // gradient on anchor: -dL/de_a = s (e_p - sum q_j e_j), projected to tangent
+    let g = [0, 0]; const ep = vec(ang.p);
+    cand.forEach((c, i) => { const e = vec(c.d); g[0] -= q[i] * e[0]; g[1] -= q[i] * e[1]; });
+    g[0] = s * (g[0] + ep[0]); g[1] = s * (g[1] + ep[1]);
+    const dot = g[0] * ea[0] + g[1] * ea[1], t = [g[0] - dot * ea[0], g[1] - dot * ea[1]], tl = Math.hypot(t[0], t[1]);
+    if (tl > 1e-3) {
+      const L = Math.min(70, 30 * tl), ux = t[0] / tl, uy = t[1] / tl;
+      arrow(svg, pa[0] + ux * 12, pa[1] - uy * 12, pa[0] + ux * (12 + L), pa[1] - uy * (12 + L), 'ink', 2.6);
+    }
+    const pts = [{ id: 'a', d: ang.a, k: 0, lab: 'anchor' }, { id: 'p', d: ang.p, k: 0, lab: 'positive' }];
+    for (let i = 0; i < k; i++) pts.push({ id: i, d: ang.n[i], k: 1 + (i % 4), lab: String(i + 1) });
+    pts.forEach(p => {
+      const [x, y] = pos(p.d), out = [C + (R + 24) * Math.cos(p.d * Math.PI / 180), C - (R + 24) * Math.sin(p.d * Math.PI / 180)];
+      const g2 = el('g', { class: 'drag', 'data-id': p.id }, svg);
+      el('circle', { cx: x, cy: y, r: 16, style: 'fill:transparent' }, g2);
+      el('path', { d: shapePath(p.k, 8), transform: `translate(${x},${y})`, class: `mk k${p.k}`, style: p.id === 'a' ? 'stroke:var(--ink);stroke-width:2' : '' }, g2);
+      el('text', { x: out[0], y: out[1] + 4, 'text-anchor': 'middle', class: 'halo', style: 'font-size:11px;font-weight:600' }, g2).textContent = p.lab;
+    });
+    // bars
+    const bars = $('npbars'); bars.innerHTML = '';
+    cand.forEach((c, i) => {
+      bars.insertAdjacentHTML('beforeend', `<div class="brow"><div class="name">${c.id === 'p' ? '<b>positive</b>' : 'negative ' + (c.id + 1)}</div><div class="track"><div class="fill ${c.id === 'p' ? 'pos' : ''}" style="width:${(q[i] * 100).toFixed(1)}%;${c.id === 'p' ? '' : 'background:var(--bad)'}"></div></div><div class="val">${(q[i] * 100).toFixed(1)}%</div></div>`);
+    });
+    $('nploss').textContent = fmt(-Math.log(q[0]), 3);
+    const en = vec(ang.n[0]), dap = (ea[0] - ep[0]) ** 2 + (ea[1] - ep[1]) ** 2, dan = (ea[0] - en[0]) ** 2 + (ea[1] - en[1]) ** 2;
+    const tl2 = Math.max(0, dap - dan + 0.4);
+    $('nptrip').textContent = fmt(tl2, 3);
+    $('nptrips').textContent = tl2 === 0 ? 'zero: this triplet is easy' : 'active';
+  }
+  svg.addEventListener('pointerdown', e => {
+    const g = e.target.closest('[data-id]'); if (!g) return;
+    drag = g.dataset.id; svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener('pointermove', e => {
+    if (drag === null) return;
+    const q = svgPt(svg, e), d = Math.atan2(C - q.y, q.x - C) * 180 / Math.PI;
+    if (drag === 'a') ang.a = d; else if (drag === 'p') ang.p = d; else ang.n[+drag] = d;
+    draw();
+  });
+  const end = () => { drag = null; };
+  svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+  $('npk').addEventListener('input', draw); $('nps').addEventListener('input', draw);
+  draw();
+})();
+
+// ============================================================
+// DEMO 6: complexity
+// ============================================================
+(function complexity() {
+  const sci = v => {
+    if (v < 1e4) return Math.round(v).toLocaleString();
+    const e = Math.floor(Math.log10(v)); return (v / 10 ** e).toFixed(1) + '×10' + String(e).split('').map(c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c]).join('');
+  };
+  const dur = sec => {
+    if (sec < 1) return '< 1 s';
+    const u = [['years', 3.156e7], ['days', 86400], ['hours', 3600], ['min', 60], ['s', 1]];
+    for (const [n, s] of u) if (sec >= s) { const v = sec / s; return (v >= 1e4 ? sci(v) : v.toFixed(v < 10 ? 1 : 0)) + ' ' + n; }
+  };
+  function draw() {
+    const N = Math.round(10 ** +$('cxn').value);
+    let C = Math.round(10 ** +$('cxc').value); C = Math.max(2, Math.min(C, Math.floor(N / 2)));
+    $('cxnv').textContent = N.toLocaleString(); $('cxcv').textContent = C.toLocaleString();
+    const per = N / C;
+    const rows = [
+      ['Siamese: all pairs', N * (N - 1) / 2],
+      ['Triplet: all valid triplets', N * (per - 1) * (N - per)],
+      ['Proxy / centroid / classifier', N * C],
+    ];
+    const maxLog = 22;
+    $('cxbars').innerHTML = rows.map(([n, v]) => `<div class="brow"><div class="name">${n}</div><div class="track"><div class="fill" style="width:${Math.max(1, Math.log10(Math.max(v, 1)) / maxLog * 100).toFixed(1)}%"></div></div><div class="val">${sci(v)} terms &middot; ${dur(v / 1e9)}</div></div>`).join('');
+  }
+  $('cxn').addEventListener('input', draw); $('cxc').addEventListener('input', draw);
+  draw();
+})();
+
+// ============================================================
+// PLAYGROUND: a 2-32-32-2 MLP trained with each loss
+// ============================================================
+(function playground() {
+  const H = 32, CMAX = 5;
+  // ---- data: five spiral arms
+  function spirals(seed, nPer) {
+    const r = rng(seed), out = [];
+    for (let c = 0; c < 5; c++) for (let i = 0; i < nPer; i++) {
+      const t = 0.12 + 0.88 * r(), a = 2 * Math.PI * c / 5 + t * 3.6, rad = 0.08 + 0.92 * t;
+      out.push({ x: [rad * Math.cos(a) + 0.035 * gauss(r), rad * Math.sin(a) + 0.035 * gauss(r)], y: c });
+    }
+    return out;
+  }
+  const train = spirals(101, 60), test = spirals(202, 40), ALL = train.concat(test), NTR = train.length;
+  const jitter = (() => { const r = rng(5); return ALL.map(() => (r() - 0.5) * 0.14); })();
+
+  // ---- parameters in one flat array
+  const OFF = {}; let n = 0;
+  for (const [k, sz] of [['W1', H * 2], ['b1', H], ['W2', H * H], ['b2', H], ['W3', 2 * H], ['b3', 2], ['head', CMAX * 3]]) { OFF[k] = n; n += sz; }
+  const NP = n;
+  let P, G = new Float64Array(NP), opt, seed = 1;
+  function init() {
+    const r = rng(1000 + seed * 7919); P = new Float64Array(NP);
+    for (let i = 0; i < H * 2; i++) P[OFF.W1 + i] = gauss(r) * 1.6;
+    for (let i = 0; i < H * H; i++) P[OFF.W2 + i] = gauss(r) / Math.sqrt(H);
+    for (let i = 0; i < 2 * H; i++) P[OFF.W3 + i] = gauss(r) / Math.sqrt(H);
+    // head: proxies (2 per class) at random angles, or softmax weights (2) + bias (1)
+    for (let c = 0; c < CMAX; c++) { const a = r() * 2 * Math.PI; P[OFF.head + 2 * c] = Math.cos(a); P[OFF.head + 2 * c + 1] = Math.sin(a); }
+    for (let c = 0; c < CMAX; c++) P[OFF.head + 2 * CMAX + c] = 0;
+    opt = new Adam(NP);
+  }
+  // forward one input, optionally caching activations
+  function fwd(x, cache) {
+    const h1 = cache ? cache.h1 : new Float64Array(H), h2 = cache ? cache.h2 : new Float64Array(H);
+    for (let j = 0; j < H; j++) h1[j] = Math.tanh(P[OFF.W1 + 2 * j] * x[0] + P[OFF.W1 + 2 * j + 1] * x[1] + P[OFF.b1 + j]);
+    for (let j = 0; j < H; j++) {
+      let s = P[OFF.b2 + j]; const o = OFF.W2 + j * H;
+      for (let k = 0; k < H; k++) s += P[o + k] * h1[k];
+      h2[j] = Math.tanh(s);
+    }
+    const u = [P[OFF.b3], P[OFF.b3 + 1]];
+    for (let k = 0; k < H; k++) { u[0] += P[OFF.W3 + k] * h2[k]; u[1] += P[OFF.W3 + H + k] * h2[k]; }
+    return u;
+  }
+  const gh2 = new Float64Array(H), gh1 = new Float64Array(H);
+  function back(x, cache, gu) {
+    const { h1, h2 } = cache;
+    G[OFF.b3] += gu[0]; G[OFF.b3 + 1] += gu[1];
+    for (let k = 0; k < H; k++) {
+      G[OFF.W3 + k] += gu[0] * h2[k]; G[OFF.W3 + H + k] += gu[1] * h2[k];
+      gh2[k] = (gu[0] * P[OFF.W3 + k] + gu[1] * P[OFF.W3 + H + k]) * (1 - h2[k] * h2[k]);
+    }
+    gh1.fill(0);
+    for (let j = 0; j < H; j++) {
+      const g = gh2[j]; if (g === 0) continue;
+      G[OFF.b2 + j] += g; const o = OFF.W2 + j * H;
+      for (let k = 0; k < H; k++) { G[o + k] += g * h1[k]; gh1[k] += g * P[o + k]; }
+    }
+    for (let k = 0; k < H; k++) {
+      const g = gh1[k] * (1 - h1[k] * h1[k]);
+      G[OFF.b1 + k] += g; G[OFF.W1 + 2 * k] += g * x[0]; G[OFF.W1 + 2 * k + 1] += g * x[1];
+    }
+  }
+  const nrm = u => { const l = Math.hypot(u[0], u[1]) || 1e-9; return [u[0] / l, u[1] / l]; };
+  function embed(x) { const u = fwd(x); return state.norm ? nrm(u) : u; }
+
+  // ---- state
+  const state = { loss: 'contrastive', mine: 'random', norm: true, hold: false, running: false, steps: 0, ema: NaN };
+  let hist = [];
+  const classes = () => (state.hold ? [0, 1, 2, 3] : [0, 1, 2, 3, 4]);
+  const byClass = [0, 1, 2, 3, 4].map(c => train.map((p, i) => (p.y === c ? i : -1)).filter(i => i >= 0));
+  let br = rng(77);
+  function sampleBatch(K) {
+    const idx = [];
+    for (const c of classes()) {
+      const pool = byClass[c], chosen = new Set();
+      while (chosen.size < K) chosen.add(pool[Math.floor(br() * pool.length)]);
+      chosen.forEach(i => idx.push(i));
+    }
+    return idx;
+  }
+  let probe = [];
+  function makeProbe() {
+    const r = rng(9), cl = classes(); probe = [];
+    for (let t = 0; t < 1500; t++) {
+      const c = cl[Math.floor(r() * cl.length)]; let c2 = c; while (c2 === c) c2 = cl[Math.floor(r() * cl.length)];
+      const A = byClass[c], B = byClass[c2];
+      let a = A[Math.floor(r() * A.length)], p = a; while (p === a) p = A[Math.floor(r() * A.length)];
+      probe.push([a, p, B[Math.floor(r() * B.length)]]);
+    }
+  }
+
+  // ---- losses: take embeddings E (after normalization if on), labels Y; return loss and dL/dE (+ head grads into G)
+  const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
+  function lossContrastive(E, Y, gE) {
+    const m = +$('pgm').value; let L = 0, cnt = 0;
+    for (let i = 0; i < E.length; i++) for (let j = i + 1; j < E.length; j++) {
+      cnt++;
+      const dx = E[i][0] - E[j][0], dy = E[i][1] - E[j][1];
+      if (Y[i] === Y[j]) {
+        L += dx * dx + dy * dy;
+        gE[i][0] += 2 * dx; gE[i][1] += 2 * dy; gE[j][0] -= 2 * dx; gE[j][1] -= 2 * dy;
+      } else {
+        const d = Math.sqrt(dx * dx + dy * dy) + 1e-9;
+        if (d < m) {
+          L += (m - d) ** 2; const c = -2 * (m - d) / d;
+          gE[i][0] += c * dx; gE[i][1] += c * dy; gE[j][0] -= c * dx; gE[j][1] -= c * dy;
+        }
+      }
+    }
+    return { L, cnt };
+  }
+  function lossTriplet(E, Y, gE) {
+    const m = +$('pgm').value, B = E.length, trips = [];
+    const D = E.map(a => E.map(b => d2(a, b)));
+    for (let a = 0; a < B; a++) {
+      const pos = [], neg = [];
+      for (let j = 0; j < B; j++) if (j !== a) (Y[j] === Y[a] ? pos : neg).push(j);
+      if (state.mine === 'random') {
+        trips.push([a, pos[Math.floor(br() * pos.length)], neg[Math.floor(br() * neg.length)]]);
+      } else if (state.mine === 'hard') {
+        let p = pos[0], nn = neg[0];
+        for (const j of pos) if (D[a][j] > D[a][p]) p = j;
+        for (const j of neg) if (D[a][j] < D[a][nn]) nn = j;
+        trips.push([a, p, nn]);
+      } else {
+        for (const p of pos) {
+          const semi = neg.filter(j => D[a][j] > D[a][p] && D[a][j] < D[a][p] + m);
+          if (semi.length) trips.push([a, p, semi[Math.floor(br() * semi.length)]]);
+        }
+      }
+    }
+    let L = 0;
+    for (const [a, p, nn] of trips) {
+      const h = D[a][p] - D[a][nn] + m;
+      if (h <= 0) continue;
+      L += h;
+      for (let c = 0; c < 2; c++) {
+        gE[a][c] += 2 * (E[nn][c] - E[p][c]);
+        gE[p][c] += -2 * (E[a][c] - E[p][c]);
+        gE[nn][c] += 2 * (E[a][c] - E[nn][c]);
+      }
+    }
+    return { L, cnt: Math.max(1, trips.length) };
+  }
+  function lossNpair(E, Y, gE) {
+    // batch = 2 per class: (anchor, positive) pairs. each anchor vs all positives; symmetric.
+    const s = state.norm ? 4 : 1, cl = classes(), pairs = cl.map((c, k) => [2 * k, 2 * k + 1]);
+    let L = 0, cnt = 0;
+    for (const swap of [0, 1]) for (let i = 0; i < pairs.length; i++) {
+      const a = pairs[i][swap], cands = pairs.map(pr => pr[1 - swap]);
+      const lg = cands.map(j => s * (E[a][0] * E[j][0] + E[a][1] * E[j][1]));
+      const mx = Math.max(...lg), ex = lg.map(v => Math.exp(v - mx)), Z = ex.reduce((x, y) => x + y, 0);
+      L += -Math.log(ex[i] / Z); cnt++;
+      cands.forEach((j, k) => {
+        const g = s * (ex[k] / Z - (k === i ? 1 : 0));
+        gE[a][0] += g * E[j][0]; gE[a][1] += g * E[j][1];
+        gE[j][0] += g * E[a][0]; gE[j][1] += g * E[a][1];
+      });
+    }
+    if (!state.norm) for (let i = 0; i < E.length; i++) { L += 0.01 * cnt * (E[i][0] ** 2 + E[i][1] ** 2); gE[i][0] += 0.02 * cnt * E[i][0]; gE[i][1] += 0.02 * cnt * E[i][1]; }
+    return { L, cnt };
+  }
+  function lossProxy(E, Y, gE) {
+    const s = 3, cl = classes(), raw = cl.map(c => [P[OFF.head + 2 * c], P[OFF.head + 2 * c + 1]]);
+    const pr = raw.map(nrm), gp = cl.map(() => [0, 0]);
+    let L = 0;
+    for (let i = 0; i < E.length; i++) {
+      const yi = cl.indexOf(Y[i]), d = pr.map(p => d2(E[i], p));
+      const others = cl.map((_, k) => k).filter(k => k !== yi);
+      const lg = others.map(k => -s * d[k]), mx = Math.max(...lg), ex = lg.map(v => Math.exp(v - mx)), Z = ex.reduce((a, b) => a + b, 0);
+      L += s * d[yi] + mx + Math.log(Z);
+      for (let c = 0; c < 2; c++) {
+        gE[i][c] += 2 * s * (E[i][c] - pr[yi][c]);
+        gp[yi][c] += -2 * s * (E[i][c] - pr[yi][c]);
+      }
+      others.forEach((k, t) => {
+        const q = ex[t] / Z;
+        for (let c = 0; c < 2; c++) { gE[i][c] += -q * 2 * s * (E[i][c] - pr[k][c]); gp[k][c] += q * 2 * s * (E[i][c] - pr[k][c]); }
+      });
+    }
+    const B = E.length;
+    cl.forEach((c, k) => {
+      const l = Math.hypot(raw[k][0], raw[k][1]) || 1e-9, g = gp[k], dot = g[0] * pr[k][0] + g[1] * pr[k][1];
+      G[OFF.head + 2 * c] += (g[0] - dot * pr[k][0]) / l / B;
+      G[OFF.head + 2 * c + 1] += (g[1] - dot * pr[k][1]) / l / B;
+    });
+    return { L, cnt: B };
+  }
+  function lossSoftmax(E, Y, gE) {
+    const cl = classes(), B = E.length; let L = 0;
+    for (let i = 0; i < B; i++) {
+      const lg = cl.map(c => P[OFF.head + 2 * c] * E[i][0] + P[OFF.head + 2 * c + 1] * E[i][1] + P[OFF.head + 2 * CMAX + c]);
+      const mx = Math.max(...lg), ex = lg.map(v => Math.exp(v - mx)), Z = ex.reduce((a, b) => a + b, 0);
+      const yi = cl.indexOf(Y[i]); L += -Math.log(ex[yi] / Z);
+      cl.forEach((c, k) => {
+        const g = ex[k] / Z - (k === yi ? 1 : 0);
+        gE[i][0] += g * P[OFF.head + 2 * c]; gE[i][1] += g * P[OFF.head + 2 * c + 1];
+        G[OFF.head + 2 * c] += g * E[i][0] / B; G[OFF.head + 2 * c + 1] += g * E[i][1] / B; G[OFF.head + 2 * CMAX + c] += g / B;
+      });
+    }
+    return { L, cnt: B };
+  }
+  const LOSS = { contrastive: lossContrastive, triplet: lossTriplet, npair: lossNpair, proxy: lossProxy, softmax: lossSoftmax };
+
+  function trainStep() {
+    const K = state.loss === 'npair' ? 2 : 6;
+    const idx = sampleBatch(K);
+    const caches = idx.map(() => ({ h1: new Float64Array(H), h2: new Float64Array(H) }));
+    const U = idx.map((i, b) => fwd(train[i].x, caches[b]));
+    const norm = state.norm || state.loss === 'proxy';
+    const E = U.map(u => (norm ? nrm(u) : u)), Y = idx.map(i => train[i].y);
+    const gE = E.map(() => [0, 0]);
+    G.fill(0);
+    const { L, cnt } = LOSS[state.loss](E, Y, gE);
+    for (let b = 0; b < idx.length; b++) {
+      let g = [gE[b][0] / cnt, gE[b][1] / cnt];
+      if (norm) {
+        const l = Math.hypot(U[b][0], U[b][1]) || 1e-9, e = E[b], dot = g[0] * e[0] + g[1] * e[1];
+        g = [(g[0] - dot * e[0]) / l, (g[1] - dot * e[1]) / l];
+      }
+      back(train[idx[b]].x, caches[b], g);
+    }
+    // global-norm clip
+    let gn = 0; for (let i = 0; i < NP; i++) gn += G[i] * G[i]; gn = Math.sqrt(gn);
+    if (gn > 5) for (let i = 0; i < NP; i++) G[i] *= 5 / gn;
+    opt.step(P, G, 10 ** +$('pglr').value);
+    state.steps++;
+    const l = L / cnt;
+    state.ema = Number.isFinite(state.ema) ? 0.95 * state.ema + 0.05 * l : l;
+    return idx.length;
+  }
+
+  // ---- evaluation
+  function evaluate(EA) {
+    const T = EA.slice(NTR), Yt = test.map(p => p.y);
+    let okS = 0, nS = 0, okU = 0, nU = 0;
+    for (let i = 0; i < T.length; i++) {
+      let best = Infinity, bj = -1;
+      for (let j = 0; j < T.length; j++) { if (j === i) continue; const d = d2(T[i], T[j]); if (d < best) { best = d; bj = j; } }
+      const ok = Yt[bj] === Yt[i] ? 1 : 0;
+      if (state.hold && Yt[i] === 4) { okU += ok; nU++; } else { okS += ok; nS++; }
+    }
+    let act = NaN;
+    if (state.loss === 'triplet') {
+      const m = +$('pgm').value; let a = 0;
+      for (const [x, p, q] of probe) if (d2(EA[x], EA[p]) - d2(EA[x], EA[q]) + m > 0) a++;
+      act = a / probe.length;
+    }
+    return { r1: okS / nS, r1u: nU ? okU / nU : NaN, act };
+  }
+
+  // ---- drawing
+  const svgIn = $('pgin'), svgE = $('pgemb'), canvas = $('pgcanvas'), ctx = canvas.getContext('2d');
+  const ix = lin(-1.15, 1.15, 0, 360), iy = lin(-1.15, 1.15, 360, 0);
+  el('rect', { x: 0, y: 0, width: 360, height: 360, style: 'fill:none' }, svgIn);
+  const marksIn = ALL.map((p, i) => marker(svgIn, p.y, ix(p.x[0]), iy(p.x[1]), i < NTR ? 3.6 : 3.4, i >= NTR));
+  const hiIn = el('circle', { r: 8, style: 'fill:none;stroke:var(--ink);stroke-width:2;display:none' }, svgIn);
+  const gE = el('g', {}, svgE), gHead = el('g', {}, svgE);
+  const marksE = ALL.map((p, i) => marker(svgE, p.y, 0, 0, i < NTR ? 3.6 : 3.4, i >= NTR));
+  const hiE = el('circle', { r: 8, style: 'fill:none;stroke:var(--ink);stroke-width:2;display:none' }, svgE);
+  const axisLab = el('text', { x: 354, y: 352, 'text-anchor': 'end', class: 'muted halo', style: 'font-size:10.5px' }, svgE);
+  let zoom = 1.4, hi = -1, EA = [], frame = 0;
+  const ex = () => lin(-zoom, zoom, 0, 360), ey = () => lin(-zoom, zoom, 360, 0);
+
+  function drawBg() {
+    const cl = classes(), norm = state.norm || state.loss === 'proxy';
+    const cent = cl.map(c => {
+      let s = [0, 0]; byClass[c].forEach(i => { s[0] += EA[i][0]; s[1] += EA[i][1]; });
+      s = [s[0] / byClass[c].length, s[1] / byClass[c].length];
+      return norm ? nrm(s) : s;
+    });
+    const cols = cl.map(c => hexRgb(css('--k' + c))), bg = hexRgb(css('--panel')), A = 0.2;
+    const W = canvas.width, img = ctx.createImageData(W, W);
+    for (let r = 0; r < W; r++) for (let c = 0; c < W; c++) {
+      const x = [-1.15 + 2.3 * (c + 0.5) / W, 1.15 - 2.3 * (r + 0.5) / W];
+      const e = embed(x);
+      let best = Infinity, k = 0;
+      cent.forEach((m, t) => { const d = d2(e, m); if (d < best) { best = d; k = t; } });
+      const o = 4 * (r * W + c), col = cols[k];
+      img.data[o] = bg[0] * (1 - A) + col[0] * A; img.data[o + 1] = bg[1] * (1 - A) + col[1] * A; img.data[o + 2] = bg[2] * (1 - A) + col[2] * A; img.data[o + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  function drawEmb() {
+    const norm = state.norm || state.loss === 'proxy';
+    if (norm) zoom = 1.35;
+    else { let m = 0; EA.forEach(e => { m = Math.max(m, Math.abs(e[0]), Math.abs(e[1])); }); zoom = zoom * 0.9 + Math.max(0.3, m * 1.12) * 0.1; }
+    const X = ex(), Yf = ey();
+    clear(gE); clear(gHead);
+    el('line', { x1: 0, x2: 360, y1: Yf(0), y2: Yf(0), class: 'axis' }, gE);
+    el('line', { x1: X(0), x2: X(0), y1: 0, y2: 360, class: 'axis' }, gE);
+    if (norm) el('circle', { cx: X(0), cy: Yf(0), r: X(1) - X(0), style: 'fill:none;stroke:var(--border);stroke-width:1.5' }, gE);
+    axisLab.textContent = norm ? 'unit circle (radius 1)' : `axes span ±${zoom.toFixed(zoom < 10 ? 2 : 0)}`;
+    ALL.forEach((p, i) => {
+      let e = EA[i];
+      if (norm) e = [e[0] * (1 + jitter[i]), e[1] * (1 + jitter[i])];
+      marksE[i].setAttribute('transform', `translate(${X(e[0]).toFixed(1)},${Yf(e[1]).toFixed(1)})`);
+      const hidden = state.hold && p.y === 4 && i < NTR;
+      marksE[i].style.display = hidden ? 'none' : '';
+    });
+    const cl = classes();
+    if (state.loss === 'proxy') cl.forEach(c => {
+      const p = nrm([P[OFF.head + 2 * c], P[OFF.head + 2 * c + 1]]);
+      const g = el('g', { transform: `translate(${X(p[0] * 1.17)},${Yf(p[1] * 1.17)})` }, gHead);
+      el('path', { d: shapePath(c, 9), class: `mk k${c} hol`, style: 'stroke-width:2.5' }, g);
+    });
+    if (state.loss === 'softmax') cl.forEach(c => {
+      const w = nrm([P[OFF.head + 2 * c], P[OFF.head + 2 * c + 1]]), R = zoom * 0.95;
+      el('line', { x1: X(0), y1: Yf(0), x2: X(w[0] * R), y2: Yf(w[1] * R), style: `stroke:var(--k${c});stroke-width:1.6;stroke-dasharray:5 4` }, gHead);
+    });
+    if (hi >= 0) {
+      const t = marksE[hi].getAttribute('transform').match(/translate\(([-\d.]+),([-\d.]+)\)/);
+      hiE.setAttribute('cx', t[1]); hiE.setAttribute('cy', t[2]); hiE.style.display = '';
+      hiIn.setAttribute('cx', ix(ALL[hi].x[0])); hiIn.setAttribute('cy', iy(ALL[hi].x[1])); hiIn.style.display = '';
+    } else { hiE.style.display = 'none'; hiIn.style.display = 'none'; }
+  }
+  // training-curve chart
+  const ch = $('pgchart'), cx0 = 40, cx1 = 668, cy0 = 176, cy1 = 12;
+  const chartG = el('g', {}, ch), cross = el('line', { y1: cy1, y2: cy0, style: 'stroke:var(--muted);stroke-width:1;display:none' }, ch);
+  function drawChart() {
+    clear(chartG);
+    const maxS = Math.max(200, hist.length ? hist[hist.length - 1].s : 0), X = lin(0, maxS, cx0, cx1), Yc = lin(0, 1, cy0, cy1);
+    for (let v = 0; v <= 1.001; v += 0.25) {
+      el('line', { x1: cx0, x2: cx1, y1: Yc(v), y2: Yc(v), class: 'grid' }, chartG);
+      el('text', { x: cx0 - 6, y: Yc(v) + 4, 'text-anchor': 'end', class: 'muted', style: 'font-size:10px' }, chartG).textContent = Math.round(v * 100) + '%';
+    }
+    el('text', { x: cx1, y: 196, 'text-anchor': 'end', class: 'muted', style: 'font-size:10px' }, chartG).textContent = `training steps (0 – ${maxS})`;
+    const line = (key, col, dash) => {
+      let d = '', pen = false;
+      hist.forEach(h => { const v = h[key]; if (!Number.isFinite(v)) { pen = false; return; } d += (pen ? 'L' : 'M') + X(h.s).toFixed(1) + ',' + Yc(v).toFixed(1); pen = true; });
+      if (d) el('path', { d, style: `fill:none;stroke:var(--${col});stroke-width:2;${dash ? 'stroke-dasharray:5 4' : ''}` }, chartG);
+    };
+    line('act', 'muted'); line('r1u', 'k4', true); line('r1', 'k0');
+  }
+  ch.addEventListener('pointermove', e => {
+    if (!hist.length) return;
+    const q = svgPt(ch, e), maxS = Math.max(200, hist[hist.length - 1].s), s = (q.x - cx0) / (cx1 - cx0) * maxS;
+    let h = hist[0]; hist.forEach(o => { if (Math.abs(o.s - s) < Math.abs(h.s - s)) h = o; });
+    const X = lin(0, maxS, cx0, cx1);
+    cross.setAttribute('x1', X(h.s)); cross.setAttribute('x2', X(h.s)); cross.style.display = '';
+    const tip = $('tip');
+    tip.innerHTML = `<b>step ${h.s}</b><br>Recall@1 seen: ${pct(h.r1)}${Number.isFinite(h.r1u) ? `<br>Recall@1 held-out: ${pct(h.r1u)}` : ''}${Number.isFinite(h.act) ? `<br>active random triplets: ${pct(h.act)}` : ''}`;
+    tip.style.display = 'block'; tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 10) + 'px';
+  });
+  ch.addEventListener('pointerleave', () => { cross.style.display = 'none'; $('tip').style.display = 'none'; });
+  // hover linking between the two panels
+  function hover(svg, toPt) {
+    svg.addEventListener('pointermove', e => {
+      const q = svgPt(svg, e); let best = 100, b = -1;
+      ALL.forEach((p, i) => { if (state.hold && p.y === 4 && i < NTR && svg === svgE) return; const t = toPt(i); const d = (t[0] - q.x) ** 2 + (t[1] - q.y) ** 2; if (d < best) { best = d; b = i; } });
+      hi = b; drawEmb();
+    });
+    svg.addEventListener('pointerleave', () => { hi = -1; drawEmb(); });
+  }
+  hover(svgIn, i => [ix(ALL[i].x[0]), iy(ALL[i].x[1])]);
+  hover(svgE, i => { const t = marksE[i].getAttribute('transform').match(/translate\(([-\d.]+),([-\d.]+)\)/); return [+t[1], +t[2]]; });
+
+  function refresh(full) {
+    EA = ALL.map(p => embed(p.x));
+    if (state.loss === 'proxy') EA = EA.map(nrm);
+    drawEmb();
+    if (full || frame % 6 === 0) drawBg();
+    const ev = evaluate(EA);
+    if (full || state.steps % 10 === 0 || !hist.length) {
+      if (!hist.length || hist[hist.length - 1].s !== state.steps) hist.push({ s: state.steps, ...ev });
+      if (hist.length > 500) hist = hist.filter((_, i) => i % 2 === 0 || i === hist.length - 1);
+      drawChart();
+    }
+    $('pgsteps').textContent = state.steps;
+    $('pgloss').textContent = fmt(state.ema, 3);
+    $('pgr1').textContent = pct(ev.r1);
+    $('pgr1u').textContent = state.hold ? pct(ev.r1u) : '–';
+    $('pgr1us').textContent = state.hold ? 'E never seen in training' : 'turn on hold-out';
+    $('pgact').textContent = state.loss === 'triplet' ? pct(ev.act) : '–';
+  }
+  function legend() {
+    classLegend($('pgleg'), 5, '<span>filled = train, hollow = test</span>' + (state.hold ? '<span><b>E</b> held out: only its test points are shown</span>' : ''));
+  }
+  function syncUI() {
+    document.querySelectorAll('[data-pgloss]').forEach(b => b.classList.toggle('on', b.dataset.pgloss === state.loss));
+    document.querySelectorAll('[data-pgmine]').forEach(b => b.classList.toggle('on', b.dataset.pgmine === state.mine));
+    $('pgminingrow').style.display = state.loss === 'triplet' ? '' : 'none';
+    $('pgmarginctrl').style.visibility = (state.loss === 'contrastive' || state.loss === 'triplet') ? 'visible' : 'hidden';
+    const nb = $('pgnorm'), forced = state.loss === 'proxy';
+    nb.disabled = forced;
+    nb.textContent = 'Normalize to circle: ' + (forced ? 'always (proxies)' : state.norm ? 'on' : 'off');
+    nb.classList.toggle('on', forced || state.norm);
+    $('pghold').textContent = 'Hold out class E: ' + (state.hold ? 'on' : 'off');
+    $('pghold').classList.toggle('on', state.hold);
+    $('pgmv').textContent = (+$('pgm').value).toFixed(2);
+    $('pglrv').textContent = (10 ** +$('pglr').value).toFixed(3);
+    const K = state.loss === 'npair' ? 2 : 6;
+    $('pgbatch').textContent = `batch: ${classes().length} classes × ${K}`;
+    const notes = {
+      contrastive: 'Every pair in the batch is used: same-class pairs pulled, different-class pairs pushed until distance ≥ m.',
+      triplet: 'Margin is on squared distance (max 4 on the circle).',
+      npair: 'Two images per class; each anchor is scored against every class\'s positive' + (state.norm ? ' (scale s = 4).' : ' (with a small L2 penalty, as in Sohn 2016).'),
+      proxy: 'One learned proxy per class; scale s = 3.',
+      softmax: 'Linear classifier on the embedding; we retrieve with the embedding, not the classifier.',
+    };
+    $('pgnote').textContent = notes[state.loss];
+  }
+  function reset(keepSeed) {
+    if (!keepSeed) seed++;
+    init(); state.steps = 0; state.ema = NaN; hist = []; br = rng(77 + seed); makeProbe();
+    refresh(true);
+  }
+  let gen = 0; // a fresh token per Train press, so a stale frame can't start a second loop
+  function loop(my) {
+    if (!state.running || my !== gen) return;
+    for (let s = 0; s < 4; s++) trainStep();
+    frame++;
+    refresh(false);
+    requestAnimationFrame(() => loop(my));
+  }
+  const stop = () => { state.running = false; $('pgrun').textContent = 'Train'; };
+  $('pgrun').addEventListener('click', () => {
+    state.running = !state.running; $('pgrun').textContent = state.running ? 'Pause' : 'Train';
+    if (state.running) { const my = ++gen; requestAnimationFrame(() => loop(my)); }
+  });
+  $('pgreset').addEventListener('click', () => { stop(); reset(false); });
+  document.querySelectorAll('[data-pgloss]').forEach(b => b.addEventListener('click', () => {
+    stop(); state.loss = b.dataset.pgloss;
+    if (state.loss === 'contrastive') $('pgm').value = 1;
+    if (state.loss === 'triplet') $('pgm').value = 0.5;
+    syncUI(); reset(true);
+  }));
+  document.querySelectorAll('[data-pgmine]').forEach(b => b.addEventListener('click', () => { stop(); state.mine = b.dataset.pgmine; syncUI(); reset(true); }));
+  $('pgnorm').addEventListener('click', () => { stop(); state.norm = !state.norm; syncUI(); reset(true); });
+  $('pghold').addEventListener('click', () => { stop(); state.hold = !state.hold; syncUI(); legend(); reset(true); });
+  $('pgm').addEventListener('input', () => { syncUI(); if (!state.running) refresh(true); });
+  $('pglr').addEventListener('input', syncUI);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => drawBg());
+  syncUI(); legend(); reset(true);
+})();
+
+// ============================================================
+// Quiz
+// ============================================================
+(function quiz() {
+  const Q = [
+    { q: 'You are building face verification for an office. New employees join every week, and you get one photo of each. Which approach fits best?',
+      a: ['A 500-way softmax classifier over current employees', 'An embedding network trained with a metric loss, then nearest-neighbor matching against enrolled photos', 'KNN on raw pixels'], c: 1,
+      e: 'This is open-set recognition (§16.1.4). An embedding lets you enroll a new person by storing one embedding. No retraining is needed. A fixed softmax has no output for people it never saw. Raw-pixel distances are dominated by lighting and pose.' },
+    { q: 'You train a triplet network on uniformly random triplets. After a while the loss is near zero, but Recall@1 is stuck well below what you want. What is most likely?',
+      a: ['The learning rate is too small', 'Almost all random triplets are already easy, so they give zero gradient. Mine semi-hard negatives instead.', 'The margin is too small, so increase it to 10'], c: 1,
+      e: 'Once most triplets satisfy the margin, the hinge is flat and the average gradient vanishes, even though a few hard cases remain unsolved. Mining (§16.2.5.1) finds those informative triplets. The playground\'s gray curve shows this directly.' },
+    { q: 'Training with only the hardest negative from the very first step, every embedding collapses to nearly one point. Why is that a stable failure?',
+      a: ['If f(x) is constant, every distance is 0 and the triplet loss equals m for every triplet, so the gradients can cancel', 'Hard negatives always have the wrong label', 'The network has too many parameters'], c: 0,
+      e: 'With a collapsed embedding, d(a,p) = d(a,n) = 0 and L = m. The hardest negatives early on are often near-duplicates or mislabeled, and their gradients fight the positive pulls. This is why FaceNet used semi-hard negatives.' },
+    { q: 'Embeddings are L2-normalized and two of them have cosine similarity 0.5. What is their squared Euclidean distance?',
+      a: ['0.5', '1.0', '2.0'], c: 1,
+      e: '‖ê − ê′‖² = 2(1 − cos) = 2(1 − 0.5) = 1. On the unit sphere, distance and cosine similarity carry the same information.' },
+    { q: 'Which linear method has an objective that is convex in M, and so can be solved globally with semidefinite programming?',
+      a: ['NCA', 'LMNN', 'Both'], c: 1,
+      e: 'LMNN\'s pull term and hinge push term are linear and convex functions of squared Mahalanobis distances, which are linear in M. NCA\'s softmax-based expected accuracy is not convex. Both become non-convex if you parameterize M = WᵀW and optimize W.' },
+    { q: 'For a contrastive (Siamese) loss with margin m = 1, a pair from different classes is at distance 1.5. What gradient does it produce?',
+      a: ['It pushes them apart with force 2·1.5', 'Zero', 'It pulls them together'], c: 1,
+      e: '[m − d]₊² = [1 − 1.5]₊² = 0, and its derivative is 0 for d ≥ m. Negative pairs beyond the margin are ignored. That is why random pair sampling wastes compute.' },
+    { q: 'With N = 2 (one positive and one negative), the N-pair loss becomes…',
+      a: ['Exactly the triplet loss with m = 0', 'log(1 + exp(eₐᵀe⁻ − eₐᵀe⁺)), a smooth softplus version of a triplet loss', 'The contrastive loss'], c: 1,
+      e: 'With one negative, log(1 + Σ exp(eₐᵀeₖ⁻ − eₐᵀe⁺)) has a single term. Softplus is a smooth approximation of the hinge max(0, ·) with no margin, using similarities instead of distances.' },
+    { q: 'You have N = 10⁶ training images in C = 1000 classes. Which training scheme needs the fewest loss terms per epoch without sampling?',
+      a: ['All triplets', 'All pairs', 'Proxy-NCA'], c: 2,
+      e: 'Proxies need N·C = 10⁹ terms. Pairs need about 5×10¹¹, and triplets need about 10¹⁵. That gap is the whole motivation for §16.2.5.2.' },
+  ];
+  const box = $('quizbox'); let score = 0, done = 0;
+  Q.forEach((it, qi) => {
+    const d = document.createElement('div'); d.className = 'quiz-q';
+    d.innerHTML = `<div class="sc"><b>${qi + 1}.</b> ${it.q}</div><div class="row">${it.a.map((a, i) => `<button class="pill" data-i="${i}">${a}</button>`).join('')}</div><div class="fb"></div>`;
+    d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      if (d.classList.contains('done')) return;
+      const i = +b.dataset.i, ok = i === it.c;
+      d.classList.add('done'); done++; if (ok) score++;
+      b.classList.add(ok ? 'right' : 'wrong');
+      if (!ok) d.querySelector(`button[data-i="${it.c}"]`).classList.add('right');
+      d.querySelector('.fb').innerHTML = `<span class="verdict ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'}</span> ${it.e}`;
+      $('quizscore').textContent = `Score: ${score} / ${done}` + (done === Q.length ? ` (all ${Q.length} answered)` : '');
+    }));
+    box.appendChild(d);
+  });
+})();
+
+// ============================================================
+// KaTeX
+// ============================================================
+function boot() {
+  if (!window.renderMathInElement) return;
+  renderMathInElement(document.body, {
+    delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
+    throwOnError: false,
+  });
+}
+if (window.renderMathInElement) boot(); else window.addEventListener('load', boot);
+</script>
+</body>
+</html>
