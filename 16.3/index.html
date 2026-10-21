@@ -1,0 +1,1346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kernel Density Estimation</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --soft: #fafaf9;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --gridline: #ecebe8;
+    /* five kernels, fixed order: Gaussian, boxcar, Epanechnikov, tri-cube, triangle */
+    --k0: #2a78d6; --k1: #eb6834; --k2: #1baf7a; --k3: #6250d6; --k4: #e87ba4;
+    --good: #138a6a;
+    --bad: #e34948;
+    --truth: #1c1c1e;
+    --accent: #6a4bc4;
+    --callout-bg: #fbf3e8;
+    --callout-border: #ecd9b8;
+    --code-bg: #f1f0ed;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+      --border: #34342f; --gridline: #2a2a27;
+      --k0: #3987e5; --k1: #d95926; --k2: #199e70; --k3: #9085e9; --k4: #d55181;
+      --good: #2fb88e; --bad: #e66767; --truth: #f2f2f0; --accent: #9a8ae6;
+      --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+    --border: #34342f; --gridline: #2a2a27;
+    --k0: #3987e5; --k1: #d95926; --k2: #199e70; --k3: #9085e9; --k4: #d55181;
+    --good: #2fb88e; --bad: #e66767; --truth: #f2f2f0; --accent: #9a8ae6;
+    --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 30px 16px 70px; }
+  header h1 { font-size: 1.75rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  nav.toc { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a {
+    font-size: 0.78rem; text-decoration: none; color: var(--ink);
+    border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 3px 10px;
+  }
+  nav.toc a:hover { border-color: var(--ink); }
+  section.block {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px 24px 26px; margin-top: 26px; overflow-x: clip; position: relative;
+  }
+  section.block.hl { border-top: 4px solid var(--accent); }
+  @media (max-width: 560px) { section.block { padding: 18px 14px 20px; } }
+  section.block h2 { font-size: 1.22rem; margin: 0 0 4px; }
+  section.block h2 .num { color: var(--muted); font-weight: 600; font-size: 0.9rem; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .part { margin: 40px 0 -8px; }
+  .part h2 { font-size: 1.4rem; margin: 0 0 4px; }
+  .part p { color: var(--muted); margin: 0; font-size: 0.95rem; }
+  .kicker { color: var(--muted); font-size: 0.86rem; margin-bottom: 12px; font-style: italic; }
+  h3 { font-size: 0.98rem; margin: 20px 0 6px; }
+  p { margin: 0 0 12px; font-size: 0.95rem; }
+  ol, ul { font-size: 0.95rem; margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  .eqbox {
+    background: var(--soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 18px; margin: 14px 0; overflow-x: auto;
+  }
+  .eqbox .label { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .callout {
+    margin: 16px 0 0; padding: 10px 14px; border-radius: 8px;
+    background: var(--callout-bg); border: 1px solid var(--callout-border); font-size: 0.9rem;
+  }
+  details { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); }
+  details summary { cursor: pointer; padding: 8px 14px; font-size: 0.88rem; font-weight: 600; }
+  details > div { padding: 0 14px 12px; overflow-x: auto; font-size: 0.9rem; }
+  code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; font-size: 0.88em; }
+  .demo { border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 14px; }
+  .demo-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .two > * { min-width: 0; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+  .panel-h { font-size: 0.84rem; font-weight: 700; margin: 0 0 4px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .row .lbl { font-size: 0.76rem; color: var(--muted); font-weight: 600; margin-right: 2px; }
+  button.pill {
+    font-size: 0.8rem; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink); font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  button.pill:hover { border-color: var(--ink); }
+  button.pill.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button.pill.primary { border-color: var(--accent); font-weight: 600; }
+  button.pill .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 6px 0 10px; }
+  .ctrl { display: flex; flex-direction: column; gap: 2px; min-width: 180px; flex: 1; }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .ctrl label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .tiles.three { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px) { .tiles, .tiles.three { grid-template-columns: 1fr 1fr; } }
+  .tile { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; min-width: 0; }
+  .tile .k { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+  .tile .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 0.72rem; color: var(--muted); }
+  .tile.good .v { color: var(--good); }
+  svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  svg text { fill: var(--ink); font-family: inherit; font-size: 12px; }
+  svg .muted { fill: var(--muted); }
+  svg .axis { stroke: var(--border); }
+  svg .grid { stroke: var(--gridline); }
+  svg text.halo { paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  .plot { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; position: relative; }
+  .plot canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 8px; }
+  .plot svg { position: relative; }
+  .touchnone { touch-action: none; }
+  .readout { font-size: 0.86rem; background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-variant-numeric: tabular-nums; margin-top: 8px; min-height: 2.6em; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+  .legend > span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw.line { height: 3px; border-radius: 2px; width: 18px; }
+  .sw.dash { height: 0; width: 18px; border-top: 2px dashed; border-radius: 0; background: none !important; }
+  .sw.round { border-radius: 50%; width: 10px; height: 10px; }
+  table.cheat { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+  table.cheat th { text-align: left; font-size: 0.74rem; color: var(--muted); border-bottom: 2px solid var(--border); padding: 6px 8px; }
+  table.cheat td { border-bottom: 1px solid var(--border); padding: 8px 8px; vertical-align: top; }
+  table.cheat td:first-child { font-weight: 700; white-space: nowrap; }
+  table.cheat td.c { text-align: center; }
+  .scroll-x { overflow-x: auto; }
+  .bars { margin-top: 10px; font-size: 0.82rem; }
+  .brow { display: grid; gap: 4px 10px; align-items: center; margin-bottom: 6px; grid-template-columns: 110px 1fr 150px; }
+  .bars .name { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+  .bars .track { height: 14px; background: var(--soft); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .bars .fill { height: 100%; border-radius: 0 4px 4px 0; transition: width .15s; }
+  .bars .val { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; color: var(--muted); }
+  @media (max-width: 560px) {
+    .brow { grid-template-columns: 1fr auto; }
+    .bars .track { grid-column: 1 / -1; order: 3; }
+  }
+  .quiz-q { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 10px 0; background: var(--soft); }
+  .quiz-q .sc { font-size: 0.92rem; margin-bottom: 8px; }
+  .quiz-q .fb { font-size: 0.86rem; margin-top: 8px; display: none; padding: 8px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); }
+  .quiz-q.done .fb { display: block; }
+  .quiz-q button.pill.right { background: var(--good); border-color: var(--good); color: #fff; }
+  .quiz-q button.pill.wrong { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .verdict { font-weight: 700; }
+  .verdict.ok { color: var(--good); } .verdict.no { color: var(--bad); }
+  .score { font-size: 0.9rem; font-weight: 600; }
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; display: none; max-width: 300px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 10px; font-size: 0.8rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); font-variant-numeric: tabular-nums;
+  }
+  #tip .r { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+  #tip .r span:first-child { display: inline-flex; align-items: center; gap: 5px; }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
+  a { color: var(--k0); }
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<div class="wrap">
+  <header>
+    <h1>Kernel Density Estimation</h1>
+    <div class="subtitle">A hands-on companion to &sect;16.3 of Murphy's <em>Probabilistic Machine Learning: An Introduction</em>. It covers the density kernels themselves (Gaussian, boxcar, Epanechnikov, tri-cube and triangle), how stacking one kernel on every data point gives the Parzen window estimator, how to choose the bandwidth, how a "balloon" version of the same idea turns into the KNN classifier, and how the same kernels give nonparametric regression (Nadaraya&ndash;Watson and LOESS). Every demo runs live in your browser. Built for CS 473 self-study.</div>
+    <nav class="toc">
+      <a href="#kernels">16.3.1 Density kernels</a>
+      <a href="#parzen">16.3.2 Parzen window</a>
+      <a href="#bandwidth">16.3.3 Choosing the bandwidth</a>
+      <a href="#twod">KDE in 2D</a>
+      <a href="#knn">16.3.4 KDE &rarr; KNN</a>
+      <a href="#regression">16.3.5 Kernel regression</a>
+      <a href="#quiz">Quiz &amp; cheat sheet</a>
+    </nav>
+  </header>
+
+  <!-- ============================== INTRO ============================== -->
+  <section class="block" id="intro">
+    <h2><span class="num">16.3</span>The idea in one picture</h2>
+    <div class="kicker">Put a small bump of probability on every data point. Add the bumps up. That's the density.</div>
+    <p>A Gaussian mixture model (&sect;3.5) estimates a density with $K$ bumps whose locations, widths and weights you have to <em>fit</em>, usually with EM. Kernel density estimation (KDE) gets rid of the fitting by going to the extreme: use <b>one bump per data point</b>, center it <em>on</em> that point, give every bump the same weight $1/N$ and the same width $h$. Nothing is learned except the single number $h$, called the <b>bandwidth</b>.</p>
+    <p>Because the number of "components" grows with the data, KDE is a <b>nonparametric</b> model, like the KNN classifier in &sect;16.1. Like KNN it is <b>exemplar-based</b>: you keep the whole training set around and do all the work at prediction time.</p>
+    <div class="callout"><b>Two meanings of "kernel".</b> In this section a kernel is a <em>density kernel</em>: a small, symmetric probability density used as a smoothing bump. In Chapter 17 you will meet <em>Mercer kernels</em> $\mathcal{K}(\mathbf{x}, \mathbf{x}')$, which measure similarity between two inputs and must give positive-definite Gram matrices. The Gaussian appears in both roles, which is why the names get mixed up, but the requirements are different.</div>
+  </section>
+
+  <!-- ============================== KERNELS ============================== -->
+  <div class="part"><h2>Part 1 &middot; Estimating a density</h2><p>The building block, the estimator, and the one knob that matters.</p></div>
+
+  <section class="block" id="kernels">
+    <h2><span class="num">16.3.1</span>Density kernels</h2>
+    <div class="kicker">A kernel is just a small, centered, symmetric bump with area 1.</div>
+    <p>A <b>density kernel</b> is a function $\mathcal{K}: \mathbb{R} \to \mathbb{R}_+$ that satisfies</p>
+    <div class="eqbox">
+      <div class="label">Requirements</div>
+      $$\int \mathcal{K}(x)\,dx = 1, \qquad \mathcal{K}(-x) = \mathcal{K}(x) \;\;\Rightarrow\;\; \int x\,\mathcal{K}(x)\,dx = 0$$
+    </div>
+    <p>So it is itself a probability density, centered at zero. You stretch it with a <b>bandwidth</b> $h &gt; 0$:</p>
+    <div class="eqbox">
+      <div class="label">Bandwidth-scaled kernel</div>
+      $$\mathcal{K}_h(x) = \frac{1}{h}\,\mathcal{K}\!\left(\frac{x}{h}\right)$$
+    </div>
+    <p>The $1/h$ in front keeps the area at 1: a wider bump has to be shorter. Here are the common choices. For the ones with <b>compact support</b>, $\mathbb{I}(|x|\le 1)$ means "zero outside $[-1, 1]$".</p>
+
+    <div class="scroll-x">
+    <table class="cheat" style="margin-top:8px">
+      <tr><th>Kernel</th><th>$\mathcal{K}(x)$</th><th>Compact</th><th>Smooth</th><th>Smooth at boundary</th><th>Std. dev. at $h=1$</th><th>Efficiency</th></tr>
+      <tr><td><span class="sw round" style="background:var(--k0)"></span> Gaussian</td><td>$\frac{1}{\sqrt{2\pi}}\, e^{-x^2/2}$</td><td class="c">no</td><td class="c">yes</td><td class="c">(none)</td><td>1.000</td><td>95.1%</td></tr>
+      <tr><td><span class="sw round" style="background:var(--k1)"></span> Boxcar</td><td>$\frac12\,\mathbb{I}(|x|\le1)$</td><td class="c">yes</td><td class="c">no</td><td class="c">no</td><td>0.577</td><td>92.9%</td></tr>
+      <tr><td><span class="sw round" style="background:var(--k2)"></span> Epanechnikov</td><td>$\frac34\,(1-x^2)\,\mathbb{I}(|x|\le1)$</td><td class="c">yes</td><td class="c">yes</td><td class="c">no</td><td>0.447</td><td>100%</td></tr>
+      <tr><td><span class="sw round" style="background:var(--k3)"></span> Tri-cube</td><td>$\frac{70}{81}\,(1-|x|^3)^3\,\mathbb{I}(|x|\le1)$</td><td class="c">yes</td><td class="c">yes</td><td class="c">yes</td><td>0.380</td><td>99.8%</td></tr>
+      <tr><td><span class="sw round" style="background:var(--k4)"></span> Triangle</td><td>$(1-|x|)\,\mathbb{I}(|x|\le1)$</td><td class="c">yes</td><td class="c">no</td><td class="c">no</td><td>0.408</td><td>98.6%</td></tr>
+    </table>
+    </div>
+    <p class="hint" style="margin-top:6px">"Smooth" means differentiable inside the support, and "smooth at boundary" means it also joins zero smoothly at $\pm1$. <b>Efficiency</b> is how the kernel's best-possible asymptotic error compares to the Epanechnikov kernel's, which is the optimal one under mean squared error. Every entry is above 92%. So the kernel's <em>shape</em> barely matters. Its <em>width</em> matters a lot (see &sect;16.3.3).</p>
+
+    <h3>Why pick one over another?</h3>
+    <ul>
+      <li><b>Gaussian:</b> infinitely smooth, so the estimate is smooth too. But it is never exactly zero, so every data point touches every query. That costs $O(N)$ per evaluation, and you can't skip far-away points.</li>
+      <li><b>Compact kernels</b> (boxcar, Epanechnikov, tri-cube, triangle): only points within distance $h$ count. With sorted data or a spatial index, evaluation gets much faster. The price is that the estimate can be <em>exactly zero</em> in gaps between data.</li>
+      <li><b>Boxcar:</b> the KDE is a staircase. It is a "moving histogram" that counts the points in a window (Demo 2).</li>
+      <li><b>Tri-cube:</b> compact <em>and</em> smooth all the way to its edges. That is why LOESS regression uses it (&sect;16.3.5).</li>
+    </ul>
+
+    <div class="demo">
+      <div class="demo-title">DEMO 1 &middot; Kernel gallery</div>
+      <p class="hint">Toggle kernels on and off and change the bandwidth $h$. Hover the plot to read off values. With <b>"same $h$"</b>, every kernel uses the formula above, so the compact ones look narrower: they reach zero at $\pm h$, while the Gaussian's standard deviation is $h$. Switch to <b>"same standard deviation"</b> to rescale each kernel so it has std. dev. $h$. That shows how similar the shapes really are.</p>
+      <div class="row" id="d1pills"><span class="lbl">Kernels</span></div>
+      <div class="row">
+        <span class="lbl">Scale</span>
+        <button class="pill on" data-d1scale="raw">same $h$</button>
+        <button class="pill" data-d1scale="sd">same standard deviation</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Bandwidth $h$</span><b id="d1hv">1.00</b></label><input id="d1h" type="range" min="0.25" max="2" step="0.01" value="1"></div>
+      </div>
+      <div class="plot"><svg id="d1svg" viewBox="0 0 640 280"></svg></div>
+      <div class="legend" id="d1leg"></div>
+      <div class="callout">What to notice: as you increase $h$ every curve gets wider <em>and</em> shorter, so its area stays 1. In "same standard deviation" mode, Gaussian, Epanechnikov, tri-cube and triangle almost lie on top of each other. The boxcar is the odd one out because of its hard edges.</div>
+    </div>
+  </section>
+
+  <!-- ============================== PARZEN ============================== -->
+  <section class="block" id="parzen">
+    <h2><span class="num">16.3.2</span>The Parzen window density estimator</h2>
+    <div class="kicker">One kernel per data point, each with weight 1/N.</div>
+    <p>Given data $\mathcal{D} = \{x_1, \ldots, x_N\}$, the <b>kernel density estimate</b> (also called the <b>Parzen window</b> estimator) is</p>
+    <div class="eqbox">
+      <div class="label">Kernel density estimate</div>
+      $$\hat{p}(x \mid \mathcal{D}) = \frac{1}{N}\sum_{n=1}^{N} \mathcal{K}_h(x - x_n)$$
+    </div>
+    <p>Each term is a kernel centered on a data point. Each one has area 1, so dividing by $N$ makes the total area 1. That means $\hat{p}$ is a real density, with no fitting step at all. In $D$ dimensions you use a multivariate kernel. Two standard options:</p>
+    <ul>
+      <li><b>RBF / radial kernel:</b> $\mathcal{K}_h(\mathbf{x}) \propto h^{-D}\,\mathcal{K}(\lVert\mathbf{x}\rVert/h)$, with the same bump in every direction. For the Gaussian this is $\mathcal{N}(\mathbf{x} \mid \mathbf{0}, h^2\mathbf{I})$.</li>
+      <li><b>Product kernel:</b> $\mathcal{K}_h(\mathbf{x}) = \prod_{d=1}^{D} \mathcal{K}_{h_d}(x_d)$, which allows a different bandwidth per feature.</li>
+    </ul>
+
+    <h3>The GMM view</h3>
+    <p>With a Gaussian kernel, $\hat{p}(\mathbf{x}) = \frac1N\sum_n \mathcal{N}(\mathbf{x} \mid \mathbf{x}_n, h^2\mathbf{I})$. That is <b>a GMM with $N$ components</b>: one per data point, means fixed at the data, equal weights $\pi_n = 1/N$, and a shared spherical covariance $h^2\mathbf{I}$. You trade EM's local optima and the choice of $K$ for storing every data point and doing $O(ND)$ work per evaluation.</p>
+
+    <h3>The histogram connection</h3>
+    <p>A histogram also estimates a density: count the points in each bin and divide by $N \times$ (bin width). Its answer depends on <em>where</em> the bin edges fall, though. Shift the grid and the shape changes. A <b>boxcar KDE</b> with bandwidth $h$ is a histogram with a bin of width $2h$ <em>centered on whatever point you query</em>. There is no grid, so no grid artifacts.</p>
+
+    <div class="demo">
+      <div class="demo-title">DEMO 2 &middot; Build a KDE by stacking bumps</div>
+      <p class="hint"><b>Click</b> empty space to add a data point. <b>Drag</b> a point to move it. <b>Click a point</b> without dragging to remove it. The thin curves are the individual terms $\frac1N \mathcal{K}_h(x - x_n)$, and the thick curve is their sum, $\hat{p}(x)$. Turn on the histogram and slide its origin to see how much a fixed bin grid can change the picture.</p>
+      <div class="row" id="d2pills"><span class="lbl">Kernel</span></div>
+      <div class="row">
+        <button class="pill on" id="d2bumps">Show individual bumps</button>
+        <button class="pill" id="d2hist">Overlay histogram (bin width 2h)</button>
+        <span style="width:8px"></span>
+        <button class="pill" id="d2rand">30 random points</button>
+        <button class="pill" id="d2reset">Reset</button>
+        <button class="pill" id="d2clear">Clear</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Bandwidth $h$</span><b id="d2hv">0.50</b></label><input id="d2h" type="range" min="0.05" max="2" step="0.01" value="0.5"></div>
+        <div class="ctrl"><label><span>Histogram origin (fraction of a bin)</span><b id="d2ov">0.00</b></label><input id="d2o" type="range" min="0" max="1" step="0.01" value="0"></div>
+      </div>
+      <div class="plot"><svg id="d2svg" class="touchnone" viewBox="0 0 640 300"></svg></div>
+      <div class="legend" id="d2leg"></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">Data points N</div><div class="v" id="d2n">&ndash;</div><div class="s">each bump has height scaled by 1/N</div></div>
+        <div class="tile"><div class="k">Area under $\hat p$</div><div class="v" id="d2area">&ndash;</div><div class="s">numerical integral over the visible range</div></div>
+        <div class="tile"><div class="k">Bumps touching the cursor</div><div class="v" id="d2touch">&ndash;</div><div class="s">points with $\mathcal{K}_h(x - x_n) &gt; 0$</div></div>
+        <div class="tile"><div class="k">$\hat p$ at cursor</div><div class="v" id="d2px">&ndash;</div><div class="s" id="d2pxs">hover the plot</div></div>
+      </div>
+      <div class="callout">Try it: pick the <b>boxcar</b> kernel and turn on the histogram. The KDE staircase never depends on an origin, but the histogram jumps around as you move the origin slider. Then switch to a compact kernel with small $h$ and drag two points apart. $\hat p$ drops to <em>exactly zero</em> between them. A Gaussian kernel never does that.</div>
+    </div>
+  </section>
+
+  <!-- ============================== BANDWIDTH ============================== -->
+  <section class="block hl" id="bandwidth">
+    <h2><span class="num">16.3.3</span>How to choose the bandwidth</h2>
+    <div class="kicker">The kernel's shape barely matters. Its width is everything.</div>
+    <p>The bandwidth $h$ is a classic <b>bias&ndash;variance</b> knob:</p>
+    <ul>
+      <li><b>$h$ too small:</b> $\hat p$ is a row of spikes, one per data point. It follows the noise in this particular sample (<b>high variance</b>), and as $h \to 0$ it turns into a sum of delta functions.</li>
+      <li><b>$h$ too large:</b> real structure, like two separate modes, gets smeared into one blob (<b>high bias</b>). As $h \to \infty$, $\hat p$ becomes one wide kernel.</li>
+    </ul>
+
+    <h3>Rule of thumb</h3>
+    <p>If the true density were Gaussian with std. dev. $\sigma$ and you used a Gaussian kernel, the $h$ that minimizes the asymptotic mean integrated squared error is</p>
+    <div class="eqbox">
+      <div class="label">Silverman's rule of thumb (1D, Gaussian kernel)</div>
+      $$h = \left(\frac{4}{3N}\right)^{1/5}\hat\sigma \approx 1.06\,\hat\sigma\,N^{-1/5}, \qquad \hat\sigma = 1.4826\;\mathrm{MAD}(x) = 1.4826\;\mathrm{median}\big(|x - \mathrm{median}(x)|\big)$$
+    </div>
+    <p>The median absolute deviation (MAD) is a <b>robust</b> stand-in for $\sigma$: the factor 1.4826 makes it match $\sigma$ for Gaussian data, and outliers don't inflate it. In $D$ dimensions you can apply the rule to each dimension separately to get a per-dimension $h_d$ for a product kernel. Note the $N^{-1/5}$: <b>more data means a narrower kernel</b>, but slowly. You need $2^5 = 32\times$ the data to halve $h$.</p>
+    <p>The rule is only exact when the data really are Gaussian. For multimodal data it <b>oversmooths</b>, because $\hat\sigma$ measures the overall spread, not the width of each mode.</p>
+
+    <h3>Cross-validation</h3>
+    <p>A data-driven alternative is to pick the $h$ that maximizes the <b>leave-one-out log-likelihood</b>. Each point is scored by a KDE built from all the <em>other</em> points:</p>
+    <div class="eqbox">
+      <div class="label">Leave-one-out CV for the bandwidth</div>
+      $$\mathrm{LOO}(h) = \frac1N \sum_{i=1}^{N} \log\!\Big(\frac{1}{N-1}\sum_{j \ne i} \mathcal{K}_h(x_i - x_j)\Big)$$
+    </div>
+    <p>Leaving the point out is essential. If $x_i$ were included, its own bump would contribute $\mathcal{K}_h(0) = \mathcal{K}(0)/h$, which goes to infinity as $h \to 0$. The likelihood would always pick the spikiest possible estimate. That is the same overfitting problem as a GMM component collapsing onto a single point.</p>
+
+    <div class="demo">
+      <div class="demo-title">DEMO 3 &middot; The bandwidth lab</div>
+      <p class="hint">Samples are drawn from a known density (dashed). Move $h$ and watch the KDE (solid). Turn on <b>20 resamples</b> to see the variance: each faint curve is a KDE from a fresh sample of the same size. The bottom-left charts score every $h$. <b>LOO log-likelihood</b> uses only the data. <b>ISE</b> (integrated squared error, $\int(\hat p - p)^2$) needs the true density, which you never have in practice. Click either chart to set $h$.</p>
+      <div class="row" id="d3truth"><span class="lbl">True density</span></div>
+      <div class="row" id="d3pills"><span class="lbl">Kernel</span></div>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Sample size N</span><b id="d3nv">100</b></label><input id="d3n" type="range" min="0" max="6" step="1" value="3"></div>
+        <div class="ctrl"><label><span>Bandwidth $h$ (log scale)</span><b id="d3hv">&ndash;</b></label><input id="d3h" type="range" min="0" max="1000" step="1" value="500"></div>
+      </div>
+      <div class="row">
+        <button class="pill primary" id="d3silv">Use Silverman's h</button>
+        <button class="pill primary" id="d3cv">Use LOO-CV best h</button>
+        <button class="pill" id="d3resample">New sample</button>
+        <button class="pill" id="d3ghost">Show 20 resamples</button>
+      </div>
+      <div class="plot"><svg id="d3svg" viewBox="0 0 640 280"></svg></div>
+      <div class="legend" id="d3leg"></div>
+      <div class="two" style="margin-top:14px">
+        <div>
+          <div class="panel-h">Scoring every bandwidth</div>
+          <div class="plot"><svg id="d3crit" viewBox="0 0 400 300"></svg></div>
+          <div class="legend" id="d3critleg"></div>
+        </div>
+        <div>
+          <div class="panel-h">Best possible ISE for each kernel (same sample)</div>
+          <p class="hint" style="margin:0 0 4px">Each kernel gets its own ISE-optimal $h$. If shape mattered much, these bars would differ a lot.</p>
+          <div class="bars" id="d3bars"></div>
+          <div class="readout" id="d3read"></div>
+        </div>
+      </div>
+      <div class="tiles">
+        <div class="tile"><div class="k">Current h</div><div class="v" id="d3t1">&ndash;</div><div class="s">set by the slider</div></div>
+        <div class="tile"><div class="k">Silverman's h</div><div class="v" id="d3t2">&ndash;</div><div class="s" id="d3t2s">rescaled for this kernel</div></div>
+        <div class="tile"><div class="k">LOO-CV best h</div><div class="v" id="d3t3">&ndash;</div><div class="s">uses data only</div></div>
+        <div class="tile good"><div class="k">ISE-optimal h</div><div class="v" id="d3t4">&ndash;</div><div class="s">"oracle", needs the true p</div></div>
+      </div>
+      <details>
+        <summary>How is Silverman's h rescaled for non-Gaussian kernels?</summary>
+        <div>
+          <p>The asymptotically optimal bandwidth depends on the kernel only through $\delta_\mathcal{K} = \big(R(\mathcal{K}) / \mu_2(\mathcal{K})^2\big)^{1/5}$, where $R(\mathcal{K}) = \int \mathcal{K}^2$ and $\mu_2(\mathcal{K}) = \int x^2\mathcal{K}$. So a bandwidth that is right for the Gaussian converts to kernel $\mathcal{K}$ by multiplying it by $\delta_\mathcal{K}/\delta_{\text{Gauss}}$. That works out to about 1.74&times; for the boxcar, 2.21&times; for Epanechnikov, 2.43&times; for the triangle and 2.61&times; for the tri-cube. This page computes the integrals numerically. It is the same "canonical bandwidth" idea that makes the bars in this demo comparable.</p>
+        </div>
+      </details>
+      <div class="callout">Things to try. (1) <b>Bimodal</b>, N = 100: Silverman's rule smooths away the dip between the modes, while LOO-CV keeps it. (2) <b>Spike + broad</b>: no single $h$ works. A small $h$ captures the spike but makes the tails wiggly, and a large $h$ flattens the spike. That motivates <em>adaptive</em> bandwidths, like the balloon estimator in &sect;16.3.4. (3) <b>Uniform</b>: every kernel leaks mass past the hard edges. This is <em>boundary bias</em>. (4) Raise N and the best $h$ shrinks, roughly like $N^{-1/5}$. (5) With a compact kernel and tiny $h$, LOO drops to $-\infty$: some point has no other point within $h$.</div>
+    </div>
+  </section>
+
+  <!-- ============================== 2D ============================== -->
+  <section class="block" id="twod">
+    <h2><span class="num">16.3.2</span>KDE in two dimensions</h2>
+    <div class="kicker">The same sum of bumps, now as a surface.</div>
+    <p>Nothing changes in higher dimensions except the shape of the bump. This demo uses <b>product kernels</b>, $\mathcal{K}_h(\mathbf{x}) = h^{-2}\,\mathcal{K}(x_1/h)\,\mathcal{K}(x_2/h)$. For the Gaussian, that is identical to the round RBF kernel. For a boxcar it puts a little <em>square</em> on every point, which makes the kernel's footprint easy to see.</p>
+    <p>One warning from &sect;16.1.2 still applies: in high dimensions, every point is far from every other point. To catch enough neighbors, $h$ must be so large that the estimate loses detail. KDE works best in low dimensions, or on a low-dimensional embedding like the ones in &sect;16.2.</p>
+    <div class="demo">
+      <div class="demo-title">DEMO 4 &middot; Paint a 2D density</div>
+      <p class="hint"><b>Click</b> to add points, or <b>drag</b> to paint a stroke of them. Darker shading means higher $\hat p(\mathbf{x})$. Lines are contours at 10%, 30%, 50%, 70% and 90% of the peak.</p>
+      <div class="row" id="d4pills"><span class="lbl">Kernel</span></div>
+      <div class="row">
+        <button class="pill" id="d4rand">Example data</button>
+        <button class="pill" id="d4clear">Clear</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Bandwidth $h$</span><b id="d4hv">0.40</b></label><input id="d4h" type="range" min="0.08" max="1.5" step="0.01" value="0.4"></div>
+      </div>
+      <div class="two">
+        <div class="plot" style="aspect-ratio:1"><canvas id="d4cv" width="400" height="400"></canvas><svg id="d4svg" class="touchnone" viewBox="0 0 400 400"></svg></div>
+        <div>
+          <div class="tiles" style="grid-template-columns:1fr 1fr; margin-top:0">
+            <div class="tile"><div class="k">Points N</div><div class="v" id="d4n">&ndash;</div><div class="s">= mixture components</div></div>
+            <div class="tile"><div class="k">Area with $\hat p = 0$</div><div class="v" id="d4zero">&ndash;</div><div class="s">compact kernels only</div></div>
+          </div>
+          <div class="readout" id="d4read">Hover the plot to read $\hat p(\mathbf{x})$.</div>
+          <p class="hint" style="margin-top:10px">Compare the <b>boxcar</b> (a blocky quilt of squares, with zero density in the gaps) to the <b>Gaussian</b> (smooth everywhere, never zero). Set $h$ very small and the estimate turns into isolated dots, each one an overfit "cluster" of a single point.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== KNN ============================== -->
+  <div class="part"><h2>Part 2 &middot; Using the density</h2><p>A density estimate in each class gives a classifier. A density over $(x, y)$ gives a regression curve.</p></div>
+
+  <section class="block hl" id="knn">
+    <h2><span class="num">16.3.4</span>From KDE to KNN classification</h2>
+    <div class="kicker">KNN is a generative classifier that uses an adaptive-width density estimate.</div>
+    <p>To classify with densities, use Bayes' rule: estimate a class-conditional density $p(\mathbf{x} \mid y = c)$ for each class, multiply by the prior $p(y = c) = N_c/N$, and normalize. There are two ways to estimate those densities locally.</p>
+    <h3>Option 1: fixed window (Parzen)</h3>
+    <p>Fix the bandwidth $h$ and fit a KDE to each class separately. The posterior is the kernel-weighted vote of the training points:</p>
+    <div class="eqbox">
+      <div class="label">Parzen classifier</div>
+      $$p(y=c \mid \mathbf{x}) = \frac{\frac{N_c}{N}\cdot\frac{1}{N_c}\sum_{n:\,y_n=c}\mathcal{K}_h(\mathbf{x}-\mathbf{x}_n)}{\sum_{c'} \frac{N_{c'}}{N}\cdot\frac{1}{N_{c'}}\sum_{n:\,y_n=c'}\mathcal{K}_h(\mathbf{x}-\mathbf{x}_n)} = \frac{\sum_{n:\,y_n=c}\mathcal{K}_h(\mathbf{x}-\mathbf{x}_n)}{\sum_{n}\mathcal{K}_h(\mathbf{x}-\mathbf{x}_n)}$$
+    </div>
+    <p>The problem: one $h$ can't suit both dense and sparse regions. With a compact kernel, any query that has no training point within $h$ gets $0/0$, and the classifier has no answer.</p>
+    <h3>Option 2: fixed count (the balloon)</h3>
+    <p>Flip it around. Instead of fixing the window and counting points, fix the count $K$ and <b>grow a ball around $\mathbf{x}$ until it holds $K$ points</b>. Call its volume $V(\mathbf{x})$, and let $N_c(\mathbf{x})$ be how many of those $K$ points are in class $c$. The <b>balloon kernel density estimate</b> is then the fraction of class-$c$ data per unit volume:</p>
+    <div class="eqbox">
+      <div class="label">Balloon density &rarr; KNN</div>
+      $$p(\mathbf{x} \mid y = c) \approx \frac{N_c(\mathbf{x})}{N_c\,V(\mathbf{x})}, \qquad p(y=c) = \frac{N_c}{N} \;\;\Rightarrow\;\; p(y = c \mid \mathbf{x}) = \frac{\frac{N_c(\mathbf{x})}{N\,V(\mathbf{x})}}{\sum_{c'}\frac{N_{c'}(\mathbf{x})}{N\,V(\mathbf{x})}} = \frac{N_c(\mathbf{x})}{K}$$
+    </div>
+    <p>The volume and $N$ cancel, and what's left is <b>the KNN classifier from &sect;16.1</b>: the fraction of the $K$ nearest neighbors in each class. So KNN is not just a heuristic. It is a <b>generative classifier</b> that plugs in a nonparametric density estimate with a <em>data-adaptive bandwidth</em>: the ball is small where the data are dense and large where they are sparse. It never returns $0/0$.</p>
+
+    <div class="demo">
+      <div class="demo-title">DEMO 5 &middot; Fixed window versus fixed count</div>
+      <p class="hint">Two classes (<span style="color:var(--k0)">&#9679;</span> class A, <span style="color:var(--k1)">&#9632;</span> class B). The background shows $p(y = \text{B} \mid \mathbf{x})$: blue for A, orange for B, and fading toward the background color where the posterior is near 0.5. <b>Hatched</b> regions are where the Parzen classifier gets $0/0$. <b>Click</b> anywhere to move the query point (&#10010;). Its window or balloon is drawn, and the readout shows the arithmetic.</p>
+      <div class="row">
+        <span class="lbl">Method</span>
+        <button class="pill on" data-d5mode="parzen">Parzen (fixed h)</button>
+        <button class="pill" data-d5mode="knn">Balloon / KNN (fixed K)</button>
+        <span style="width:8px"></span>
+        <button class="pill" id="d5resample">New sample</button>
+      </div>
+      <div class="row" id="d5pills"><span class="lbl">Parzen kernel</span></div>
+      <div class="ctrls">
+        <div class="ctrl" id="d5hctrl"><label><span>Window radius $h$</span><b id="d5hv">0.50</b></label><input id="d5h" type="range" min="0.1" max="1.5" step="0.01" value="0.5"></div>
+        <div class="ctrl" id="d5kctrl" style="display:none"><label><span>Neighbors $K$</span><b id="d5kv">7</b></label><input id="d5k" type="range" min="1" max="41" step="2" value="7"></div>
+      </div>
+      <div class="two">
+        <div class="plot" style="aspect-ratio:1"><canvas id="d5cv" width="400" height="400"></canvas><svg id="d5svg" class="touchnone" viewBox="0 0 400 400"></svg></div>
+        <div>
+          <div class="tiles" style="grid-template-columns:1fr 1fr; margin-top:0">
+            <div class="tile good"><div class="k">Leave-one-out accuracy</div><div class="v" id="d5acc">&ndash;</div><div class="s" id="d5accs">over points with an answer</div></div>
+            <div class="tile"><div class="k">Area with no answer (0/0)</div><div class="v" id="d5undef">&ndash;</div><div class="s">hatched region</div></div>
+          </div>
+          <div class="readout" id="d5read"></div>
+          <div class="legend" id="d5leg"></div>
+        </div>
+      </div>
+      <div class="callout">What to notice: with a <b>Parzen boxcar</b> and small $h$, the outskirts are hatched, because no training point is close enough to vote. Switch to <b>KNN</b> and every query gets an answer: the balloon (dashed circle) is tiny in the dense middle and large out in the empty corners. Small $K$ (or small $h$) gives a jagged, overfit boundary. Large $K$ (or large $h$) gives a smooth one that can underfit. It is the same bias&ndash;variance trade-off as Demo 3.</div>
+    </div>
+  </section>
+
+  <!-- ============================== REGRESSION ============================== -->
+  <section class="block hl" id="regression">
+    <h2><span class="num">16.3.5</span>Kernel regression</h2>
+    <div class="kicker">Predict y at x by averaging the training y's, weighted by how close their x's are.</div>
+    <h3>Nadaraya&ndash;Watson: the conditional mean of a KDE</h3>
+    <p>Fit a KDE to the <em>joint</em> distribution of $(x, y)$ using a product kernel: $\hat p(x, y) = \frac1N\sum_n \mathcal{K}_h(x - x_n)\,\mathcal{K}_h(y - y_n)$. Then compute the conditional mean $\mathbb{E}[y \mid x] = \int y\,\hat p(x,y)\,dy \,/\, \int \hat p(x,y)\,dy$. The $y$-kernel is a density centered at $y_n$, so $\int y\,\mathcal{K}_h(y - y_n)\,dy = y_n$ and $\int \mathcal{K}_h(y - y_n)\,dy = 1$. Everything about $y$'s kernel cancels except its center:</p>
+    <div class="eqbox">
+      <div class="label">Nadaraya&ndash;Watson estimator</div>
+      $$\hat\mu(x) = \mathbb{E}[y \mid x, \mathcal{D}] = \sum_{n=1}^{N} y_n\,w_n(x), \qquad w_n(x) = \frac{\mathcal{K}_h(x - x_n)}{\sum_{n'=1}^{N}\mathcal{K}_h(x - x_{n'})}$$
+    </div>
+    <p>The weights are non-negative and sum to 1. So the prediction is a <b>locally weighted average</b> of the training targets. This is <b>kernel regression</b>, also called kernel smoothing. It is "soft" KNN regression: a boxcar kernel gives the plain average of every point within $h$. You can also read off a predictive variance. If the $y$-kernel has variance $\sigma^2$,</p>
+    <div class="eqbox">
+      <div class="label">Predictive variance</div>
+      $$\mathbb{V}[y \mid x, \mathcal{D}] = \sigma^2 + \sum_{n} w_n(x)\,y_n^2 - \hat\mu(x)^2$$
+    </div>
+    <p>That is the kernel's own spread plus the weighted spread of the nearby targets. It is large where nearby $y$'s disagree.</p>
+
+    <h3>LOESS: fit a local line instead of a local constant</h3>
+    <p>Nadaraya&ndash;Watson is the solution of a <b>locally weighted least squares</b> problem with a constant model: $\hat\mu(x) = \arg\min_{\beta_0}\sum_n w_n(x)(y_n - \beta_0)^2$. If you fit a <em>line</em> around each query instead,</p>
+    <div class="eqbox">
+      <div class="label">Locally weighted (linear) regression</div>
+      $$(\hat\beta_0, \hat\beta_1) = \arg\min_{\beta_0, \beta_1} \sum_n \mathcal{K}_h(x - x_n)\big(y_n - \beta_0 - \beta_1(x_n - x)\big)^2, \qquad \hat\mu(x) = \hat\beta_0$$
+    </div>
+    <p>you get <b>LOESS</b> (or LOWESS, "locally weighted scatterplot smoothing"), which classically uses the tri-cube kernel. Every query solves its own small weighted least-squares problem. The payoff is at the <b>edges of the data</b>. Near the left edge, every neighbor lies to the right, so a local <em>average</em> is pulled toward their values and flattens out (<b>boundary bias</b>). A local <em>line</em> follows the trend straight to the edge.</p>
+
+    <div class="demo">
+      <div class="demo-title">DEMO 6 &middot; Kernel regression and LOESS</div>
+      <p class="hint">The gray dashed curve is the true function, and the dots are noisy samples of it. <b>Drag the vertical query line</b> (or click anywhere) to move $x$. Point sizes and the bars underneath show the weights $w_n(x)$. In LOESS mode, the short segment is the local line fitted at $x$.</p>
+      <div class="row">
+        <span class="lbl">Method</span>
+        <button class="pill on" data-d6m="nw">Nadaraya&ndash;Watson (local constant)</button>
+        <button class="pill" data-d6m="ll">LOESS (local linear)</button>
+      </div>
+      <div class="row" id="d6pills"><span class="lbl">Kernel</span></div>
+      <div class="row">
+        <button class="pill on" id="d6band">&plusmn;2 sd band</button>
+        <button class="pill on" id="d6truth">True function</button>
+        <button class="pill" id="d6resample">New sample</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Bandwidth $h$ (log scale)</span><b id="d6hv">&ndash;</b></label><input id="d6h" type="range" min="0" max="1000" step="1" value="420"></div>
+        <div class="ctrl"><label><span>$y$-kernel std. dev. $\sigma$ (band only)</span><b id="d6sv">0.15</b></label><input id="d6s" type="range" min="0" max="0.6" step="0.01" value="0.15"></div>
+      </div>
+      <div class="plot"><svg id="d6svg" class="touchnone" viewBox="0 0 640 380"></svg></div>
+      <div class="legend" id="d6leg"></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">Prediction at query</div><div class="v" id="d6pred">&ndash;</div><div class="s" id="d6preds"></div></div>
+        <div class="tile"><div class="k">Effective # neighbors</div><div class="v" id="d6ess">&ndash;</div><div class="s">$1 / \sum_n w_n^2$ at the query</div></div>
+        <div class="tile"><div class="k">LOO-CV mean squared error</div><div class="v" id="d6cv">&ndash;</div><div class="s">predict each $y_i$ without it</div></div>
+        <div class="tile good"><div class="k">Error vs true function</div><div class="v" id="d6true">&ndash;</div><div class="s">mean squared, over $[0, 6]$</div></div>
+      </div>
+      <div class="callout">Try it: (1) Slide $h$ to the far left. NW turns into "connect the nearest dots" and chases the noise (low LOO-CV score, high true error). Slide it to the far right and NW becomes the global mean of $y$, while LOESS becomes the global least-squares line. (2) At a medium $h$, drag the query to $x = 0$ or $x = 6$. NW bends toward the flat average there, and LOESS doesn't. (3) Pick the <b>boxcar</b> with small $h$ in NW mode. The curve becomes a staircase with gaps where no point is within $h$.</div>
+    </div>
+    <details>
+      <summary>How is this different from a Gaussian process?</summary>
+      <div><p>Both use a kernel to say "nearby inputs have similar outputs", but they do it differently. Kernel regression <em>averages</em> the training targets with fixed, normalized weights. A Gaussian process (&sect;17.2) uses a Mercer kernel as a <em>covariance</em> and solves a linear system, $\mathbf{K}^{-1}\mathbf{y}$. Its weights can be negative, they don't need to sum to 1, and they account for correlations between training points. GPs cost $O(N^3)$ to train, while kernel regression has no training step at all and costs $O(N)$ per query.</p></div>
+    </details>
+  </section>
+
+  <!-- ============================== QUIZ ============================== -->
+  <section class="block" id="quiz">
+    <h2><span class="num">Check</span>Quiz &amp; cheat sheet</h2>
+    <div class="kicker">Click an answer to see the reasoning.</div>
+    <div id="quizbox"></div>
+    <div class="score" id="quizscore"></div>
+
+    <h3>Cheat sheet</h3>
+    <div class="scroll-x">
+    <table class="cheat">
+      <tr><th>Concept</th><th>Formula</th><th>Key fact</th></tr>
+      <tr><td>Density kernel</td><td>$\int\mathcal{K}=1$, $\mathcal{K}(-x)=\mathcal{K}(x)$; $\mathcal{K}_h(x) = \mathcal{K}(x/h)/h$</td><td>Shape matters little (efficiency &gt; 92%). Compact kernels are faster but can give exactly 0.</td></tr>
+      <tr><td>Parzen / KDE</td><td>$\hat p(x) = \frac1N\sum_n\mathcal{K}_h(x-x_n)$</td><td>No training. Store all data, $O(ND)$ per query.</td></tr>
+      <tr><td>GMM view</td><td>$\frac1N\sum_n\mathcal{N}(\mathbf{x}\mid\mathbf{x}_n, h^2\mathbf{I})$</td><td>A GMM with $N$ fixed, equal-weight components.</td></tr>
+      <tr><td>Boxcar KDE</td><td>count in $[x-h, x+h]$ $/\,(2hN)$</td><td>A histogram whose bin is centered on the query. No origin artifacts.</td></tr>
+      <tr><td>Silverman</td><td>$h = (4/(3N))^{1/5}\,\hat\sigma$, $\hat\sigma = 1.4826\,\mathrm{MAD}$</td><td>Optimal for Gaussian data. Oversmooths multimodal data. $h \propto N^{-1/5}$.</td></tr>
+      <tr><td>LOO-CV</td><td>$\max_h \frac1N\sum_i\log\hat p_{-i}(x_i)$</td><td>Must leave $x_i$ out, or $h \to 0$ wins.</td></tr>
+      <tr><td>Parzen classifier</td><td>$p(c\mid\mathbf{x}) \propto \sum_{n\in c}\mathcal{K}_h(\mathbf{x}-\mathbf{x}_n)$</td><td>Fixed window. $0/0$ in empty regions (compact kernel).</td></tr>
+      <tr><td>Balloon &rarr; KNN</td><td>$p(\mathbf{x}\mid c) \approx \frac{N_c(\mathbf{x})}{N_c V(\mathbf{x})}$ &rArr; $p(c\mid\mathbf{x}) = \frac{N_c(\mathbf{x})}{K}$</td><td>Fixed count, adaptive volume. KNN is a generative classifier.</td></tr>
+      <tr><td>Nadaraya&ndash;Watson</td><td>$\hat\mu(x) = \sum_n w_n(x) y_n$, $w_n \propto \mathcal{K}_h(x-x_n)$</td><td>Conditional mean of a joint KDE. Local constant fit. Boundary bias.</td></tr>
+      <tr><td>LOESS</td><td>weighted least-squares line around each $x$</td><td>Local linear fit (tri-cube). Fixes boundary bias.</td></tr>
+    </table>
+    </div>
+    <div class="callout"><b>One-sentence summary.</b> KDE puts a bump of width $h$ on every training point. Summing the bumps gives a density, voting with them gives a classifier (with an adaptive width, that's KNN), and averaging the targets under them gives a regression. In all three, the bandwidth sets the bias&ndash;variance trade-off and the kernel's shape is a detail.</div>
+  </section>
+
+  <div class="foot">Companion to K. P. Murphy, <em>Probabilistic Machine Learning: An Introduction</em> (MIT Press, 2022), &sect;16.3. All data are simulated from fixed seeds. Every estimator is written from scratch in plain JavaScript. Equations follow the chapter's notation, but this page is a study aid, not a substitute for the text.</div>
+</div>
+
+<script>
+// ============================================================
+// Shared helpers
+// ============================================================
+const $ = id => document.getElementById(id);
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : (v === -Infinity ? '−∞' : '–'));
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function randn(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+function svgPt(svg, evt) {
+  const p = svg.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+function lowerBound(a, v) { let lo = 0, hi = a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] < v) lo = m + 1; else hi = m; } return lo; }
+const tip = $('tip');
+function showTip(evt, html) {
+  tip.innerHTML = html; tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = evt.clientX + 14, y = evt.clientY + 14;
+  if (x + w > window.innerWidth - 8) x = evt.clientX - w - 14;
+  if (y + h > window.innerHeight - 8) y = evt.clientY - h - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+function hexRGB(h) {
+  h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+// ---------- kernels ----------
+const KERNELS = [
+  { id: 'gauss', name: 'Gaussian', c: 'var(--k0)', r: 6, f: x => Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI) },
+  { id: 'box', name: 'Boxcar', c: 'var(--k1)', r: 1, f: x => (Math.abs(x) <= 1 ? 0.5 : 0) },
+  { id: 'epan', name: 'Epanechnikov', c: 'var(--k2)', r: 1, f: x => (Math.abs(x) <= 1 ? 0.75 * (1 - x * x) : 0) },
+  { id: 'tricube', name: 'Tri-cube', c: 'var(--k3)', r: 1, f: x => { const a = Math.abs(x); if (a > 1) return 0; const t = 1 - a * a * a; return 70 / 81 * t * t * t; } },
+  { id: 'tri', name: 'Triangle', c: 'var(--k4)', r: 1, f: x => { const a = Math.abs(x); return a <= 1 ? 1 - a : 0; } },
+];
+const KBY = Object.fromEntries(KERNELS.map(k => [k.id, k]));
+// numerical moments: sd, R(K) = ∫K², mu2 = ∫x²K, canonical delta
+KERNELS.forEach(k => {
+  const L = k.r === 1 ? 1 : 8, n = 20000, dx = 2 * L / n;
+  let m2 = 0, R = 0;
+  for (let i = 0; i <= n; i++) {
+    const x = -L + i * dx, w = (i === 0 || i === n) ? 0.5 : 1, v = k.f(x);
+    m2 += w * x * x * v * dx; R += w * v * v * dx;
+  }
+  k.sd = Math.sqrt(m2); k.R = R; k.mu2 = m2; k.delta = Math.pow(R / (m2 * m2), 0.2);
+});
+const Kh = (k, u, h) => k.f(u / h) / h;
+// KDE sum over sorted data using the kernel's support window
+function kdeAt(sorted, x, h, k) {
+  const w = k.r * h, lo = lowerBound(sorted, x - w), hi = lowerBound(sorted, x + w + 1e-12);
+  let s = 0;
+  for (let i = lo; i < hi; i++) s += k.f((x - sorted[i]) / h);
+  return s / (h * sorted.length);
+}
+function swatch(c, cls = 'round') { return `<span class="sw ${cls}" style="background:${c};border-color:${c}"></span>`; }
+function kernelPills(container, ids, onSel, multi, initial) {
+  const box = $(container);
+  ids.forEach(id => {
+    const k = KBY[id], b = document.createElement('button');
+    b.className = 'pill' + (initial.includes(id) ? ' on' : ''); b.dataset.k = id;
+    b.innerHTML = `<span class="dot" style="background:${k.c}"></span>${k.name}`;
+    b.addEventListener('click', () => {
+      if (multi) b.classList.toggle('on');
+      else { box.querySelectorAll('button').forEach(x => x.classList.remove('on')); b.classList.add('on'); }
+      onSel([...box.querySelectorAll('button.on')].map(x => x.dataset.k));
+    });
+    box.appendChild(b);
+  });
+}
+function pillGroup(attr, onSel) {
+  const btns = document.querySelectorAll(`[data-${attr}]`);
+  btns.forEach(b => b.addEventListener('click', () => {
+    btns.forEach(x => x.classList.remove('on')); b.classList.add('on'); onSel(b.dataset[attr.replace(/-./g, m => m[1].toUpperCase())]);
+  }));
+}
+function toggle(id, onChange) {
+  const b = $(id); b.addEventListener('click', () => { b.classList.toggle('on'); onChange(b.classList.contains('on')); });
+  return () => b.classList.contains('on');
+}
+
+// ---------- plotting frame ----------
+function Frame(W, H, m, xd, yd, xlog = false) {
+  const tx = v => xlog ? Math.log(v) : v;
+  const X = v => m.l + (tx(v) - tx(xd[0])) / (tx(xd[1]) - tx(xd[0])) * (W - m.l - m.r);
+  const Y = v => H - m.b - (v - yd[0]) / (yd[1] - yd[0]) * (H - m.t - m.b);
+  const ix = px => { const t = tx(xd[0]) + (px - m.l) / (W - m.l - m.r) * (tx(xd[1]) - tx(xd[0])); return xlog ? Math.exp(t) : t; };
+  return { W, H, m, xd, yd, X, Y, ix, x0: m.l, x1: W - m.r, y0: H - m.b, y1: m.t };
+}
+function axesSVG(F, { xt = [], yt = [], xf = v => v, yf = v => v, xlabel = '', ylabel = '' }) {
+  let s = '';
+  yt.forEach(v => { const y = F.Y(v); s += `<line class="grid" x1="${F.x0}" x2="${F.x1}" y1="${y}" y2="${y}"/><text class="muted" x="${F.x0 - 6}" y="${y + 4}" text-anchor="end" font-size="11">${yf(v)}</text>`; });
+  s += `<line class="axis" x1="${F.x0}" x2="${F.x1}" y1="${F.y0}" y2="${F.y0}"/>`;
+  xt.forEach(v => { const x = F.X(v); s += `<line class="axis" x1="${x}" x2="${x}" y1="${F.y0}" y2="${F.y0 + 4}"/><text class="muted" x="${x}" y="${F.y0 + 17}" text-anchor="middle" font-size="11">${xf(v)}</text>`; });
+  if (xlabel) s += `<text class="muted" x="${(F.x0 + F.x1) / 2}" y="${F.H - 4}" text-anchor="middle" font-size="11">${xlabel}</text>`;
+  if (ylabel) s += `<text class="muted" x="${F.x0}" y="${F.y1 - 8}" text-anchor="start" font-size="11">${ylabel}</text>`;
+  return s;
+}
+function pathD(F, xs, ys) {
+  let d = '', pen = false;
+  for (let i = 0; i < xs.length; i++) {
+    const y = ys[i];
+    if (!Number.isFinite(y)) { pen = false; continue; }
+    d += (pen ? 'L' : 'M') + F.X(xs[i]).toFixed(1) + ',' + F.Y(clamp(y, F.yd[0] - 1e3, F.yd[1] + 1e3)).toFixed(1);
+    pen = true;
+  }
+  return d;
+}
+const linspace = (a, b, n) => Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
+function niceTicks(a, b, n = 5) {
+  const span = b - a, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(s => s * mag).find(s => span / s <= n) || 10 * mag;
+  const out = []; for (let v = Math.ceil(a / step) * step; v <= b + 1e-9; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+
+// ============================================================
+// DEMO 1 · kernel gallery
+// ============================================================
+(function demo1() {
+  const svg = $('d1svg');
+  let shown = KERNELS.map(k => k.id), mode = 'raw', h = 1, hoverX = null;
+  const xs = linspace(-3, 3, 601);
+  const hFor = k => mode === 'sd' ? h / k.sd : h;
+  function draw() {
+    const ks = shown.map(id => KBY[id]);
+    let ymax = 0.1;
+    // y range: fixed per (mode, h) using all kernels, so toggling doesn't rescale
+    KERNELS.forEach(k => { ymax = Math.max(ymax, k.f(0) / hFor(k)); });
+    ymax = Math.ceil(ymax * 1.1 * 10) / 10;
+    const F = Frame(640, 280, { l: 44, r: 16, t: 22, b: 30 }, [-3, 3], [0, ymax]);
+    let s = axesSVG(F, { xt: [-3, -2, -1, 0, 1, 2, 3], yt: niceTicks(0, ymax, 4), yf: v => v.toFixed(1), ylabel: 'K_h(x)', xlabel: 'x' });
+    // ±h marker
+    [-h, h].forEach(v => { const x = F.X(v); s += `<line x1="${x}" x2="${x}" y1="${F.y1}" y2="${F.y0}" stroke="var(--muted)" stroke-dasharray="3 4" stroke-width="1"/>`; });
+    s += `<text class="muted halo" x="${F.X(h) + 4}" y="${F.y1 + 10}" font-size="11">+h</text><text class="muted halo" x="${F.X(-h) - 4}" y="${F.y1 + 10}" font-size="11" text-anchor="end">−h</text>`;
+    ks.forEach(k => {
+      const hh = hFor(k), ys = xs.map(x => Kh(k, x, hh));
+      s += `<path d="${pathD(F, xs, ys)}" fill="none" stroke="${k.c}" stroke-width="2" stroke-linejoin="round"/>`;
+    });
+    if (hoverX !== null) {
+      const x = F.X(hoverX);
+      s += `<line x1="${x}" x2="${x}" y1="${F.y1}" y2="${F.y0}" stroke="var(--ink)" stroke-width="1" opacity=".5"/>`;
+      ks.forEach(k => { const v = Kh(k, hoverX, hFor(k)); s += `<circle cx="${x}" cy="${F.Y(v)}" r="4" fill="${k.c}" stroke="var(--panel)" stroke-width="2"/>`; });
+    }
+    s += `<rect x="${F.x0}" y="${F.y1}" width="${F.x1 - F.x0}" height="${F.y0 - F.y1}" fill="transparent" id="d1hit"/>`;
+    svg.innerHTML = s;
+    svg._F = F;
+    $('d1leg').innerHTML = ks.map(k => `<span>${swatch(k.c, 'line')}${k.name}${mode === 'sd' ? ` (h/${k.sd.toFixed(2)} = ${hFor(k).toFixed(2)} in the formula)` : ''}</span>`).join('');
+  }
+  kernelPills('d1pills', KERNELS.map(k => k.id), sel => { shown = sel; draw(); }, true, shown);
+  pillGroup('d1scale', v => { mode = v; draw(); });
+  $('d1h').addEventListener('input', e => { h = +e.target.value; $('d1hv').textContent = h.toFixed(2); draw(); });
+  svg.addEventListener('pointermove', e => {
+    const F = svg._F, p = svgPt(svg, e);
+    if (p.x < F.x0 || p.x > F.x1) { hoverX = null; hideTip(); draw(); return; }
+    hoverX = F.ix(p.x); draw();
+    const ks = shown.map(id => KBY[id]);
+    showTip(e, `<b>x = ${hoverX.toFixed(2)}</b>` + ks.map(k => `<div class="r"><span>${swatch(k.c)}${k.name}</span><b>${Kh(k, hoverX, hFor(k)).toFixed(3)}</b></div>`).join(''));
+  });
+  svg.addEventListener('pointerleave', () => { hoverX = null; hideTip(); draw(); });
+  draw();
+})();
+
+// ============================================================
+// DEMO 2 · stacking bumps
+// ============================================================
+(function demo2() {
+  const svg = $('d2svg');
+  const INIT = [-2.3, -1.7, -1.45, -0.35, 0.05, 0.2, 0.45, 1.6, 2.5];
+  let pts = INIT.slice(), kid = 'gauss', h = 0.5, origin = 0, hoverX = null;
+  let drag = null; // {i, moved, startX}
+  const showBumps = toggle('d2bumps', () => draw());
+  const showHist = toggle('d2hist', () => draw());
+  const xs = linspace(-4, 4, 801);
+  const F = Frame(640, 300, { l: 44, r: 16, t: 20, b: 46 }, [-4, 4], [0, 1]);
+  const RUG = F.y0 + 0; // points sit on the baseline
+  function draw() {
+    const k = KBY[kid], N = pts.length, sorted = pts.slice().sort((a, b) => a - b);
+    const ys = N ? xs.map(x => kdeAt(sorted, x, h, k)) : xs.map(() => 0);
+    // histogram
+    let hist = [];
+    if (showHist() && N) {
+      const w = 2 * h, o = origin * w, start = Math.floor((-4 - o) / w) * w + o;
+      for (let a = start; a < 4; a += w) {
+        const c = pts.filter(p => p >= a && p < a + w).length;
+        if (c) hist.push([a, a + w, c / (N * w)]);
+      }
+    }
+    let ymax = Math.max(0.2, ...ys, ...hist.map(b => b[2]));
+    ymax = Math.ceil(ymax * 1.15 * 10) / 10;
+    F.yd[1] = ymax;
+    let s = axesSVG(F, { xt: [-4, -3, -2, -1, 0, 1, 2, 3, 4], yt: niceTicks(0, ymax, 4), yf: v => v.toFixed(1), ylabel: 'density' });
+    hist.forEach(([a, b, v]) => {
+      const x0 = Math.max(F.X(a), F.x0) + 1, x1 = Math.min(F.X(b), F.x1) - 1;
+      if (x1 > x0) s += `<rect x="${x0}" y="${F.Y(v)}" width="${x1 - x0}" height="${F.y0 - F.Y(v)}" fill="var(--muted)" opacity=".18" stroke="var(--muted)" stroke-opacity=".5"/>`;
+    });
+    if (showBumps() && N) {
+      pts.forEach(p => {
+        const bx = xs.filter(x => Math.abs(x - p) <= k.r * h);
+        const by = bx.map(x => Kh(k, x - p, h) / N);
+        if (k.r === 1) { bx.unshift(p - h); by.unshift(0); bx.push(p + h); by.push(0); }
+        s += `<path d="${pathD(F, bx, by)}" fill="none" stroke="${k.c}" stroke-width="1.2" opacity=".55"/>`;
+      });
+    }
+    s += `<path d="${pathD(F, xs, ys)}" fill="none" stroke="var(--ink)" stroke-width="2.4" stroke-linejoin="round"/>`;
+    if (hoverX !== null) {
+      const x = F.X(hoverX), v = N ? kdeAt(sorted, hoverX, h, k) : 0;
+      s += `<line x1="${x}" x2="${x}" y1="${F.y1}" y2="${F.y0}" stroke="var(--ink)" opacity=".4"/>`;
+      s += `<circle cx="${x}" cy="${F.Y(v)}" r="4" fill="var(--ink)" stroke="var(--panel)" stroke-width="2"/>`;
+      if (k.r === 1) s += `<rect x="${F.X(hoverX - h)}" y="${F.y0 + 1}" width="${F.X(hoverX + h) - F.X(hoverX - h)}" height="6" fill="${k.c}" opacity=".35" rx="2"/>`;
+    }
+    pts.forEach((p, i) => {
+      s += `<circle cx="${F.X(p)}" cy="${RUG}" r="6" fill="${k.c}" stroke="var(--panel)" stroke-width="2" style="cursor:grab"/>`;
+    });
+    s += `<text class="muted" x="${F.x0}" y="${F.H - 6}" font-size="11">click empty space to add · drag to move · click a point to remove</text>`;
+    svg.innerHTML = s;
+    // tiles
+    let area = 0; const dx = xs[1] - xs[0]; ys.forEach((v, i) => area += v * dx * ((i === 0 || i === xs.length - 1) ? 0.5 : 1));
+    $('d2n').textContent = N; $('d2area').textContent = N ? area.toFixed(3) : '–';
+    if (hoverX !== null && N) {
+      const touch = pts.filter(p => Math.abs(hoverX - p) <= k.r * h && k.f((hoverX - p) / h) > 1e-12).length;
+      $('d2touch').textContent = k.r === 1 ? touch : `${N} (all)`;
+      $('d2px').textContent = kdeAt(sorted, hoverX, h, k).toFixed(3); $('d2pxs').textContent = `at x = ${hoverX.toFixed(2)}`;
+    } else { $('d2touch').textContent = '–'; $('d2px').textContent = '–'; $('d2pxs').textContent = 'hover the plot'; }
+    $('d2leg').innerHTML = `<span>${swatch('var(--ink)', 'line')}KDE p̂(x)</span>` + (showBumps() ? `<span>${swatch(k.c, 'line')}one bump, ${k.name} ÷ N</span>` : '') + (showHist() ? `<span>${swatch('var(--muted)')}histogram, bin width 2h = ${(2 * h).toFixed(2)}</span>` : '') + `<span>${swatch(k.c)}data point</span>`;
+  }
+  function nearest(px) {
+    let bi = -1, bd = 10;
+    pts.forEach((p, i) => { const d = Math.abs(F.X(p) - px); if (d < bd) { bd = d; bi = i; } });
+    return bi;
+  }
+  svg.addEventListener('pointerdown', e => {
+    const p = svgPt(svg, e); if (p.x < F.x0 || p.x > F.x1) return;
+    const i = Math.abs(p.y - RUG) < 22 ? nearest(p.x) : -1;
+    svg.setPointerCapture(e.pointerId);
+    if (i >= 0) drag = { i, moved: false, sx: p.x };
+    else { pts.push(F.ix(p.x)); drag = { i: pts.length - 1, moved: true, sx: p.x }; draw(); }
+  });
+  svg.addEventListener('pointermove', e => {
+    const p = svgPt(svg, e);
+    if (drag) {
+      if (Math.abs(p.x - drag.sx) > 3) drag.moved = true;
+      if (drag.moved) pts[drag.i] = clamp(F.ix(p.x), -3.98, 3.98);
+    }
+    hoverX = (p.x >= F.x0 && p.x <= F.x1) ? F.ix(p.x) : null;
+    draw();
+  });
+  svg.addEventListener('pointerup', () => { if (drag && !drag.moved) pts.splice(drag.i, 1); drag = null; draw(); });
+  svg.addEventListener('pointerleave', () => { if (!drag) { hoverX = null; draw(); } });
+  kernelPills('d2pills', KERNELS.map(k => k.id), sel => { kid = sel[0]; draw(); }, false, [kid]);
+  $('d2h').addEventListener('input', e => { h = +e.target.value; $('d2hv').textContent = h.toFixed(2); draw(); });
+  $('d2o').addEventListener('input', e => { origin = +e.target.value; $('d2ov').textContent = origin.toFixed(2); draw(); });
+  $('d2reset').addEventListener('click', () => { pts = INIT.slice(); draw(); });
+  $('d2clear').addEventListener('click', () => { pts = []; draw(); });
+  let seed = 7;
+  $('d2rand').addEventListener('click', () => {
+    const r = mulberry32(seed++); pts = [];
+    for (let i = 0; i < 30; i++) pts.push(clamp(r() < 0.6 ? -1.2 + 0.6 * randn(r) : 1.5 + 0.9 * randn(r), -3.9, 3.9));
+    draw();
+  });
+  draw();
+})();
+
+// ============================================================
+// DEMO 3 · bandwidth lab
+// ============================================================
+(function demo3() {
+  const SQ2PI = Math.sqrt(2 * Math.PI);
+  const npdf = (x, m, s) => Math.exp(-0.5 * ((x - m) / s) ** 2) / (s * SQ2PI);
+  const TRUTHS = {
+    bimodal: { name: 'Bimodal', pdf: x => 0.55 * npdf(x, -1.3, 0.5) + 0.45 * npdf(x, 1.3, 0.7),
+      sample: r => r() < 0.55 ? -1.3 + 0.5 * randn(r) : 1.3 + 0.7 * randn(r) },
+    gauss: { name: 'Gaussian', pdf: x => npdf(x, 0, 1), sample: r => randn(r) },
+    skew: { name: 'Skewed', pdf: x => { const z = x + 1.5; return z > 0 ? npdf(Math.log(z), 0, 0.6) / z : 0; }, sample: r => Math.exp(0.6 * randn(r)) - 1.5 },
+    spike: { name: 'Spike + broad', pdf: x => 0.75 * npdf(x, 0, 1.2) + 0.25 * npdf(x, 1, 0.12),
+      sample: r => r() < 0.75 ? 1.2 * randn(r) : 1 + 0.12 * randn(r) },
+    unif: { name: 'Uniform', pdf: x => (Math.abs(x) <= 1.5 ? 1 / 3 : 0), sample: r => -1.5 + 3 * r() },
+  };
+  const NS_ = [10, 20, 50, 100, 200, 500, 1000];
+  const HMIN = 0.02, HMAX = 3;
+  const hOf = v => HMIN * Math.pow(HMAX / HMIN, v / 1000);
+  const vOf = h => 1000 * Math.log(h / HMIN) / Math.log(HMAX / HMIN);
+  const HG = Array.from({ length: 48 }, (_, i) => HMIN * Math.pow(HMAX / HMIN, i / 47));
+  const XG = linspace(-4.5, 4.5, 301), DX = XG[1] - XG[0];
+  let truth = 'bimodal', kid = 'gauss', N = 100, h = 0.3, seed = 11, ghosts = false;
+  let data = [], sorted = [], ptrue = [], crit = null, perKernel = null, ghostSets = [];
+  function sample(s, n) { const r = mulberry32(s), T = TRUTHS[truth], out = []; for (let i = 0; i < n; i++) out.push(T.sample(r)); return out.sort((a, b) => a - b); }
+  function ise(sd, hh, k) { let e = 0; for (let i = 0; i < XG.length; i++) { const d = kdeAt(sd, XG[i], hh, k) - ptrue[i]; e += d * d; } return e * DX; }
+  function loo(sd, hh, k) {
+    const n = sd.length, w = k.r * hh; let s = 0;
+    for (let i = 0; i < n; i++) {
+      const x = sd[i], lo = lowerBound(sd, x - w), hi = lowerBound(sd, x + w + 1e-12);
+      let a = 0; for (let j = lo; j < hi; j++) if (j !== i) a += k.f((x - sd[j]) / hh);
+      a /= hh * (n - 1);
+      if (a <= 0) return -Infinity;
+      s += Math.log(a);
+    }
+    return s / n;
+  }
+  function silverman(sd, k) {
+    const n = sd.length, med = sd[n >> 1];
+    const dev = sd.map(x => Math.abs(x - med)).sort((a, b) => a - b), mad = dev[n >> 1];
+    const sig = 1.4826 * mad;
+    return Math.pow(4 / (3 * n), 0.2) * sig * k.delta / KBY.gauss.delta;
+  }
+  function recomputeData() {
+    data = sample(seed, N); sorted = data;
+    ptrue = XG.map(TRUTHS[truth].pdf);
+    perKernel = null; recomputeCrit(); recomputeGhosts();
+    setTimeout(() => { perKernel = KERNELS.map(k => { let best = Infinity, bh = 0; HG.forEach(hh => { const e = ise(sorted, hh, k); if (e < best) { best = e; bh = hh; } }); return { k, best, bh }; }); drawBars(); }, 0);
+  }
+  function recomputeCrit() {
+    const k = KBY[kid];
+    const L = HG.map(hh => loo(sorted, hh, k)), E = HG.map(hh => ise(sorted, hh, k));
+    let bi = 0, ei = 0;
+    L.forEach((v, i) => { if (v > L[bi]) bi = i; }); E.forEach((v, i) => { if (v < E[ei]) ei = i; });
+    // refine with golden-section-ish local search on a finer grid
+    const refine = (i, f, better) => { let bh = HG[i], bv = f(bh); const a = HG[Math.max(0, i - 1)], b = HG[Math.min(HG.length - 1, i + 1)]; for (let t = 0; t <= 40; t++) { const hh = a * Math.pow(b / a, t / 40), v = f(hh); if (better(v, bv)) { bv = v; bh = hh; } } return bh; };
+    const cvH = refine(bi, hh => loo(sorted, hh, k), (a, b) => a > b);
+    const iseH = refine(ei, hh => ise(sorted, hh, k), (a, b) => a < b);
+    crit = { L, E, cvH, iseH, silH: silverman(sorted, k) };
+  }
+  function recomputeGhosts() {
+    ghostSets = ghosts ? Array.from({ length: 20 }, (_, i) => sample(1000 + seed * 31 + i, N)) : [];
+  }
+  function drawMain() {
+    const k = KBY[kid];
+    const ys = XG.map(x => kdeAt(sorted, x, h, k));
+    const gys = ghostSets.map(sd => XG.map(x => kdeAt(sd, x, h, k)));
+    let ymax = Math.max(...ptrue) * 1.6;
+    ymax = Math.max(ymax, Math.min(Math.max(...ys) * 1.05, ymax * 2.2));
+    ymax = Math.ceil(ymax * 10) / 10;
+    const F = Frame(640, 280, { l: 44, r: 16, t: 20, b: 34 }, [-4.5, 4.5], [0, ymax]);
+    let s = axesSVG(F, { xt: [-4, -3, -2, -1, 0, 1, 2, 3, 4], yt: niceTicks(0, ymax, 4), yf: v => v.toFixed(1), ylabel: 'density' });
+    s += `<defs><clipPath id="d3clip"><rect x="${F.x0}" y="${F.y1 - 2}" width="${F.x1 - F.x0}" height="${F.y0 - F.y1 + 4}"/></clipPath></defs><g clip-path="url(#d3clip)">`;
+    gys.forEach(g => { s += `<path d="${pathD(F, XG, g)}" fill="none" stroke="${k.c}" stroke-width="1" opacity=".28"/>`; });
+    s += `<path d="${pathD(F, XG, ptrue)}" fill="none" stroke="var(--truth)" stroke-width="1.6" stroke-dasharray="5 4" opacity=".75"/>`;
+    s += `<path d="${pathD(F, XG, ys)}" fill="none" stroke="${k.c}" stroke-width="2.4" stroke-linejoin="round"/></g>`;
+    // rug (subsample for large N)
+    const step = Math.max(1, Math.floor(N / 300));
+    for (let i = 0; i < N; i += step) { const x = F.X(sorted[i]); if (x >= F.x0 && x <= F.x1) s += `<line x1="${x}" x2="${x}" y1="${F.y0}" y2="${F.y0 + 7}" stroke="var(--ink)" stroke-width="1" opacity=".45"/>`; }
+    // bandwidth bar
+    s += `<line x1="${F.X(3.4) - (F.X(h) - F.X(0))}" x2="${F.X(3.4) + (F.X(h) - F.X(0))}" y1="${F.y1 + 6}" y2="${F.y1 + 6}" stroke="${k.c}" stroke-width="3" stroke-linecap="round"/><text class="muted halo" x="${F.X(3.4)}" y="${F.y1 + 22}" text-anchor="middle" font-size="11">±h</text>`;
+    s += `<rect x="${F.x0}" y="${F.y1}" width="${F.x1 - F.x0}" height="${F.y0 - F.y1}" fill="transparent"/>`;
+    $('d3svg').innerHTML = s; $('d3svg')._F = F; $('d3svg')._ys = ys;
+    $('d3leg').innerHTML = `<span><span class="sw dash" style="border-color:var(--truth)"></span>true density p(x)</span><span>${swatch(k.c, 'line')}KDE, ${k.name}</span>` + (ghosts ? `<span>${swatch(k.c, 'line')}<span style="opacity:.6">20 other samples of size ${N}</span></span>` : '') + `<span><span class="sw" style="width:2px;height:10px;border-radius:0;background:var(--ink)"></span>data (rug)</span>`;
+  }
+  function drawCrit() {
+    const k = KBY[kid], svg = $('d3crit');
+    const Lf = crit.L.filter(Number.isFinite);
+    const top = Frame(400, 150, { l: 48, r: 12, t: 22, b: 8 }, [HMIN, HMAX], [0, 1], true);
+    const bot = Frame(400, 300, { l: 48, r: 12, t: 170, b: 34 }, [HMIN, HMAX], [0, 1], true);
+    let lmax = Math.max(...Lf), lmin = Math.min(...Lf); if (!Lf.length) { lmax = 0; lmin = -1; }
+    lmin = Math.max(lmin, lmax - 3); const pad = (lmax - lmin) * 0.1 || 0.1;
+    top.yd[0] = lmin - pad; top.yd[1] = lmax + pad;
+    const Ef = crit.E; let emax = Math.min(Math.max(...Ef), Math.min(...Ef) * 8 + 0.002); emax *= 1.08;
+    bot.yd[1] = emax;
+    const ht = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2];
+    let s = axesSVG(top, { yt: niceTicks(top.yd[0], top.yd[1], 3), yf: v => v.toFixed(1), ylabel: 'LOO log-likelihood per point ↑' });
+    s += axesSVG(bot, { xt: ht, xf: v => v, yt: niceTicks(0, emax, 3), yf: v => v < 0.01 ? v.toFixed(3) : v.toFixed(2), ylabel: 'ISE ↓', xlabel: 'bandwidth h (log scale)' });
+    s += `<defs><clipPath id="d3cc1"><rect x="${top.x0}" y="${top.y1}" width="${top.x1 - top.x0}" height="${top.y0 - top.y1}"/></clipPath><clipPath id="d3cc2"><rect x="${bot.x0}" y="${bot.y1}" width="${bot.x1 - bot.x0}" height="${bot.y0 - bot.y1}"/></clipPath></defs>`;
+    s += `<path clip-path="url(#d3cc1)" d="${pathD(top, HG, crit.L)}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
+    s += `<path clip-path="url(#d3cc2)" d="${pathD(bot, HG, crit.E)}" fill="none" stroke="var(--good)" stroke-width="2"/>`;
+    const firstFinite = crit.L.findIndex(Number.isFinite);
+    if (firstFinite > 0) { const x = top.X(HG[firstFinite]); s += `<rect x="${top.x0}" y="${top.y1}" width="${x - top.x0}" height="${top.y0 - top.y1}" fill="var(--bad)" opacity=".08"/><text class="halo" x="${top.x0 + 4}" y="${top.y0 - 6}" font-size="10" fill="var(--bad)" style="fill:var(--bad)">−∞</text>`; }
+    const vline = (hh, style, color) => [top, bot].map(F => `<line x1="${F.X(hh)}" x2="${F.X(hh)}" y1="${F.y1}" y2="${F.y0}" stroke="${color}" stroke-width="1.4" ${style}/>`).join('');
+    s += vline(crit.silH, 'stroke-dasharray="2 3"', 'var(--muted)');
+    s += vline(h, '', 'var(--ink)');
+    const Lv = loo(sorted, crit.cvH, k), Ev = ise(sorted, crit.iseH, k);
+    if (Number.isFinite(Lv) && Lv >= top.yd[0]) s += `<circle cx="${top.X(crit.cvH)}" cy="${top.Y(Lv)}" r="5" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>`;
+    s += `<circle cx="${bot.X(crit.iseH)}" cy="${bot.Y(Ev)}" r="5" fill="var(--good)" stroke="var(--panel)" stroke-width="2"/>`;
+    s += `<rect x="${top.x0}" y="${top.y1}" width="${top.x1 - top.x0}" height="${bot.y0 - top.y1}" fill="transparent" style="cursor:pointer"/>`;
+    svg.innerHTML = s; svg._F = top;
+    $('d3critleg').innerHTML = `<span>${swatch('var(--ink)', 'line')}current h</span><span><span class="sw dash" style="border-color:var(--muted)"></span>Silverman</span><span>${swatch('var(--accent)')}LOO best</span><span>${swatch('var(--good)')}ISE best</span>`;
+  }
+  function drawBars() {
+    if (!perKernel) { $('d3bars').innerHTML = '<span class="hint">computing…</span>'; return; }
+    const mx = Math.max(...perKernel.map(p => p.best));
+    $('d3bars').innerHTML = perKernel.map(p => `<div class="brow"><span class="name">${swatch(p.k.c)}${p.k.name}</span><div class="track"><div class="fill" style="width:${(p.best / mx * 100).toFixed(1)}%;background:${p.k.c}"></div></div><span class="val">${p.best.toFixed(4)} at h=${p.bh.toFixed(2)}</span></div>`).join('');
+    const g = perKernel[0].best, worst = perKernel.reduce((a, b) => (b.best > a.best ? b : a)), bestK = perKernel.reduce((a, b) => (b.best < a.best ? b : a));
+    $('d3read').innerHTML = `Best kernel here: <b>${bestK.k.name}</b>. The worst (${worst.k.name}) is only ${((worst.best / bestK.best - 1) * 100).toFixed(0)}% worse. Compare that with the current h, which gives ISE = <b>${ise(sorted, h, KBY[kid]).toFixed(4)}</b> for ${KBY[kid].name}. Notice the optimal h values differ a lot between kernels even though their errors don't.`;
+  }
+  function tiles() {
+    $('d3hv').textContent = h.toFixed(3); $('d3t1').textContent = h.toFixed(3);
+    $('d3t2').textContent = crit.silH.toFixed(3); $('d3t2s').innerHTML = kid === 'gauss' ? '(4/(3N))<sup>1/5</sup> · 1.4826 · MAD' : `Gaussian rule × ${(KBY[kid].delta / KBY.gauss.delta).toFixed(2)}`;
+    $('d3t3').textContent = crit.cvH.toFixed(3); $('d3t4').textContent = crit.iseH.toFixed(3);
+  }
+  function drawAll() { drawMain(); drawCrit(); tiles(); drawBars(); }
+  const setH = v => { h = clamp(v, HMIN, HMAX); $('d3h').value = vOf(h); drawAll(); };
+  // controls
+  const tbox = $('d3truth');
+  Object.entries(TRUTHS).forEach(([id, T]) => {
+    const b = document.createElement('button'); b.className = 'pill' + (id === truth ? ' on' : ''); b.textContent = T.name;
+    b.addEventListener('click', () => { tbox.querySelectorAll('button').forEach(x => x.classList.remove('on')); b.classList.add('on'); truth = id; recomputeData(); drawAll(); });
+    tbox.appendChild(b);
+  });
+  kernelPills('d3pills', KERNELS.map(k => k.id), sel => { kid = sel[0]; recomputeCrit(); drawAll(); }, false, [kid]);
+  $('d3n').addEventListener('input', e => { N = NS_[+e.target.value]; $('d3nv').textContent = N; recomputeData(); drawAll(); });
+  $('d3h').addEventListener('input', e => { h = hOf(+e.target.value); drawAll(); });
+  $('d3silv').addEventListener('click', () => setH(crit.silH));
+  $('d3cv').addEventListener('click', () => setH(crit.cvH));
+  $('d3resample').addEventListener('click', () => { seed++; recomputeData(); drawAll(); });
+  $('d3ghost').addEventListener('click', e => { ghosts = !ghosts; e.currentTarget.classList.toggle('on', ghosts); recomputeGhosts(); drawAll(); });
+  const cs = $('d3crit');
+  cs.addEventListener('click', e => { const F = cs._F, p = svgPt(cs, e); if (p.x >= F.x0 && p.x <= F.x1) setH(F.ix(p.x)); });
+  cs.addEventListener('pointermove', e => {
+    const F = cs._F, p = svgPt(cs, e); if (p.x < F.x0 || p.x > F.x1) { hideTip(); return; }
+    const hh = F.ix(p.x), k = KBY[kid];
+    showTip(e, `<b>h = ${hh.toFixed(3)}</b><div class="r"><span>${swatch('var(--accent)')}LOO log-lik</span><b>${fmt(loo(sorted, hh, k), 3)}</b></div><div class="r"><span>${swatch('var(--good)')}ISE</span><b>${ise(sorted, hh, k).toFixed(4)}</b></div><div class="hint">click to use this h</div>`);
+  });
+  cs.addEventListener('pointerleave', hideTip);
+  const ms = $('d3svg');
+  ms.addEventListener('pointermove', e => {
+    const F = ms._F, p = svgPt(ms, e); if (p.x < F.x0 || p.x > F.x1) { hideTip(); return; }
+    const x = F.ix(p.x), k = KBY[kid];
+    showTip(e, `<b>x = ${x.toFixed(2)}</b><div class="r"><span><span class="sw dash" style="border-color:var(--truth)"></span>true p(x)</span><b>${TRUTHS[truth].pdf(x).toFixed(3)}</b></div><div class="r"><span>${swatch(k.c, 'line')}KDE p̂(x)</span><b>${kdeAt(sorted, x, h, k).toFixed(3)}</b></div>`);
+  });
+  ms.addEventListener('pointerleave', hideTip);
+  recomputeData();
+  h = crit.silH; $('d3h').value = vOf(h);
+  drawAll();
+})();
+
+// ============================================================
+// DEMO 4 · 2D KDE painter
+// ============================================================
+(function demo4() {
+  const svg = $('d4svg'), cv = $('d4cv'), ctx = cv.getContext('2d');
+  const L = 3, G = 120; // domain [-3,3]^2, grid G×G
+  const toPx = v => (v + L) / (2 * L) * 400, toV = p => p / 400 * 2 * L - L;
+  let pts = [], kid = 'gauss', h = 0.4, painting = false, last = null, grid = null, peak = 1;
+  function example() {
+    const r = mulberry32(5); pts = [];
+    for (let i = 0; i < 40; i++) pts.push([-1.2 + 0.45 * randn(r), 1.0 + 0.45 * randn(r)]);
+    for (let i = 0; i < 30; i++) { const t = r() * Math.PI; pts.push([0.9 + 1.2 * Math.cos(t) + 0.15 * randn(r), -0.6 - 1.2 * Math.sin(t) + 0.15 * randn(r)]); }
+    for (let i = 0; i < 6; i++) pts.push([2.1 + 0.25 * randn(r), 2.0 + 0.25 * randn(r)]);
+  }
+  function dens(x, y) {
+    const k = KBY[kid], w = k.r * h; let s = 0;
+    for (const p of pts) { const dx = x - p[0], dy = y - p[1]; if (Math.abs(dx) > w || Math.abs(dy) > w) continue; s += k.f(dx / h) * k.f(dy / h); }
+    return pts.length ? s / (h * h * pts.length) : 0;
+  }
+  function compute() {
+    grid = new Float64Array(G * G); peak = 0; let zero = 0;
+    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) {
+      const v = dens(-L + (i + 0.5) / G * 2 * L, L - (j + 0.5) / G * 2 * L);
+      grid[j * G + i] = v; if (v > peak) peak = v; if (v <= 0) zero++;
+    }
+    $('d4zero').textContent = pts.length ? (100 * zero / (G * G)).toFixed(0) + '%' : '–';
+    $('d4n').textContent = pts.length;
+  }
+  function paint() {
+    const off = document.createElement('canvas'); off.width = G; off.height = G;
+    const octx = off.getContext('2d'), img = octx.createImageData(G, G);
+    const ink = hexRGB(cssv('--k3')), bg = hexRGB(cssv('--panel'));
+    for (let n = 0; n < G * G; n++) {
+      const t = peak > 0 ? Math.pow(grid[n] / peak, 0.75) : 0, a = 0.85 * t;
+      for (let c = 0; c < 3; c++) img.data[4 * n + c] = Math.round(bg[c] * (1 - a) + ink[c] * a);
+      img.data[4 * n + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = kid === 'gauss' || kid === 'epan' || kid === 'tricube';
+    ctx.clearRect(0, 0, 400, 400); ctx.drawImage(off, 0, 0, 400, 400);
+  }
+  // marching squares contours
+  function contours() {
+    let s = '';
+    if (!pts.length || peak <= 0) return s;
+    const cell = 400 / G;
+    [0.1, 0.3, 0.5, 0.7, 0.9].forEach(fr => {
+      const lev = fr * peak; let d = '';
+      for (let j = 0; j < G - 1; j++) for (let i = 0; i < G - 1; i++) {
+        const a = grid[j * G + i], b = grid[j * G + i + 1], c = grid[(j + 1) * G + i + 1], e = grid[(j + 1) * G + i];
+        const idx = (a > lev ? 8 : 0) | (b > lev ? 4 : 0) | (c > lev ? 2 : 0) | (e > lev ? 1 : 0);
+        if (idx === 0 || idx === 15) continue;
+        const x = (i + 0.5) * cell, y = (j + 0.5) * cell;
+        const lerp = (p, q) => (lev - p) / (q - p);
+        const T = [x + cell * lerp(a, b), y], R = [x + cell, y + cell * lerp(b, c)], B = [x + cell * lerp(e, c), y + cell], Lf = [x, y + cell * lerp(a, e)];
+        const segs = { 1: [[Lf, B]], 2: [[B, R]], 3: [[Lf, R]], 4: [[T, R]], 5: [[Lf, T], [B, R]], 6: [[T, B]], 7: [[Lf, T]], 8: [[Lf, T]], 9: [[T, B]], 10: [[Lf, B], [T, R]], 11: [[T, R]], 12: [[Lf, R]], 13: [[B, R]], 14: [[Lf, B]] }[idx];
+        segs.forEach(([p, q]) => { d += `M${p[0].toFixed(1)},${p[1].toFixed(1)}L${q[0].toFixed(1)},${q[1].toFixed(1)}`; });
+      }
+      s += `<path d="${d}" fill="none" stroke="var(--ink)" stroke-width="${fr === 0.5 ? 1.3 : 0.8}" opacity=".55"/>`;
+    });
+    return s;
+  }
+  function drawSVG() {
+    let s = contours();
+    pts.forEach(p => { s += `<circle cx="${toPx(p[0])}" cy="${toPx(-p[1])}" r="3" fill="var(--ink)" stroke="var(--panel)" stroke-width="1"/>`; });
+    if (pts.length) {
+      const k = KBY[kid], w = (k.r === 1 ? h : 2 * h) / (2 * L) * 400, p = pts[pts.length - 1];
+      s += `<rect x="${toPx(p[0]) - w}" y="${toPx(-p[1]) - w}" width="${2 * w}" height="${2 * w}" fill="none" stroke="${k.c}" stroke-width="1.5" stroke-dasharray="4 3" rx="${kid === 'gauss' ? w : 0}"/>`;
+      s += `<text class="halo" x="${toPx(p[0]) + w + 4}" y="${toPx(-p[1]) + 4}" font-size="11">${kid === 'gauss' ? 'radius 2h' : 'support ±h'}</text>`;
+    } else s += `<text class="muted" x="200" y="200" text-anchor="middle">click or drag to add points</text>`;
+    svg.innerHTML = s;
+  }
+  function full() { compute(); paint(); drawSVG(); }
+  svg.addEventListener('pointerdown', e => { svg.setPointerCapture(e.pointerId); painting = true; const p = svgPt(svg, e); last = p; pts.push([toV(p.x), -toV(p.y)]); full(); });
+  svg.addEventListener('pointermove', e => {
+    const p = svgPt(svg, e);
+    if (painting && Math.hypot(p.x - last.x, p.y - last.y) > 14) { last = p; pts.push([toV(p.x), -toV(p.y)]); full(); }
+    if (!painting) { const v = dens(toV(p.x), -toV(p.y)); $('d4read').innerHTML = `At (${toV(p.x).toFixed(2)}, ${(-toV(p.y)).toFixed(2)}): <b>p̂ = ${v.toFixed(4)}</b>` + (pts.length && peak > 0 ? ` (${(100 * v / peak).toFixed(0)}% of the peak)` : ''); }
+  });
+  svg.addEventListener('pointerup', () => { painting = false; });
+  kernelPills('d4pills', ['gauss', 'box', 'epan', 'tricube'], sel => { kid = sel[0]; full(); }, false, [kid]);
+  $('d4h').addEventListener('input', e => { h = +e.target.value; $('d4hv').textContent = h.toFixed(2); full(); });
+  $('d4rand').addEventListener('click', () => { example(); full(); });
+  $('d4clear').addEventListener('click', () => { pts = []; full(); });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => paint());
+  example(); full();
+})();
+
+// ============================================================
+// DEMO 5 · Parzen classifier vs balloon KNN
+// ============================================================
+(function demo5() {
+  const svg = $('d5svg'), cv = $('d5cv'), ctx = cv.getContext('2d');
+  const L = 3, G = 140;
+  const toPx = v => (v + L) / (2 * L) * 400, toV = p => p / 400 * 2 * L - L;
+  let X = [], Y = [], mode = 'parzen', kid = 'box', h = 0.5, K = 7, seed = 3, q = [0.2, 0.3];
+  function sample() {
+    const r = mulberry32(seed); X = []; Y = [];
+    const add = (n, mx, my, s, c) => { for (let i = 0; i < n; i++) { X.push([mx + s * randn(r), my + s * randn(r)]); Y.push(c); } };
+    add(28, -0.9, 0.7, 0.5, 0); add(18, 0.9, -1.1, 0.42, 0);
+    add(28, 0.7, 0.6, 0.5, 1); add(16, -1.0, -1.1, 0.38, 1);
+    X = X.map(p => [clamp(p[0], -2.9, 2.9), clamp(p[1], -2.9, 2.9)]);
+  }
+  // returns {pB, undef, nA, nB, radius}
+  function classify(x, y, skip = -1) {
+    if (mode === 'parzen') {
+      const k = KBY[kid]; let sA = 0, sB = 0, nA = 0, nB = 0;
+      for (let n = 0; n < X.length; n++) {
+        if (n === skip) continue;
+        const d = Math.hypot(x - X[n][0], y - X[n][1]); if (d > k.r * h) continue;
+        const w = k.f(d / h); if (w <= 0) continue;
+        if (Y[n]) { sB += w; nB++; } else { sA += w; nA++; }
+      }
+      const tot = sA + sB;
+      return { pB: tot > 0 ? sB / tot : NaN, undef: !(tot > 0), sA, sB, nA, nB };
+    }
+    const ds = [];
+    for (let n = 0; n < X.length; n++) if (n !== skip) ds.push([Math.hypot(x - X[n][0], y - X[n][1]), Y[n], n]);
+    ds.sort((a, b) => a[0] - b[0]);
+    const nb = ds.slice(0, K), nB = nb.filter(d => d[1] === 1).length;
+    return { pB: nB / K, undef: false, nA: K - nB, nB, radius: nb[K - 1][0], idx: nb.map(d => d[2]) };
+  }
+  function paint() {
+    const off = document.createElement('canvas'); off.width = G; off.height = G;
+    const octx = off.getContext('2d'), img = octx.createImageData(G, G);
+    const cA = hexRGB(cssv('--k0')), cB = hexRGB(cssv('--k1')), bg = hexRGB(cssv('--panel')), mu = hexRGB(cssv('--muted'));
+    let und = 0;
+    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) {
+      const r = classify(-L + (i + 0.5) / G * 2 * L, L - (j + 0.5) / G * 2 * L), n = 4 * (j * G + i);
+      let col;
+      if (r.undef) { und++; const stripe = ((i + j) % 6) < 2; col = stripe ? mu.map((m, c) => Math.round(bg[c] * 0.55 + m * 0.45)) : bg; }
+      else { const a = Math.abs(2 * r.pB - 1) * 0.5, tc = r.pB > 0.5 ? cB : cA; col = bg.map((b, c) => Math.round(b * (1 - a) + tc[c] * a)); }
+      img.data[n] = col[0]; img.data[n + 1] = col[1]; img.data[n + 2] = col[2]; img.data[n + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, 400, 400); ctx.drawImage(off, 0, 0, 400, 400);
+    $('d5undef').textContent = (100 * und / (G * G)).toFixed(0) + '%';
+    // LOO accuracy
+    let ok = 0, tot = 0, abst = 0;
+    X.forEach((p, n) => { const r = classify(p[0], p[1], n); if (r.undef) { abst++; return; } tot++; if ((r.pB > 0.5 ? 1 : r.pB < 0.5 ? 0 : -1) === Y[n]) ok++; });
+    $('d5acc').textContent = tot ? (100 * ok / tot).toFixed(0) + '%' : '–';
+    $('d5accs').textContent = abst ? `${abst} of ${X.length} points got no answer` : 'every point got an answer';
+  }
+  function drawSVG() {
+    const r = classify(q[0], q[1]);
+    let s = '';
+    const inside = new Set();
+    let rad;
+    if (mode === 'parzen') { const k = KBY[kid]; rad = k.r === 1 ? h : 2 * h; X.forEach((p, n) => { if (Math.hypot(p[0] - q[0], p[1] - q[1]) <= KBY[kid].r * h && KBY[kid].f(Math.hypot(p[0] - q[0], p[1] - q[1]) / h) > 0) inside.add(n); }); }
+    else { rad = r.radius; r.idx.forEach(n => inside.add(n)); }
+    const rp = rad / (2 * L) * 400, cx = toPx(q[0]), cy = toPx(-q[1]);
+    s += `<circle cx="${cx}" cy="${cy}" r="${rp}" fill="var(--ink)" fill-opacity=".05" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="${mode === 'knn' ? '5 4' : 'none'}"/>`;
+    X.forEach((p, n) => {
+      const x = toPx(p[0]), y = toPx(-p[1]), on = inside.has(n), sz = on ? 5.5 : 4;
+      const st = on ? 'stroke="var(--ink)" stroke-width="1.6"' : 'stroke="var(--panel)" stroke-width="1"';
+      s += Y[n] ? `<rect x="${x - sz}" y="${y - sz}" width="${2 * sz}" height="${2 * sz}" fill="var(--k1)" ${st}/>` : `<circle cx="${x}" cy="${y}" r="${sz + 0.5}" fill="var(--k0)" ${st}/>`;
+    });
+    s += `<path d="M${cx - 8},${cy}H${cx + 8}M${cx},${cy - 8}V${cy + 8}" stroke="var(--panel)" stroke-width="5" stroke-linecap="round"/><path d="M${cx - 8},${cy}H${cx + 8}M${cx},${cy - 8}V${cy + 8}" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/>`;
+    svg.innerHTML = s;
+    // readout
+    let t;
+    if (mode === 'parzen') {
+      const k = KBY[kid];
+      t = `Window ${k.id === 'gauss' ? '(Gaussian: every point counts; circle shows 2h)' : `radius h = ${h.toFixed(2)}`}: ${r.nA} A and ${r.nB} B points inside.<br>Kernel-weighted votes: $\\sum_A$ = ${r.sA.toFixed(2)}, $\\sum_B$ = ${r.sB.toFixed(2)}.<br>`;
+      t += r.undef ? `<b>p(B | x) = 0 / 0: no answer.</b> No training point lies within the window.` : `<b>p(B | x) = ${r.sB.toFixed(2)} / ${(r.sA + r.sB).toFixed(2)} = ${r.pB.toFixed(2)}</b>, so predict ${r.pB > 0.5 ? 'B' : r.pB < 0.5 ? 'A' : 'a tie'}.`;
+    } else {
+      const area = Math.PI * r.radius * r.radius, NA = Y.filter(y => !y).length, NB = Y.length - NA;
+      t = `Balloon grown to the ${K}th neighbor: radius ${r.radius.toFixed(2)}, area V = ${area.toFixed(2)}.<br>Inside: N<sub>A</sub>(x) = ${r.nA}, N<sub>B</sub>(x) = ${r.nB}. Class densities: p(x|A) ≈ ${r.nA}/(${NA}·${area.toFixed(2)}) = ${(r.nA / (NA * area)).toFixed(3)}, p(x|B) ≈ ${(r.nB / (NB * area)).toFixed(3)}.<br><b>p(B | x) = N<sub>B</sub>(x)/K = ${r.nB}/${K} = ${r.pB.toFixed(2)}</b>, so predict ${r.pB > 0.5 ? 'B' : 'A'}.`;
+    }
+    $('d5read').innerHTML = t.replace('$\\sum_A$', 'Σ<sub>A</sub>').replace('$\\sum_B$', 'Σ<sub>B</sub>');
+  }
+  function full() { paint(); drawSVG(); }
+  function setQ(e) { const p = svgPt(svg, e); q = [clamp(toV(p.x), -L, L), clamp(-toV(p.y), -L, L)]; drawSVG(); }
+  let down = false;
+  svg.addEventListener('pointerdown', e => { down = true; svg.setPointerCapture(e.pointerId); setQ(e); });
+  svg.addEventListener('pointermove', e => { if (down) setQ(e); });
+  svg.addEventListener('pointerup', () => { down = false; });
+  pillGroup('d5mode', m => {
+    mode = m; $('d5hctrl').style.display = m === 'parzen' ? '' : 'none'; $('d5kctrl').style.display = m === 'knn' ? '' : 'none';
+    $('d5pills').style.opacity = m === 'parzen' ? 1 : 0.4; full();
+  });
+  kernelPills('d5pills', ['box', 'epan', 'gauss'], sel => { kid = sel[0]; full(); }, false, [kid]);
+  $('d5h').addEventListener('input', e => { h = +e.target.value; $('d5hv').textContent = h.toFixed(2); full(); });
+  $('d5k').addEventListener('input', e => { K = +e.target.value; $('d5kv').textContent = K; full(); });
+  $('d5resample').addEventListener('click', () => { seed++; sample(); full(); });
+  $('d5leg').innerHTML = `<span>${swatch('var(--k0)')}class A</span><span><span class="sw" style="background:var(--k1)"></span>class B</span><span><span class="sw" style="background:repeating-linear-gradient(45deg,var(--muted) 0 2px,transparent 2px 6px)"></span>no answer (0/0)</span><span>outlined = inside the window/balloon</span>`;
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => paint());
+  sample(); full();
+})();
+
+// ============================================================
+// DEMO 6 · kernel regression and LOESS
+// ============================================================
+(function demo6() {
+  const svg = $('d6svg');
+  const f = x => Math.sin(1.3 * x) + 0.3 * x;
+  const HMIN = 0.03, HMAX = 8;
+  const hOf = v => HMIN * Math.pow(HMAX / HMIN, v / 1000);
+  let xs = [], ys = [], method = 'nw', kid = 'gauss', h = hOf(420), sig = 0.15, seed = 4, xq = 0.4;
+  const XG = linspace(0, 6, 361);
+  const F = Frame(640, 380, { l: 44, r: 16, t: 16, b: 110 }, [0, 6], [-1.8, 3.4]);
+  const WB = { y0: 368, y1: 312 }; // weight strip
+  const showBand = toggle('d6band', () => draw());
+  const showTruth = toggle('d6truth', () => draw());
+  function sample() {
+    const r = mulberry32(seed), n = 45; xs = []; ys = [];
+    for (let i = 0; i < n; i++) xs.push(6 * r());
+    xs.sort((a, b) => a - b);
+    xs.forEach(x => ys.push(f(x) + 0.3 * randn(r)));
+  }
+  function fit(x, skip = -1) {
+    const k = KBY[kid]; let S0 = 0, S1 = 0, S2 = 0, T0 = 0, T1 = 0, Q = 0, W2 = 0;
+    const w = [];
+    for (let n = 0; n < xs.length; n++) {
+      const wn = n === skip ? 0 : k.f((x - xs[n]) / h); w.push(wn);
+      if (wn <= 0) continue;
+      const d = xs[n] - x; S0 += wn; S1 += wn * d; S2 += wn * d * d; T0 += wn * ys[n]; T1 += wn * d * ys[n]; Q += wn * ys[n] * ys[n]; W2 += wn * wn;
+    }
+    if (S0 <= 1e-300) return { mu: NaN, w };
+    if (method === 'nw') {
+      const mu = T0 / S0, v = sig * sig + Q / S0 - mu * mu;
+      return { mu, v: Math.max(v, 0), w, S0, ess: S0 * S0 / W2 };
+    }
+    const det = S0 * S2 - S1 * S1;
+    if (det <= 1e-12 * S0 * S0 * Math.max(1e-6, h * h)) return { mu: NaN, w, S0, ess: S0 * S0 / W2 };
+    const a = (S2 * T0 - S1 * T1) / det, b = (S0 * T1 - S1 * T0) / det;
+    return { mu: a, slope: b, w, S0, ess: S0 * S0 / W2 };
+  }
+  function draw() {
+    const k = KBY[kid];
+    const fits = XG.map(x => fit(x));
+    const mu = fits.map(r => r.mu);
+    let s = axesSVG(F, { xt: [0, 1, 2, 3, 4, 5, 6], yt: [-1, 0, 1, 2, 3], ylabel: 'y' });
+    s += `<defs><clipPath id="d6clip"><rect x="${F.x0}" y="${F.y1}" width="${F.x1 - F.x0}" height="${F.y0 - F.y1}"/></clipPath></defs><g clip-path="url(#d6clip)">`;
+    if (showBand() && method === 'nw') {
+      let up = '', dn = '', segs = [], cur = [];
+      fits.forEach((r, i) => { if (Number.isFinite(r.mu)) cur.push(i); else if (cur.length) { segs.push(cur); cur = []; } });
+      if (cur.length) segs.push(cur);
+      segs.forEach(seg => {
+        const top = seg.map(i => `${F.X(XG[i]).toFixed(1)},${F.Y(fits[i].mu + 2 * Math.sqrt(fits[i].v)).toFixed(1)}`);
+        const bot = seg.slice().reverse().map(i => `${F.X(XG[i]).toFixed(1)},${F.Y(fits[i].mu - 2 * Math.sqrt(fits[i].v)).toFixed(1)}`);
+        s += `<path d="M${top.join('L')}L${bot.join('L')}Z" fill="${k.c}" opacity=".14"/>`;
+      });
+    }
+    if (showTruth()) s += `<path d="${pathD(F, XG, XG.map(f))}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+    s += `<path d="${pathD(F, XG, mu)}" fill="none" stroke="${k.c}" stroke-width="2.6" stroke-linejoin="round"/>`;
+    const rq = fit(xq), wmax = Math.max(...rq.w, 1e-12);
+    if (method === 'll' && Number.isFinite(rq.mu)) {
+      const a = Math.max(0, xq - 1.5 * h * (k.r === 1 ? 1 : 1.3)), b = Math.min(6, xq + 1.5 * h * (k.r === 1 ? 1 : 1.3));
+      const a2 = Math.max(a, xq - 1.2), b2 = Math.min(b, xq + 1.2);
+      s += `<line x1="${F.X(a2)}" y1="${F.Y(rq.mu + rq.slope * (a2 - xq))}" x2="${F.X(b2)}" y2="${F.Y(rq.mu + rq.slope * (b2 - xq))}" stroke="var(--ink)" stroke-width="1.8"/>`;
+    }
+    s += `</g>`;
+    // data points sized by weight
+    xs.forEach((x, n) => {
+      const w = rq.w[n] / wmax, r = 2.5 + 5 * w;
+      s += `<circle cx="${F.X(x)}" cy="${F.Y(ys[n])}" r="${r}" fill="${w > 0.001 ? k.c : 'var(--muted)'}" fill-opacity="${w > 0.001 ? 0.35 + 0.65 * w : 0.35}" stroke="var(--panel)" stroke-width="1"/>`;
+    });
+    // query line
+    const qx = F.X(xq);
+    s += `<line x1="${qx}" x2="${qx}" y1="${F.y1}" y2="${WB.y0}" stroke="var(--ink)" stroke-width="1.5" opacity=".7"/>`;
+    s += `<rect x="${qx - 9}" y="${F.y1}" width="18" height="${WB.y0 - F.y1}" fill="transparent" style="cursor:ew-resize"/>`;
+    if (Number.isFinite(rq.mu)) s += `<circle cx="${qx}" cy="${F.Y(rq.mu)}" r="6" fill="var(--ink)" stroke="var(--panel)" stroke-width="2.5"/>`;
+    s += `<text class="halo" x="${qx + 8}" y="${F.y1 + 12}" font-size="11">x = ${xq.toFixed(2)}</text>`;
+    // weight strip
+    s += `<text class="muted" x="${F.x0}" y="${WB.y1 - 8}" font-size="11">weights w_n(x) at the query</text>`;
+    s += `<line class="axis" x1="${F.x0}" x2="${F.x1}" y1="${WB.y0}" y2="${WB.y0}"/>`;
+    const tot = rq.w.reduce((a, b) => a + b, 0) || 1, wnmax = Math.max(...rq.w.map(w => w / tot), 1e-9);
+    xs.forEach((x, n) => {
+      const v = rq.w[n] / tot; if (v <= 1e-4) return;
+      const hgt = (WB.y0 - WB.y1) * v / wnmax;
+      s += `<rect x="${F.X(x) - 2}" y="${WB.y0 - hgt}" width="4" height="${hgt}" rx="1.5" fill="${k.c}"/>`;
+    });
+    s += `<text class="muted" x="${F.x1}" y="${WB.y1 - 8}" text-anchor="end" font-size="11">tallest = ${(wnmax * 100).toFixed(1)}%</text>`;
+    svg.innerHTML = s;
+    // tiles
+    $('d6pred').textContent = Number.isFinite(rq.mu) ? rq.mu.toFixed(2) : 'none';
+    $('d6preds').textContent = Number.isFinite(rq.mu) ? `true f(x) = ${f(xq).toFixed(2)}` : 'no point within h';
+    $('d6ess').textContent = Number.isFinite(rq.ess) ? rq.ess.toFixed(1) : '–';
+    let se = 0, cnt = 0;
+    xs.forEach((x, n) => { const r = fit(x, n); if (Number.isFinite(r.mu)) { se += (r.mu - ys[n]) ** 2; cnt++; } });
+    $('d6cv').textContent = cnt ? (se / cnt).toFixed(3) : '–';
+    let te = 0, tc = 0; fits.forEach((r, i) => { if (Number.isFinite(r.mu)) { te += (r.mu - f(XG[i])) ** 2; tc++; } });
+    $('d6true').textContent = tc ? (te / tc).toFixed(3) + (tc < XG.length ? '*' : '') : '–';
+    $('d6hv').textContent = h.toFixed(3);
+    $('d6leg').innerHTML = (showTruth() ? `<span><span class="sw dash" style="border-color:var(--muted)"></span>true f(x)</span>` : '') + `<span>${swatch(k.c, 'line')}${method === 'nw' ? 'Nadaraya–Watson' : 'LOESS'} estimate, ${k.name}</span>` + (showBand() && method === 'nw' ? `<span><span class="sw" style="background:${k.c};opacity:.3"></span>±2 sd</span>` : '') + (method === 'll' ? `<span>${swatch('var(--ink)', 'line')}local line at x</span>` : '') + `<span>${swatch(k.c)}data, size ∝ weight</span>`;
+  }
+  let dragging = false;
+  const setX = e => { const p = svgPt(svg, e); xq = clamp(F.ix(p.x), 0, 6); draw(); };
+  svg.addEventListener('pointerdown', e => { dragging = true; svg.setPointerCapture(e.pointerId); setX(e); });
+  svg.addEventListener('pointermove', e => { if (dragging) setX(e); });
+  svg.addEventListener('pointerup', () => { dragging = false; });
+  pillGroup('d6m', m => { method = m; $('d6band').style.opacity = m === 'nw' ? 1 : 0.4; draw(); });
+  kernelPills('d6pills', ['gauss', 'epan', 'tricube', 'box'], sel => { kid = sel[0]; draw(); }, false, [kid]);
+  $('d6h').addEventListener('input', e => { h = hOf(+e.target.value); draw(); });
+  $('d6s').addEventListener('input', e => { sig = +e.target.value; $('d6sv').textContent = sig.toFixed(2); draw(); });
+  $('d6resample').addEventListener('click', () => { seed++; sample(); draw(); });
+  sample(); draw();
+})();
+
+// ============================================================
+// Quiz
+// ============================================================
+(function quiz() {
+  const Q = [
+    { q: 'Which of these is NOT a requirement for a density kernel in §16.3.1?',
+      a: ['It integrates to 1', 'It is symmetric, K(−x) = K(x)', 'Its Gram matrix on any data set is positive definite'], c: 2,
+      e: 'That is the requirement for a Mercer kernel (Chapter 17). A density kernel just has to be a symmetric, zero-centered density, so the boxcar qualifies even though it is not smooth.' },
+    { q: 'Your KDE shows a separate narrow spike over every data point. What should you do?',
+      a: ['Increase h', 'Decrease h', 'Switch from Gaussian to Epanechnikov'], c: 0,
+      e: 'Spikes mean high variance: the bumps are too narrow to overlap. A larger h trades a bit of bias for much less variance. Changing kernel shape at the same effective width barely helps, since all common kernels are more than 92% efficient.' },
+    { q: 'By Silverman\'s rule, if you collect 32 times as much (Gaussian-ish) data, the bandwidth should…',
+      a: ['shrink by a factor of 32', 'shrink by a factor of 2', 'stay the same'], c: 1,
+      e: 'h ∝ N^{−1/5}, and 32^{1/5} = 2. Bandwidths shrink very slowly with N.' },
+    { q: 'Why does bandwidth selection by likelihood need leave-one-out?',
+      a: ['To make it faster', 'Because with x_i included, its own bump K(0)/h → ∞ as h → 0, so the "best" h would always be 0', 'Because the kernel must be symmetric'], c: 1,
+      e: 'Including the point rewards putting an infinitely tall spike on it. It is the same degenerate optimum as a GMM component collapsing onto a single point (§3.5). Leaving it out scores each point on how well the others predict it.' },
+    { q: 'How does a boxcar KDE differ from a histogram with bin width 2h?',
+      a: ['They are identical', 'The KDE centers its window on each query point, so it doesn\'t depend on a bin origin', 'The KDE uses Gaussian bins'], c: 1,
+      e: 'Both count points in a window of width 2h and divide by N·2h. The histogram fixes the windows to a grid, while the KDE slides the window with x. Demo 2\'s origin slider shows the histogram\'s grid artifacts.' },
+    { q: 'For a KNN classifier with K = 10, the balloon around x contains 7 points of class A and 3 of class B. What is p(y = A | x) under the balloon-KDE derivation?',
+      a: ['0.7', '7 / (N_A V)', 'Depends on the volume V'], c: 0,
+      e: 'p(x|c) ≈ N_c(x)/(N_c V) and p(c) = N_c/N, so the product is N_c(x)/(N V). V and N are the same for every class and cancel, which leaves N_c(x)/K = 7/10.' },
+    { q: 'In Nadaraya–Watson regression, what happens as h → ∞?',
+      a: ['It interpolates every data point', 'Every weight becomes equal, so the prediction is the global mean of y', 'It becomes the least-squares line'], c: 1,
+      e: 'All points get the same weight 1/N. The global least-squares line is what LOESS (local linear) gives in that limit. As h → 0, NW instead copies the nearest point\'s y.' },
+    { q: 'Near the left edge of the data, the true curve rises steeply, but Nadaraya–Watson\'s estimate flattens out. What is the standard fix?',
+      a: ['Use a Gaussian kernel', 'Fit a local line instead of a local constant (LOESS)', 'Use a larger h'], c: 1,
+      e: 'At the edge, all the neighbors are on one side, so a weighted average is biased toward their values. A local linear fit extrapolates the trend to the edge. A larger h makes the boundary bias worse.' },
+    { q: 'Compared with a 10-component GMM, what is the main practical cost of a Gaussian KDE on 1 million points?',
+      a: ['It needs EM, which is slow', 'Every density evaluation sums over all 10⁶ stored points', 'It cannot represent multimodal densities'], c: 1,
+      e: 'KDE has no training step, but it is memory-based. You keep all N points and pay O(ND) per query, versus O(KD) for a K-component GMM. Compact kernels plus spatial indexes (or approximations) are how large KDEs stay practical.' },
+  ];
+  const box = $('quizbox'); let score = 0, done = 0;
+  Q.forEach((it, qi) => {
+    const d = document.createElement('div'); d.className = 'quiz-q';
+    d.innerHTML = `<div class="sc"><b>${qi + 1}.</b> ${it.q}</div><div class="row">${it.a.map((a, i) => `<button class="pill" data-i="${i}">${a}</button>`).join('')}</div><div class="fb"></div>`;
+    d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      if (d.classList.contains('done')) return;
+      const i = +b.dataset.i, ok = i === it.c;
+      d.classList.add('done'); done++; if (ok) score++;
+      b.classList.add(ok ? 'right' : 'wrong');
+      if (!ok) d.querySelector(`button[data-i="${it.c}"]`).classList.add('right');
+      d.querySelector('.fb').innerHTML = `<span class="verdict ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'}</span> ${it.e}`;
+      $('quizscore').textContent = `Score: ${score} / ${done}` + (done === Q.length ? ` (all ${Q.length} answered)` : '');
+    }));
+    box.appendChild(d);
+  });
+})();
+
+// ============================================================
+// KaTeX
+// ============================================================
+function boot() {
+  if (!window.renderMathInElement) return;
+  renderMathInElement(document.body, {
+    delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
+    throwOnError: false,
+  });
+}
+if (window.renderMathInElement) boot(); else window.addEventListener('load', boot);
+</script>
+</body>
+</html>
