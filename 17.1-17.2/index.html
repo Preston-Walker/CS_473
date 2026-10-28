@@ -1,0 +1,1951 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mercer Kernels</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --soft: #fafaf9;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --gridline: #ecebe8;
+    --k0: #2a78d6; --k1: #eb6834; --k2: #1baf7a; --k3: #6250d6; --k4: #e87ba4; --k5: #c9a227;
+    /* heatmaps: positive / negative similarity */
+    --pos: #2a78d6; --neg: #e34948;
+    --good: #138a6a;
+    --bad: #e34948;
+    --band: #2a78d6;
+    --accent: #6a4bc4;
+    --callout-bg: #fbf3e8;
+    --callout-border: #ecd9b8;
+    --code-bg: #f1f0ed;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+      --border: #34342f; --gridline: #2a2a27;
+      --k0: #3987e5; --k1: #d95926; --k2: #199e70; --k3: #9085e9; --k4: #d55181; --k5: #d4b13f;
+      --pos: #4a92ea; --neg: #e66767;
+      --good: #2fb88e; --bad: #e66767; --band: #3987e5; --accent: #9a8ae6;
+      --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+    --border: #34342f; --gridline: #2a2a27;
+    --k0: #3987e5; --k1: #d95926; --k2: #199e70; --k3: #9085e9; --k4: #d55181; --k5: #d4b13f;
+    --pos: #4a92ea; --neg: #e66767;
+    --good: #2fb88e; --bad: #e66767; --band: #3987e5; --accent: #9a8ae6;
+    --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 30px 16px 70px; }
+  header h1 { font-size: 1.75rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  nav.toc { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a {
+    font-size: 0.78rem; text-decoration: none; color: var(--ink);
+    border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 3px 10px;
+  }
+  nav.toc a:hover { border-color: var(--ink); }
+  section.block {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px 24px 26px; margin-top: 26px; overflow-x: clip; position: relative;
+  }
+  section.block.hl { border-top: 4px solid var(--accent); }
+  @media (max-width: 560px) { section.block { padding: 18px 14px 20px; } }
+  section.block h2 { font-size: 1.22rem; margin: 0 0 4px; }
+  section.block h2 .num { color: var(--muted); font-weight: 600; font-size: 0.9rem; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .part { margin: 40px 0 -8px; }
+  .part h2 { font-size: 1.4rem; margin: 0 0 4px; }
+  .part p { color: var(--muted); margin: 0; font-size: 0.95rem; }
+  .kicker { color: var(--muted); font-size: 0.86rem; margin-bottom: 12px; font-style: italic; }
+  h3 { font-size: 0.98rem; margin: 20px 0 6px; }
+  p { margin: 0 0 12px; font-size: 0.95rem; }
+  ol, ul { font-size: 0.95rem; margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  .eqbox {
+    background: var(--soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 18px; margin: 14px 0; overflow-x: auto;
+  }
+  .eqbox .label { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .callout {
+    margin: 16px 0 0; padding: 10px 14px; border-radius: 8px;
+    background: var(--callout-bg); border: 1px solid var(--callout-border); font-size: 0.9rem;
+  }
+  details { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); }
+  details summary { cursor: pointer; padding: 8px 14px; font-size: 0.88rem; font-weight: 600; }
+  details > div { padding: 0 14px 12px; overflow-x: auto; font-size: 0.9rem; }
+  code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; font-size: 0.88em; }
+  .demo { border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 14px; }
+  .demo-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .two > * { min-width: 0; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+  .panel-h { font-size: 0.84rem; font-weight: 700; margin: 0 0 4px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .row .lbl { font-size: 0.76rem; color: var(--muted); font-weight: 600; margin-right: 2px; }
+  button.pill {
+    font-size: 0.8rem; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink); font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  button.pill:hover { border-color: var(--ink); }
+  button.pill.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button.pill.primary { border-color: var(--accent); font-weight: 600; }
+  button.pill.fake { border-style: dashed; }
+  button.pill .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  select {
+    font: inherit; font-size: 0.82rem; padding: 4px 8px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink);
+  }
+  input[type=text] {
+    font: inherit; font-size: 0.9rem; padding: 5px 9px; border-radius: 8px; width: 100%;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink);
+  }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 6px 0 10px; }
+  .ctrl { display: flex; flex-direction: column; gap: 2px; min-width: 180px; flex: 1; }
+  .ctrl[hidden] { display: none; }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .ctrl label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .tiles.three { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px) { .tiles, .tiles.three { grid-template-columns: 1fr 1fr; } }
+  .tile { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; min-width: 0; }
+  .tile .k { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+  .tile .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .tile .s { font-size: 0.72rem; color: var(--muted); }
+  .tile.good .v { color: var(--good); }
+  .tile.bad .v { color: var(--bad); }
+  svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  svg text { fill: var(--ink); font-family: inherit; font-size: 12px; }
+  svg .muted { fill: var(--muted); }
+  svg .axis { stroke: var(--border); }
+  svg .grid { stroke: var(--gridline); }
+  svg text.halo { paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  .plot { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; position: relative; }
+  .plot canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 8px; }
+  .plot svg { position: relative; }
+  .touchnone { touch-action: none; }
+  .grab { cursor: grab; }
+  .readout { font-size: 0.86rem; background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-variant-numeric: tabular-nums; margin-top: 8px; min-height: 2.6em; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+  .legend > span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw.line { height: 3px; border-radius: 2px; width: 18px; }
+  .sw.dash { height: 0; width: 18px; border-top: 2px dashed; border-radius: 0; background: none !important; }
+  .sw.round { border-radius: 50%; width: 10px; height: 10px; }
+  .sw.band { width: 18px; height: 10px; opacity: .25; }
+  table.cheat { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+  table.cheat th { text-align: left; font-size: 0.74rem; color: var(--muted); border-bottom: 2px solid var(--border); padding: 6px 8px; }
+  table.cheat td { border-bottom: 1px solid var(--border); padding: 8px 8px; vertical-align: top; }
+  table.cheat td:first-child { font-weight: 700; white-space: nowrap; }
+  .scroll-x { overflow-x: auto; }
+  .steps { list-style: none; padding: 0; margin: 8px 0; }
+  .steps li { border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; margin-bottom: 6px; font-size: 0.88rem; background: var(--soft); opacity: .6; overflow-x: auto; }
+  .steps li.on { opacity: 1; border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+  .steps li .rule { color: var(--muted); font-size: 0.8rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .chip { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8rem; border: 1px solid var(--border); background: var(--soft); border-radius: 6px; padding: 1px 6px; white-space: pre; }
+  .chip b { color: var(--k0); }
+  .quiz-q { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 10px 0; background: var(--soft); }
+  .quiz-q .sc { font-size: 0.92rem; margin-bottom: 8px; }
+  .quiz-q .fb { font-size: 0.86rem; margin-top: 8px; display: none; padding: 8px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); }
+  .quiz-q.done .fb { display: block; }
+  .quiz-q button.pill { text-align: left; }
+  .quiz-q button.pill.right { background: var(--good); border-color: var(--good); color: #fff; }
+  .quiz-q button.pill.wrong { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .verdict { font-weight: 700; }
+  .verdict.ok { color: var(--good); } .verdict.no { color: var(--bad); }
+  .score { font-size: 0.9rem; font-weight: 600; }
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; display: none; max-width: 300px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 10px; font-size: 0.8rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); font-variant-numeric: tabular-nums;
+  }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
+  a { color: var(--k0); }
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<div class="wrap">
+  <header>
+    <h1>Mercer Kernels</h1>
+    <div class="subtitle">A hands-on companion to &sect;17.1&ndash;17.2 of Murphy's <em>Probabilistic Machine Learning: An Introduction</em>. It covers what makes a similarity function a valid (Mercer) kernel, how every kernel secretly computes an inner product between feature vectors (and how to go from features to kernels and back), the standard kernel zoo, how to build new kernels from old ones, and kernels on strings. Then it puts kernels to work in the simplest application there is: Gaussian-process regression, ending with a seasonal forecast whose kernel you assemble yourself. Every demo runs live in your browser. Built for CS 473 self-study.</div>
+    <nav class="toc">
+      <a href="#intro">The big idea</a>
+      <a href="#mercer">17.1 PSD Gram matrices</a>
+      <a href="#trick">17.1.1 Mercer's theorem</a>
+      <a href="#features">Features &rarr; kernel</a>
+      <a href="#eigen">Kernel &rarr; features</a>
+      <a href="#zoo">17.1.2 Kernel zoo</a>
+      <a href="#ard">ARD</a>
+      <a href="#build">New kernels from old</a>
+      <a href="#combine">Adding &amp; multiplying</a>
+      <a href="#strings">Structured inputs</a>
+      <a href="#gp">17.2 GP regression</a>
+      <a href="#lml">Learning the kernel</a>
+      <a href="#forecast">Application: forecasting</a>
+      <a href="#quiz">Quiz &amp; cheat sheet</a>
+    </nav>
+  </header>
+
+  <!-- ============================== INTRO ============================== -->
+  <section class="block" id="intro">
+    <h2><span class="num">17.1</span>The big idea</h2>
+    <div class="kicker">A kernel is a similarity score that is secretly an inner product.</div>
+    <p>So far most models in the book have been <b>parametric</b>: you choose a feature vector $\boldsymbol\phi(\mathbf{x})$, then learn weights $\mathbf{w}$ so that $f(\mathbf{x}) = \mathbf{w}^\top\boldsymbol\phi(\mathbf{x})$. Chapter 17 flips this around. Instead of saying what the features are, you say how <b>similar</b> two inputs are:</p>
+    <div class="eqbox"><div class="label">A kernel</div>$$\mathcal{K}(\mathbf{x}, \mathbf{x}') \in \mathbb{R}, \qquad \text{large when } \mathbf{x} \text{ and } \mathbf{x}' \text{ are "alike"}$$</div>
+    <p>The prediction at a new point is then built from the training points it is similar to. The catch is that not every similarity score is allowed. A <b>Mercer kernel</b> is one that behaves like an inner product $\boldsymbol\phi(\mathbf{x})^\top\boldsymbol\phi(\mathbf{x}')$ for <em>some</em> feature map $\boldsymbol\phi$, possibly with infinitely many features. That gives you two things:</p>
+    <ol>
+      <li><b>The kernel trick.</b> You can work in a huge (even infinite) feature space while only ever computing $\mathcal{K}$ on pairs of inputs, which is often a one-line formula.</li>
+      <li><b>A valid prior over functions.</b> A Mercer kernel can be used as the covariance of a Gaussian process: $\mathrm{Cov}[f(\mathbf{x}), f(\mathbf{x}')] = \mathcal{K}(\mathbf{x}, \mathbf{x}')$. Choosing the kernel is choosing what kind of functions you expect (smooth, rough, periodic, trending&hellip;).</li>
+    </ol>
+    <p>The page is in three parts. <b>Part 1</b> asks what makes a kernel valid and shows the two-way bridge between kernels and features. <b>Part 2</b> is a zoo of kernels and the rules for generating new ones. <b>Part 3</b> uses kernels for Gaussian-process regression, including learning the kernel's settings from data and forecasting a seasonal time series.</p>
+    <div class="callout"><b>Not the same "kernel" as &sect;16.3.</b> A <em>density</em> kernel (KDE) only needs to be a symmetric bump that integrates to 1. A <em>Mercer</em> kernel needs no normalization, can take negative values, and doesn't even need to be a bump (the linear kernel $\mathbf{x}^\top\mathbf{x}'$ is one), but it must pass a stricter test: positive semidefiniteness. Demo 1 shows that the boxcar and Epanechnikov kernels from &sect;16.3 <em>fail</em> it.</div>
+  </section>
+
+  <div class="part"><h2>Part 1 &middot; What makes a kernel a kernel</h2><p>The positive-definite condition, why it matters, and the bridge between kernels and feature vectors.</p></div>
+
+  <!-- ============================== G: PSD ============================== -->
+  <section class="block hl" id="mercer">
+    <h2><span class="num">17.1</span>Mercer kernels and positive-definite Gram matrices</h2>
+    <div class="kicker">Pick any points. Build the table of all pairwise similarities. That table must look like a covariance matrix.</div>
+    <p>Given $N$ inputs, the <b>Gram matrix</b> collects every pairwise similarity: $K_{ij} = \mathcal{K}(\mathbf{x}_i, \mathbf{x}_j)$. A symmetric function $\mathcal{K}$ is a <b>Mercer kernel</b> (also called a positive definite kernel) if, for <em>every</em> choice of points and every vector of coefficients $\mathbf{c}$,</p>
+    <div class="eqbox"><div class="label">Mercer condition</div>$$\sum_{i=1}^{N}\sum_{j=1}^{N}\mathcal{K}(\mathbf{x}_i,\mathbf{x}_j)\,c_i c_j \;=\; \mathbf{c}^\top\mathbf{K}\,\mathbf{c} \;\ge\; 0 \qquad\Longleftrightarrow\qquad \text{all eigenvalues of } \mathbf{K} \text{ are } \ge 0.$$</div>
+    <p><b>Why this exact condition?</b> Suppose $\mathcal{K}$ is the covariance of a random function $f$. Then for any coefficients, $\mathrm{Var}\big[\sum_i c_i f(\mathbf{x}_i)\big] = \mathbf{c}^\top\mathbf{K}\mathbf{c}$. A variance can't be negative, so a covariance function must satisfy the condition. Conversely, if the condition holds, $\mathbf{K}$ is a legal covariance matrix and you can sample $\big(f(\mathbf{x}_1),\dots,f(\mathbf{x}_N)\big) \sim \mathcal{N}(\mathbf{0}, \mathbf{K})$. The same condition is what makes $\mathcal{K}$ an inner product of feature vectors, as the next section shows.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 1 &middot; Gram matrix lab. Drag the numbered points along the axis.</div>
+      <div class="row"><span class="lbl">Mercer kernels</span>
+        <button class="pill on" data-gk="se">Squared exponential</button>
+        <button class="pill" data-gk="m12">Mat&eacute;rn &frac12;</button>
+        <button class="pill" data-gk="per">Periodic</button>
+        <button class="pill" data-gk="lin">Linear</button>
+        <button class="pill" data-gk="poly">Polynomial (M=2)</button>
+      </div>
+      <div class="row"><span class="lbl">Impostors</span>
+        <button class="pill fake" data-gk="box">Boxcar</button>
+        <button class="pill fake" data-gk="epan">Epanechnikov</button>
+        <button class="pill fake" data-gk="cube">$e^{-|r|^3}$</button>
+        <button class="pill fake" data-gk="tanh">Sigmoid (tanh)</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label>Length-scale &ell; <b id="gLv">1.00</b></label><input type="range" id="gL"></div>
+        <div class="row" style="margin:0">
+          <button class="pill" id="gAdd">+ point</button>
+          <button class="pill" id="gDel">&minus; point</button>
+          <button class="pill" id="gReset">Reset</button>
+        </div>
+      </div>
+      <div class="plot"><svg id="gPts" class="touchnone" viewBox="0 0 640 200"></svg></div>
+      <div class="two" style="margin-top:12px">
+        <div><div class="panel-h">Gram matrix $K_{ij} = \mathcal{K}(x_i, x_j)$</div><div class="plot"><svg id="gHeat" viewBox="0 0 300 300"></svg></div></div>
+        <div><div class="panel-h">Eigenvalues of $\mathbf{K}$ (largest &rarr; smallest)</div><div class="plot"><svg id="gEig" viewBox="0 0 300 300"></svg></div></div>
+      </div>
+      <div class="legend"></div>
+      <div class="tiles">
+        <div class="tile" id="gT1"><div class="k">smallest eigenvalue &lambda;<sub>min</sub></div><div class="v">&ndash;</div></div>
+        <div class="tile" id="gT2"><div class="k">negative eigenvalues</div><div class="v">&ndash;</div></div>
+        <div class="tile" id="gT3"><div class="k">"variance" c&#7488;Kc along the worst c</div><div class="v">&ndash;</div></div>
+        <div class="tile" id="gT4"><div class="k">Cholesky / sampling</div><div class="v">&ndash;</div></div>
+      </div>
+      <div class="readout" id="gRead"></div>
+    </div>
+    <p style="margin-top:14px">Things to try. With <b>squared exponential</b>, drag two points on top of each other: two rows of $\mathbf{K}$ become identical, so one eigenvalue drops to 0. That is still allowed (semi-definite). With the <b>boxcar</b>, every configuration of 10 spread-out points fails. With <b>Epanechnikov</b>, failure depends on where the points are, so drag them around until a red bar appears. One failing configuration is enough to disqualify a kernel. With <b>tanh</b> (the "sigmoid kernel" sometimes used with SVMs), the Gram matrix is badly indefinite.</p>
+    <div class="callout"><b>A quick test for the stationary case.</b> If $\mathcal{K}(\mathbf{x},\mathbf{x}') = k(\mathbf{x}-\mathbf{x}')$ depends only on the difference, Bochner's theorem says $\mathcal{K}$ is Mercer exactly when the Fourier transform of $k$ is non-negative. The Gaussian's transform is another Gaussian (positive everywhere), so it passes. The boxcar's transform is a sinc, which dips below zero, so it fails. The Fourier view comes back in the random-features demo.</div>
+  </section>
+
+  <!-- ============================== Q: Mercer theorem / kernel trick ============================== -->
+  <section class="block" id="trick">
+    <h2><span class="num">17.1.1</span>Mercer's theorem: every kernel is an inner product</h2>
+    <div class="kicker">A positive semidefinite matrix can always be factored, and the factors are feature vectors.</div>
+    <p>Because $\mathbf{K}$ is symmetric and positive semidefinite, its eigendecomposition is $\mathbf{K} = \mathbf{U}^\top\boldsymbol\Lambda\mathbf{U}$ with all $\lambda_m \ge 0$. Define a feature vector for each point from the columns of $\mathbf{U}$: $\boldsymbol\phi(\mathbf{x}_i) = \boldsymbol\Lambda^{1/2}\mathbf{U}_{:,i}$. Then</p>
+    <div class="eqbox"><div class="label">Finite version (any Gram matrix)</div>$$K_{ij} = \boldsymbol\phi(\mathbf{x}_i)^\top\boldsymbol\phi(\mathbf{x}_j).$$
+      <div class="label" style="margin-top:8px">Mercer's theorem (continuous version)</div>$$\mathcal{K}(\mathbf{x}, \mathbf{x}') = \sum_{m=1}^{\infty} \lambda_m\,\phi_m(\mathbf{x})\,\phi_m(\mathbf{x}'),\qquad \lambda_m \ge 0.$$</div>
+    <p>The square root $\boldsymbol\Lambda^{1/2}$ only exists because the eigenvalues are non-negative. That is the real reason for the Mercer condition. It also explains why the impostors in Demo 1 are useless: no feature space reproduces them.</p>
+    <p>The classic hand-worked example is the <b>quadratic kernel</b> in 2D, $\mathcal{K}(\mathbf{x},\mathbf{x}') = (\mathbf{x}^\top\mathbf{x}')^2$. Expanding,</p>
+    <div class="eqbox">$$(x_1x_1' + x_2x_2')^2 = x_1^2x_1'^2 + 2x_1x_2x_1'x_2' + x_2^2x_2'^2 = \boldsymbol\phi(\mathbf{x})^\top\boldsymbol\phi(\mathbf{x}'),\qquad \boldsymbol\phi(\mathbf{x}) = \big[x_1^2,\ \sqrt2\,x_1x_2,\ x_2^2\big].$$</div>
+    <p>So the kernel secretly maps 2D points into 3D. A problem that is not linearly separable in 2D (a disc inside a ring) becomes separable by a <em>plane</em> in 3D, because $\phi_1+\phi_3 = x_1^2 + x_2^2$ is the squared radius.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 2 &middot; The quadratic kernel's hidden 3D space. Drag the star in the left plot, click a data point to make it x&prime;, and drag the right plot to rotate.</div>
+      <div class="two">
+        <div><div class="panel-h">Input space $\mathbf{x}\in\mathbb{R}^2$</div><div class="plot"><svg id="qIn" class="touchnone" viewBox="0 0 320 320"></svg></div></div>
+        <div><div class="panel-h">Feature space $\boldsymbol\phi(\mathbf{x})\in\mathbb{R}^3$</div><div class="plot"><svg id="q3d" class="touchnone grab" viewBox="0 0 320 320"></svg></div></div>
+      </div>
+      <div class="legend">
+        <span><span class="sw round" style="background:var(--k0)"></span>inner class</span>
+        <span><span class="sw round" style="background:var(--k1)"></span>outer class</span>
+        <span><span class="sw" style="background:var(--accent);opacity:.35"></span>plane $\phi_1+\phi_3=1.44$ (a circle of radius 1.2 back in 2D)</span>
+      </div>
+      <div class="readout" id="qRead"></div>
+      <h3>Why not just compute the features?</h3>
+      <p>For the polynomial kernel $(\mathbf{x}^\top\mathbf{x}')^M$ in $D$ dimensions, the feature vector contains every monomial of degree $M$. Computing the kernel directly costs about $D$ multiplications, regardless of $M$.</p>
+      <div class="ctrls">
+        <div class="ctrl"><label>Input dimension D <b id="qDv">2</b></label><input type="range" id="qD" min="0" max="12" value="0"></div>
+        <div class="ctrl"><label>Degree M <b id="qMv">2</b></label><input type="range" id="qM" min="1" max="10" value="2"></div>
+      </div>
+      <div class="tiles three">
+        <div class="tile"><div class="k">features in &phi;(x)</div><div class="v" id="qF">3</div><div class="s">C(D+M&minus;1, M)</div></div>
+        <div class="tile"><div class="k">cost of &phi;(x)&#7488;&phi;(x&prime;) explicitly</div><div class="v" id="qC1">&ndash;</div><div class="s">build both vectors, then dot them</div></div>
+        <div class="tile good"><div class="k">cost of (x&#7488;x&prime;)<sup>M</sup></div><div class="v" id="qC2">&ndash;</div><div class="s">one dot product and one power</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== F: features -> kernel ============================== -->
+  <section class="block hl" id="features">
+    <h2><span class="num">17.1.1</span>How kernels are generated, part 1: features &rarr; kernel</h2>
+    <div class="kicker">Pick any feature map. Its inner product is automatically a Mercer kernel.</div>
+    <p>Mercer's theorem runs both ways. Whenever $\mathcal{K}(\mathbf{x},\mathbf{x}') = \sum_m \phi_m(\mathbf{x})\phi_m(\mathbf{x}')$, the condition holds automatically: $\mathbf{c}^\top\mathbf{K}\mathbf{c} = \sum_m\big(\sum_i c_i\phi_m(\mathbf{x}_i)\big)^2 \ge 0$, a sum of squares. So <b>one way to generate a kernel is to choose features and take their inner product</b>.</p>
+    <p>There is a probabilistic reading too. Put independent standard-normal weights on the features, $f(x) = \sum_m w_m\phi_m(x)$ with $w_m\sim\mathcal{N}(0,1)$. Then $\mathrm{Cov}[f(x), f(x')] = \sum_m \phi_m(x)\phi_m(x')$. <b>The kernel is the covariance of a random linear model.</b> This is the "weight-space view" of a Gaussian process (&sect;17.2.4).</p>
+    <p>Below, three very different feature families all converge to the <em>same</em> kernel, the squared exponential $\exp\!\big(-(x-x')^2/2\ell^2\big)$, as you add features. That shows two things: the SE kernel has infinitely many features, and the feature map for a given kernel is not unique.</p>
+    <ul>
+      <li><b>Taylor features</b> $\phi_m(x) = e^{-x^2/2\ell^2}\,(x/\ell)^m/\sqrt{m!}$, for $m=0,1,2,\dots$ Polynomials under a Gaussian envelope.</li>
+      <li><b>Gaussian bumps</b> placed at evenly spaced centers $c_m$, $\phi_m(x) \propto e^{-(x-c_m)^2/\ell^2}$. These are RBF-network features.</li>
+      <li><b>Random Fourier features</b> $\phi_m(x) = \sqrt{2/M}\cos(\omega_m x + b_m)$, $\omega_m\sim\mathcal{N}(0, 1/\ell^2)$, $b_m\sim\mathrm{Unif}(0, 2\pi)$. Random waves (Rahimi &amp; Recht). By Bochner's theorem, the average of $\cos(\omega(x-x'))$ over this $\omega$ distribution is the SE kernel.</li>
+    </ul>
+    <div class="demo">
+      <div class="demo-title">Demo 3 &middot; Build a kernel from features. Drag the vertical handle to move x&#8320;.</div>
+      <div class="row"><span class="lbl">Feature family</span>
+        <button class="pill on" data-ff="taylor">Taylor (poly &times; envelope)</button>
+        <button class="pill" data-ff="bumps">Gaussian bumps</button>
+        <button class="pill" data-ff="rff">Random Fourier</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label>Number of features M <b id="fMv">7</b></label><input type="range" id="fM" min="0" max="20" value="6"></div>
+        <div class="ctrl"><label>Length-scale &ell; <b id="fLv">1.00</b></label><input type="range" id="fL"></div>
+      </div>
+      <div class="two">
+        <div><div class="panel-h">Some of the features $\phi_m(x)$</div><div class="plot"><svg id="fFeat" viewBox="0 0 320 220"></svg></div></div>
+        <div><div class="panel-h">$\sum_m\phi_m(x)\phi_m(x_0)$ vs. the SE kernel</div><div class="plot"><svg id="fK" class="touchnone" viewBox="0 0 320 220"></svg></div></div>
+      </div>
+      <div class="panel-h" style="margin-top:12px">Random functions $f(x) = \sum_m w_m\phi_m(x)$, $w_m\sim\mathcal{N}(0,1)$ (same weights as you change M)</div>
+      <div class="plot"><svg id="fS" viewBox="0 0 640 200"></svg></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">features M</div><div class="v" id="fT1">&ndash;</div></div>
+        <div class="tile" id="fT2b"><div class="k">max |error| vs. SE on [&minus;5, 5]</div><div class="v" id="fT2">&ndash;</div></div>
+        <div class="tile"><div class="k">k(x&#8320;, x&#8320;) (SE gives 1)</div><div class="v" id="fT3">&ndash;</div></div>
+        <div class="tile"><div class="k">cost per kernel evaluation</div><div class="v" id="fT4">&ndash;</div></div>
+      </div>
+      <div class="readout" id="fRead"></div>
+    </div>
+    <div class="callout"><b>What to notice.</b> Taylor features are exact near 0 and fail far from 0, where higher powers are needed. Bumps give a lumpy kernel until the centers are closer together than $\ell$. Random features converge everywhere but slowly, with error shrinking roughly like $1/\sqrt{M}$. With few features, the random functions look like the features (a few bumps, a few waves). With many, they all start to look like the same smooth SE functions. Random Fourier features are a real tool for scaling kernel methods to large data (&sect;17.2.9).</div>
+  </section>
+
+  <!-- ============================== E: kernel -> features ============================== -->
+  <section class="block" id="eigen">
+    <h2><span class="num">17.1.1</span>How kernels are generated, part 2: kernel &rarr; features</h2>
+    <div class="kicker">Start from a kernel formula and recover its features by eigendecomposition.</div>
+    <p>Going the other way, any Mercer kernel can be eigendecomposed into its own feature functions. Here we take 80 grid points on $[-5,5]$, build $\mathbf{K}$, and compute its eigenvectors. Each eigenvector, plotted against $x$, approximates one Mercer eigenfunction $\phi_m(x)$, and the eigenvalue $\lambda_m$ says how much that feature contributes. Truncating to the top $M$ terms gives the best rank-$M$ approximation of the kernel.</p>
+    <div class="demo">
+      <div class="demo-title">Demo 4 &middot; Eigen-features of a kernel. Drag the handle in the bottom plot to move x&#8320;.</div>
+      <div class="row"><span class="lbl">Kernel</span>
+        <button class="pill on" data-ek="se">Squared exponential</button>
+        <button class="pill" data-ek="m12">Mat&eacute;rn &frac12;</button>
+        <button class="pill" data-ek="per">Periodic (p = 2.5)</button>
+        <button class="pill" data-ek="lin">Linear</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label>Length-scale &ell; <b id="eLv">1.00</b></label><input type="range" id="eL"></div>
+        <div class="ctrl"><label>Keep top M eigen-features <b id="eMv">5</b></label><input type="range" id="eM" min="1" max="40" value="5"></div>
+      </div>
+      <div class="two">
+        <div><div class="panel-h">Eigenvalue spectrum, $\log_{10}(\lambda_m/\lambda_1)$ vs. $m$ (below $-15$ is round-off)</div><div class="plot"><svg id="eSpec" viewBox="0 0 320 220"></svg></div></div>
+        <div><div class="panel-h">Top four eigen-features $\phi_1,\dots,\phi_4$</div><div class="plot"><svg id="eFun" viewBox="0 0 320 220"></svg></div></div>
+      </div>
+      <div class="panel-h" style="margin-top:12px">Rank-M reconstruction $\sum_{m\le M}\lambda_m\phi_m(x)\phi_m(x_0)$ vs. the exact $\mathcal{K}(x, x_0)$</div>
+      <div class="plot"><svg id="eRec" class="touchnone" viewBox="0 0 640 210"></svg></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">share of trace in &lambda;&#8321;</div><div class="v" id="eT1">&ndash;</div></div>
+        <div class="tile"><div class="k">features for 99% of trace</div><div class="v" id="eT2">&ndash;</div></div>
+        <div class="tile"><div class="k">trace captured by top M</div><div class="v" id="eT3">&ndash;</div></div>
+        <div class="tile"><div class="k">max |error| at x&#8320;</div><div class="v" id="eT4">&ndash;</div></div>
+      </div>
+    </div>
+    <p style="margin-top:14px">The eigen-features look like waves of increasing frequency. That is not a coincidence: for a stationary kernel they approach Fourier modes, and the eigenvalues follow the kernel's spectrum. A <b>larger &ell;</b> means a smoother kernel, faster eigenvalue decay, and fewer features that matter. <b>Mat&eacute;rn &frac12;</b> is rough, so its spectrum decays slowly and you need many features. The <b>linear</b> kernel has exactly two non-zero eigenvalues (a constant and a slope), so it is a <em>finite</em>-dimensional kernel.</p>
+  </section>
+
+  <div class="part"><h2>Part 2 &middot; A kernel zoo, and how to grow it</h2><p>The standard kernels, what their functions look like, and the closure rules for building new ones.</p></div>
+
+  <!-- ============================== Z: gallery ============================== -->
+  <section class="block hl" id="zoo">
+    <h2><span class="num">17.1.2</span>Some popular Mercer kernels</h2>
+    <div class="kicker">The best way to understand a kernel is to look at random functions drawn using it as a covariance.</div>
+    <p>A <b>stationary</b> kernel depends only on the difference $\mathbf{r} = \mathbf{x}-\mathbf{x}'$, so similarity is the same everywhere in input space. Most stationary kernels are also <b>isotropic</b>, depending only on the distance $r = \|\mathbf{x}-\mathbf{x}'\|$. The left plot shows similarity to a reference point $x_0$. The right plot shows three functions drawn from $\mathcal{N}(\mathbf{0}, \mathbf{K})$ on a fine grid, which is what a Gaussian process with this kernel "believes" before seeing data.</p>
+    <div class="demo">
+      <div class="demo-title">Demo 5 &middot; Kernel gallery. Drag the handle on the left plot to move x&#8320;. The samples use the same random seed, so you can watch them morph.</div>
+      <div class="row" id="zPills">
+        <button class="pill on" data-zk="se"><span class="dot" style="background:var(--k0)"></span>SE / RBF</button>
+        <button class="pill" data-zk="m52"><span class="dot" style="background:var(--k0)"></span>Mat&eacute;rn 5/2</button>
+        <button class="pill" data-zk="m32"><span class="dot" style="background:var(--k0)"></span>Mat&eacute;rn 3/2</button>
+        <button class="pill" data-zk="m12"><span class="dot" style="background:var(--k0)"></span>Mat&eacute;rn 1/2</button>
+        <button class="pill" data-zk="rq"><span class="dot" style="background:var(--k0)"></span>Rational quadratic</button>
+        <button class="pill" data-zk="per"><span class="dot" style="background:var(--k2)"></span>Periodic</button>
+        <button class="pill" data-zk="cos"><span class="dot" style="background:var(--k2)"></span>Cosine</button>
+        <button class="pill" data-zk="lin"><span class="dot" style="background:var(--k1)"></span>Linear</button>
+        <button class="pill" data-zk="poly"><span class="dot" style="background:var(--k1)"></span>Polynomial</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl" id="zLc"><label>Length-scale &ell; <b id="zLv">1.00</b></label><input type="range" id="zL"></div>
+        <div class="ctrl" id="zPc" hidden><label>Period p <b id="zPv">2.50</b></label><input type="range" id="zP" min="0.5" max="5" step="0.05" value="2.5"></div>
+        <div class="ctrl" id="zAc" hidden><label>Scale mixture &alpha; <b id="zAv">1.00</b></label><input type="range" id="zA"></div>
+        <div class="ctrl" id="zMc" hidden><label>Degree M <b id="zMv">2</b></label><input type="range" id="zM" min="1" max="5" value="2"></div>
+        <div class="ctrl" id="zCc" hidden><label>Offset c <b id="zCv">0.00</b></label><input type="range" id="zC" min="-4" max="4" step="0.1" value="0"></div>
+      </div>
+      <div class="two">
+        <div><div class="panel-h">$\mathcal{K}(x, x_0)$</div><div class="plot"><svg id="zK" class="touchnone" viewBox="0 0 320 240"></svg></div></div>
+        <div><div class="panel-h">Three draws $f\sim\mathcal{GP}(0,\mathcal{K})$</div><div class="plot"><svg id="zS" viewBox="0 0 320 240"></svg></div></div>
+      </div>
+      <div class="readout" id="zRead"></div>
+    </div>
+    <h3>The family at a glance</h3>
+    <div class="scroll-x">
+    <table class="cheat">
+      <tr><th>Kernel</th><th>$\mathcal{K}(x,x')$, with $r = |x-x'|$</th><th>Random functions look&hellip;</th><th>Use when</th></tr>
+      <tr><td>Squared exp. (RBF)</td><td>$\exp\!\big(-\tfrac{r^2}{2\ell^2}\big)$</td><td>infinitely smooth</td><td>the default; smooth physical quantities</td></tr>
+      <tr><td>Mat&eacute;rn $\nu$</td><td>$\frac{2^{1-\nu}}{\Gamma(\nu)}\big(\tfrac{\sqrt{2\nu}r}{\ell}\big)^\nu K_\nu\!\big(\tfrac{\sqrt{2\nu}r}{\ell}\big)$</td><td>$\lceil\nu\rceil-1$ times differentiable</td><td>real data that is smooth but not <em>that</em> smooth ($\nu=\frac32, \frac52$)</td></tr>
+      <tr><td>Mat&eacute;rn &frac12;</td><td>$\exp(-r/\ell)$</td><td>continuous, nowhere differentiable</td><td>rough signals (Ornstein&ndash;Uhlenbeck process)</td></tr>
+      <tr><td>Rational quadratic</td><td>$\big(1+\tfrac{r^2}{2\alpha\ell^2}\big)^{-\alpha}$</td><td>wiggles at many scales</td><td>a mixture of SE kernels with different $\ell$; $\alpha\to\infty$ gives SE</td></tr>
+      <tr><td>Periodic</td><td>$\exp\!\big(-\tfrac{2}{\ell^2}\sin^2(\pi r/p)\big)$</td><td>exactly repeating with period $p$</td><td>seasonality, cycles</td></tr>
+      <tr><td>Cosine</td><td>$\cos(2\pi r/p)$</td><td>a single pure sinusoid</td><td>one known frequency (rank 2)</td></tr>
+      <tr><td>Linear</td><td>$\sigma_b^2 + (x-c)(x'-c)$</td><td>straight lines</td><td>Bayesian linear regression; trends (not stationary)</td></tr>
+      <tr><td>Polynomial</td><td>$(1 + xx')^M$</td><td>degree-$M$ polynomials</td><td>feature interactions (not stationary)</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <!-- ============================== A: ARD ============================== -->
+  <section class="block" id="ard">
+    <h2><span class="num">17.1.2</span>One length-scale per dimension: the ARD kernel</h2>
+    <div class="kicker">Give every input dimension its own length-scale, and let the data decide which ones matter.</div>
+    <p>In $D$ dimensions, the SE kernel can use a separate length-scale per dimension:</p>
+    <div class="eqbox"><div class="label">Automatic relevance determination (ARD)</div>$$\mathcal{K}(\mathbf{x},\mathbf{x}') = \sigma^2\exp\!\Big(-\tfrac12\sum_{d=1}^{D}\frac{(x_d-x'_d)^2}{\ell_d^2}\Big)$$</div>
+    <p>If $\ell_d$ is huge, moving along dimension $d$ barely changes the similarity, so $f$ effectively ignores $x_d$. When the $\ell_d$ are learned from data (as in &sect;17.2.6), irrelevant inputs get large length-scales and are switched off automatically. The samples below are drawn with 300 random Fourier features (Demo 3), so they redraw instantly.</p>
+    <div class="demo">
+      <div class="demo-title">Demo 6 &middot; A random 2D function under the ARD kernel</div>
+      <div class="two">
+        <div class="plot"><canvas id="aCv"></canvas><svg id="aSvg" viewBox="0 0 320 320"></svg></div>
+        <div>
+          <div class="ctrls" style="flex-direction:column">
+            <div class="ctrl"><label>&ell;&#8321; (horizontal, x&#8321;) <b id="aL1v">1.00</b></label><input type="range" id="aL1"></div>
+            <div class="ctrl"><label>&ell;&#8322; (vertical, x&#8322;) <b id="aL2v">1.00</b></label><input type="range" id="aL2"></div>
+          </div>
+          <div class="row"><button class="pill" id="aNew">New random function</button><button class="pill" id="aIrr">Make x&#8322; irrelevant</button></div>
+          <div class="tiles" style="grid-template-columns:1fr 1fr">
+            <div class="tile"><div class="k">relevance 1/&ell;&#8321;</div><div class="v" id="aR1">&ndash;</div></div>
+            <div class="tile"><div class="k">relevance 1/&ell;&#8322;</div><div class="v" id="aR2">&ndash;</div></div>
+          </div>
+          <p class="hint" style="margin-top:10px">Blue is positive and red is negative. Equal length-scales give round blobs, which is the isotropic SE kernel. Stretch one and the blobs smear into stripes, because the function stops depending on that coordinate.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== D: new kernels from old ============================== -->
+  <section class="block hl" id="build">
+    <h2><span class="num">17.1.2</span>Making new kernels from old</h2>
+    <div class="kicker">A small set of closure rules turns the linear kernel into the whole zoo.</div>
+    <p>Checking the Mercer condition from scratch is hard. In practice you build kernels with operations that are <b>guaranteed</b> to keep the Gram matrix PSD. If $\mathcal{K}_1$ and $\mathcal{K}_2$ are valid kernels, so are:</p>
+    <div class="scroll-x">
+    <table class="cheat">
+      <tr><th>New kernel</th><th>Why it stays PSD</th></tr>
+      <tr><td>$c\,\mathcal{K}_1(\mathbf{x},\mathbf{x}')$, $c>0$</td><td>scaling all eigenvalues by $c>0$ keeps them $\ge 0$</td></tr>
+      <tr><td>$f(\mathbf{x})\,\mathcal{K}_1(\mathbf{x},\mathbf{x}')\,f(\mathbf{x}')$, any $f$</td><td>$\mathbf{K} \mapsto \mathbf{D}\mathbf{K}\mathbf{D}$ with $\mathbf{D}=\mathrm{diag}(f(\mathbf{x}_i))$; features become $f(\mathbf{x})\boldsymbol\phi(\mathbf{x})$</td></tr>
+      <tr><td>$\mathbf{x}^\top\mathbf{A}\,\mathbf{x}'$, $\mathbf{A}\succeq 0$</td><td>features $\mathbf{A}^{1/2}\mathbf{x}$</td></tr>
+      <tr><td>$\mathcal{K}_1 + \mathcal{K}_2$</td><td>$\mathbf{c}^\top(\mathbf{K}_1+\mathbf{K}_2)\mathbf{c}$ is a sum of two non-negative terms; features are concatenated</td></tr>
+      <tr><td>$\mathcal{K}_1\cdot\mathcal{K}_2$</td><td>Schur product theorem; features are all pairwise products $\phi_a\psi_b$</td></tr>
+      <tr><td>$q\big(\mathcal{K}_1\big)$, $q$ a polynomial with coefficients $\ge 0$</td><td>sums and products of the above</td></tr>
+      <tr><td>$\exp\big(\mathcal{K}_1\big)$</td><td>the limit of such polynomials (its Taylor series)</td></tr>
+    </table>
+    </div>
+    <p style="margin-top:12px">The squared exponential kernel can be <em>derived</em> from these rules. Step through the construction below. The Gram matrix on 40 points in $[-3, 3]$ stays positive semidefinite at every step (the smallest eigenvalue never goes meaningfully below 0), even though the intermediate kernels look nothing like a bump.</p>
+    <div class="demo">
+      <div class="demo-title">Demo 7 &middot; Deriving the SE kernel from the linear kernel</div>
+      <ol class="steps" id="dSteps">
+        <li data-ds="1" class="on"><b>Step 1.</b> Linear kernel: $\mathcal{K}_1(x,x') = xx'/\ell^2$. <span class="rule">(rule: $\mathbf{x}^\top\mathbf{A}\mathbf{x}'$ with $A = 1/\ell^2$)</span></li>
+        <li data-ds="2"><b>Step 2.</b> Exponentiate: $\mathcal{K}_2 = \sum_{m=0}^{M} \mathcal{K}_1^m/m! \;\to\; e^{xx'/\ell^2}$. <span class="rule">(rule: products, positive sums, then the limit $\exp$)</span></li>
+        <li data-ds="3"><b>Step 3.</b> Envelope: $\mathcal{K}_3 = f(x)\,\mathcal{K}_2\,f(x')$ with $f(x)=e^{-x^2/2\ell^2}$. Since $-\tfrac{x^2}{2\ell^2} + \tfrac{xx'}{\ell^2} - \tfrac{x'^2}{2\ell^2} = -\tfrac{(x-x')^2}{2\ell^2}$, this is exactly SE. <span class="rule">(rule: $f(x)\mathcal{K}f(x')$)</span></li>
+      </ol>
+      <div class="row"><span class="lbl">Show step</span>
+        <button class="pill on" data-dstep="1">1 &middot; linear</button>
+        <button class="pill" data-dstep="2">2 &middot; exponentiate</button>
+        <button class="pill" data-dstep="3">3 &middot; envelope = SE</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label>Terms kept in the exp series, M <b id="dMv">20</b></label><input type="range" id="dM" min="0" max="30" value="20"></div>
+        <div class="ctrl"><label>Length-scale &ell; <b id="dLv">1.00</b></label><input type="range" id="dL"></div>
+      </div>
+      <div class="two">
+        <div><div class="panel-h">Gram matrix on 40 points (x across, x&prime; down)</div><div class="plot"><canvas id="dCv"></canvas><svg id="dHeat" viewBox="0 0 300 300"></svg></div></div>
+        <div><div class="panel-h">Slices $\mathcal{K}(x, x_0)$ for $x_0 = -1.5, 0, 1.5$</div><div class="plot"><svg id="dCurve" viewBox="0 0 320 300"></svg></div></div>
+      </div>
+      <div class="tiles three">
+        <div class="tile" id="dT1"><div class="k">&lambda;<sub>min</sub> / &lambda;<sub>max</sub></div><div class="v">&ndash;</div></div>
+        <div class="tile"><div class="k">largest entry of K</div><div class="v" id="dT2">&ndash;</div></div>
+        <div class="tile"><div class="k">max |K &minus; SE|</div><div class="v" id="dT3">&ndash;</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== C: combining ============================== -->
+  <section class="block" id="combine">
+    <h2><span class="num">17.1.2</span>Combining kernels by addition and multiplication</h2>
+    <div class="kicker">Adding kernels is like OR: f is a sum of independent parts. Multiplying is like AND: points are similar only if both kernels agree.</div>
+    <p>If $f_1\sim\mathcal{GP}(0,\mathcal{K}_1)$ and $f_2\sim\mathcal{GP}(0,\mathcal{K}_2)$ are independent, then $f_1+f_2 \sim \mathcal{GP}(0, \mathcal{K}_1+\mathcal{K}_2)$. A <b>sum</b> of kernels therefore models a function made of separate additive components (trend <em>plus</em> seasonality). A <b>product</b> gives high similarity only when both factors are high. For example, SE &times; Periodic means "repeats with period $p$, <em>and</em> only for nearby points", so the repeating pattern can slowly change shape. Lin &times; Periodic has an oscillation whose amplitude grows with $|x-c|$. This mini-language is the basis of automatic kernel search ("the automatic statistician").</p>
+    <div class="demo">
+      <div class="demo-title">Demo 8 &middot; Kernel composer. Drag the handle on the left plot to move x&#8320;.</div>
+      <div class="row"><span class="lbl">Presets</span>
+        <button class="pill" data-cpre="linlin">Lin &times; Lin</button>
+        <button class="pill" data-cpre="seper">SE &times; Per (locally periodic)</button>
+        <button class="pill" data-cpre="linper">Lin + Per (trend + season)</button>
+        <button class="pill" data-cpre="linxper">Lin &times; Per (growing oscillation)</button>
+        <button class="pill" data-cpre="sese">SE(long) + SE(short)</button>
+      </div>
+      <div class="row">
+        <select id="cA"><option value="se">SE</option><option value="per">Periodic</option><option value="lin">Linear</option><option value="rq">Rational quad.</option><option value="m12">Mat&eacute;rn &frac12;</option></select>
+        <span style="min-width:150px;flex:1" class="ctrl"><label><span id="cApn">&ell;</span> <b id="cApv">3.00</b></label><input type="range" id="cAp"></span>
+        <button class="pill" data-cop="+">+</button><button class="pill on" data-cop="*">&times;</button>
+        <select id="cB"><option value="se">SE</option><option value="per" selected>Periodic</option><option value="lin">Linear</option><option value="rq">Rational quad.</option><option value="m12">Mat&eacute;rn &frac12;</option></select>
+        <span style="min-width:150px;flex:1" class="ctrl"><label><span id="cBpn">p</span> <b id="cBpv">1.50</b></label><input type="range" id="cBp"></span>
+      </div>
+      <div class="readout" id="cRead" style="margin-bottom:10px"></div>
+      <div class="two">
+        <div><div class="panel-h">$\mathcal{K}(x, x_0)$</div><div class="plot"><svg id="cK" class="touchnone" viewBox="0 0 320 260"></svg></div></div>
+        <div><div class="panel-h">Whole kernel $\mathcal{K}(x, x')$ on $[-5,5]^2$</div><div class="plot"><canvas id="cCv"></canvas><svg id="cH" viewBox="0 0 320 260"></svg></div></div>
+      </div>
+      <div class="panel-h" style="margin-top:12px">Three draws $f\sim\mathcal{GP}(0, \mathcal{K})$</div>
+      <div class="plot"><svg id="cS" viewBox="0 0 640 200"></svg></div>
+    </div>
+    <p style="margin-top:14px">Read the heatmap like a Gram matrix with a continuous index. A stationary kernel is constant along every diagonal stripe. A kernel with a linear factor is not, because similarity depends on where you are, not just how far apart.</p>
+  </section>
+
+  <!-- ============================== S: strings ============================== -->
+  <section class="block" id="strings">
+    <h2><span class="num">17.1.2</span>Kernels for structured inputs</h2>
+    <div class="kicker">Kernels only need a similarity between two objects, so the inputs don't have to be vectors.</div>
+    <p>Because a kernel method touches the data only through $\mathcal{K}(\mathbf{x},\mathbf{x}')$, you can apply it to strings, graphs, trees or sets, as long as you can write down a valid kernel. The simplest string kernel is the <b>$k$-spectrum kernel</b>. Let $\phi_u(s)$ be the number of times the substring $u$ of length $k$ appears in string $s$. Then</p>
+    <div class="eqbox">$$\mathcal{K}(s, s') = \sum_{u\in\mathcal{A}^k}\phi_u(s)\,\phi_u(s'),$$ an inner product of (huge, sparse) count vectors, so it is Mercer by construction. It is usually normalized as $\tilde{\mathcal{K}}(s,s') = \mathcal{K}(s,s')/\sqrt{\mathcal{K}(s,s)\mathcal{K}(s',s')}$, which is itself the "$f(x)\mathcal{K}f(x')$" rule with $f = 1/\sqrt{\mathcal{K}(x,x)}$.</div>
+    <p>There are $|\mathcal{A}|^k$ possible substrings, but you never build the vector. You just count shared substrings. Variants allow gaps or weight longer matches more (used for protein sequences and text). Graph kernels similarly compare counts of shared walks or subtrees.</p>
+    <div class="demo">
+      <div class="demo-title">Demo 9 &middot; The k-spectrum kernel. Type in either box.</div>
+      <div class="two">
+        <div class="ctrl"><label>String s</label><input type="text" id="sA" value="kernel methods"></div>
+        <div class="ctrl"><label>String s&prime;</label><input type="text" id="sB" value="kernel machines"></div>
+      </div>
+      <div class="ctrls"><div class="ctrl"><label>Substring length k <b id="sKv">3</b></label><input type="range" id="sK" min="1" max="6" value="3"></div></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">K(s, s&prime;): shared count</div><div class="v" id="sT1">&ndash;</div></div>
+        <div class="tile"><div class="k">K(s, s)</div><div class="v" id="sT2">&ndash;</div></div>
+        <div class="tile"><div class="k">K(s&prime;, s&prime;)</div><div class="v" id="sT3">&ndash;</div></div>
+        <div class="tile good"><div class="k">normalized K&#771;</div><div class="v" id="sT4">&ndash;</div></div>
+      </div>
+      <div class="hint" style="margin-top:10px">Shared substrings (count in s &times; count in s&prime;); spaces shown as &middot;</div>
+      <div class="chips" id="sChips"></div>
+      <div class="panel-h" style="margin-top:14px">Normalized Gram matrix for a few words</div>
+      <div class="plot"><svg id="sHeat" viewBox="0 0 640 300"></svg></div>
+    </div>
+  </section>
+
+  <div class="part"><h2>Part 3 &middot; Application: Gaussian-process regression</h2><p>Use the kernel as a covariance, condition on data, and get predictions with error bars. Choosing the kernel is the modelling.</p></div>
+
+  <!-- ============================== P: GP playground ============================== -->
+  <section class="block hl" id="gp">
+    <h2><span class="num">17.2</span>Gaussian processes: kernels as priors over functions</h2>
+    <div class="kicker">Before data, the kernel says what functions are plausible. After data, keep only the ones that pass near the points.</div>
+    <p>A <b>Gaussian process</b> $f\sim\mathcal{GP}(m, \mathcal{K})$ is a distribution over functions such that any finite set of values $\big(f(\mathbf{x}_1),\dots,f(\mathbf{x}_N)\big)$ is jointly Gaussian with mean $m(\mathbf{x}_i)$ and covariance $\mathcal{K}(\mathbf{x}_i,\mathbf{x}_j)$. This is why the kernel must be Mercer: every such covariance matrix has to be PSD. Observe $y_n = f(\mathbf{x}_n) + \epsilon_n$ with $\epsilon_n\sim\mathcal{N}(0,\sigma_y^2)$. Then, because everything is Gaussian, the prediction at test points $\mathbf{X}_*$ has a closed form:</p>
+    <div class="eqbox"><div class="label">GP posterior predictive (zero prior mean)</div>
+      $$\boldsymbol\mu_{*} = \mathbf{K}_{X,*}^\top\,\mathbf{K}_\sigma^{-1}\,\mathbf{y},\qquad \boldsymbol\Sigma_{*} = \mathbf{K}_{*,*} - \mathbf{K}_{X,*}^\top\,\mathbf{K}_\sigma^{-1}\,\mathbf{K}_{X,*},\qquad \mathbf{K}_\sigma = \mathbf{K}_{X,X} + \sigma_y^2\mathbf{I}.$$
+    </div>
+    <p>With $\sigma_y = 0$ (noise-free, &sect;17.2.1), the mean passes exactly through every point and the uncertainty pinches to zero there, so the GP acts as an interpolator. With $\sigma_y>0$ (&sect;17.2.2), it smooths. Far from the data, both revert to the prior: mean 0, spread $\pm 2\sigma_f$.</p>
+    <div class="demo">
+      <div class="demo-title">Demo 10 &middot; GP regression playground. Click to add a point, drag to move it, click a point without dragging to delete it. Hover to set the query x&#8727;.</div>
+      <div class="row"><span class="lbl">Kernel</span>
+        <button class="pill on" data-pk="se">SE</button>
+        <button class="pill" data-pk="m52">Mat&eacute;rn 5/2</button>
+        <button class="pill" data-pk="m12">Mat&eacute;rn &frac12;</button>
+        <button class="pill" data-pk="per">Periodic</button>
+        <button class="pill" data-pk="lin">Linear</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label>Length-scale &ell; <b id="pLv">1.00</b></label><input type="range" id="pL"></div>
+        <div class="ctrl"><label><span>Signal sd &sigma;<sub>f</sub></span> <b id="pFv">1.00</b></label><input type="range" id="pF" min="0.1" max="3" step="0.05" value="1"></div>
+        <div class="ctrl"><label><span>Noise sd &sigma;<sub>y</sub></span> <b id="pNv">0.10</b></label><input type="range" id="pN" min="0" max="1" step="0.01" value="0.1"></div>
+        <div class="ctrl" id="pPc" hidden><label>Period p <b id="pPv">3.00</b></label><input type="range" id="pP" min="0.5" max="6" step="0.05" value="3"></div>
+      </div>
+      <div class="row">
+        <button class="pill" id="pSamp">Posterior samples</button>
+        <button class="pill" id="pPrior">Hide data (prior)</button>
+        <button class="pill" id="pNW">Compare Nadaraya&ndash;Watson</button>
+        <button class="pill primary" id="pFit"><span>Fit &ell;, &sigma;<sub>f</sub>, &sigma;<sub>y</sub> by marginal likelihood</span></button>
+        <button class="pill" id="pClear">Clear points</button>
+        <button class="pill" id="pReset">Reset</button>
+      </div>
+      <div class="plot"><svg id="pSvg" class="touchnone" viewBox="0 0 640 320"></svg></div>
+      <div class="legend">
+        <span><span class="sw line" style="background:var(--k0)"></span>posterior mean &mu;(x)</span>
+        <span><span class="sw band" style="background:var(--band)"></span>&mu; &plusmn; 2 sd</span>
+        <span id="pLegNW" hidden><span class="sw dash" style="border-color:var(--k1)"></span>Nadaraya&ndash;Watson (same &ell;)</span>
+      </div>
+      <div class="panel-h" style="margin-top:12px">How much each $y_n$ contributes to $\mu(x_*)$: the weights $\mathbf{w} = \mathbf{K}_\sigma^{-1}\mathbf{k}_*$, so that $\mu(x_*) = \mathbf{w}^\top\mathbf{y}$</div>
+      <div class="plot"><svg id="pW" viewBox="0 0 640 130"></svg></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">&mu;(x&#8727;) &plusmn; 2 sd</div><div class="v" id="pT1">&ndash;</div></div>
+        <div class="tile"><div class="k">log marginal likelihood</div><div class="v" id="pT2">&ndash;</div></div>
+        <div class="tile"><div class="k">points N</div><div class="v" id="pT3">&ndash;</div></div>
+        <div class="tile"><div class="k">jitter added for Cholesky</div><div class="v" id="pT4">&ndash;</div></div>
+      </div>
+      <div class="readout" id="pRead"></div>
+    </div>
+    <h3>Comparison to kernel regression (&sect;17.2.3)</h3>
+    <p>The GP mean is a <b>linear smoother</b>, $\mu(x_*) = \sum_n w_n(x_*)\,y_n$, just like Nadaraya&ndash;Watson from &sect;16.3.5. The difference is in the weights. Nadaraya&ndash;Watson uses the kernel directly, normalized, so the weights are always positive and sum to 1. The GP's weights $\mathbf{K}_\sigma^{-1}\mathbf{k}_*$ (the "equivalent kernel") account for how the training points relate to <em>each other</em>. Two nearby points share their credit, isolated points get more, and weights can go <b>negative</b>. Turn on the comparison, put three points close together, and hover between them and further out to see this.</p>
+  </section>
+
+  <!-- ============================== L: marginal likelihood ============================== -->
+  <section class="block" id="lml">
+    <h2><span class="num">17.2.6</span>Learning the kernel: the marginal likelihood</h2>
+    <div class="kicker">A built-in Occam's razor: the evidence rewards fitting the data but charges for flexibility.</div>
+    <p>The kernel's settings $\boldsymbol\theta = (\ell, \sigma_f, \sigma_y)$ are chosen by maximizing the probability of the observed $\mathbf{y}$ with $f$ integrated out:</p>
+    <div class="eqbox"><div class="label">Log marginal likelihood</div>
+      $$\log p(\mathbf{y}\mid\mathbf{X},\boldsymbol\theta) = \underbrace{-\tfrac12\,\mathbf{y}^\top\mathbf{K}_\sigma^{-1}\mathbf{y}}_{\text{data fit}}\;\underbrace{-\;\tfrac12\log|\mathbf{K}_\sigma|}_{\text{complexity penalty}}\;-\;\tfrac N2\log 2\pi$$
+    </div>
+    <p>A short length-scale lets the GP fit every wiggle (good data fit), but it spreads prior probability over a huge number of possible functions (big $|\mathbf{K}_\sigma|$, big penalty). A long length-scale is "cheap" but can't fit the wiggles. The 14 points below were built so that there are <b>two</b> good, nearly equally likely explanations: wiggly signal with little noise, or smooth signal with more noise.</p>
+    <div class="demo">
+      <div class="demo-title">Demo 11 &middot; Click anywhere on the heatmap (or the curve) to choose hyperparameters.</div>
+      <div class="two">
+        <div><div class="panel-h">$\log p(\mathbf{y}\mid\ell,\sigma_y)$ with $\sigma_f = 1$ (brighter = higher)</div><div class="plot"><canvas id="lCv"></canvas><svg id="lHeat" class="touchnone" viewBox="0 0 320 300"></svg></div></div>
+        <div><div class="panel-h">The resulting GP fit</div><div class="plot"><svg id="lFit" viewBox="0 0 320 300"></svg></div></div>
+      </div>
+      <div class="row">
+        <button class="pill" id="lOptA">Go to optimum A</button>
+        <button class="pill" id="lOptB">Go to optimum B</button>
+      </div>
+      <div class="panel-h" style="margin-top:8px">Along &ell; at the current &sigma;<sub>y</sub>: data fit vs. complexity</div>
+      <div class="plot"><svg id="lDec" class="touchnone" viewBox="0 0 640 220"></svg></div>
+      <div class="legend">
+        <span><span class="sw line" style="background:var(--k2)"></span>data fit $-\frac12\mathbf{y}^\top\mathbf{K}_\sigma^{-1}\mathbf{y}$</span>
+        <span><span class="sw line" style="background:var(--k1)"></span>complexity $-\frac12\log|\mathbf{K}_\sigma|$</span>
+        <span><span class="sw line" style="background:var(--ink)"></span>total (log marginal likelihood)</span>
+      </div>
+      <div class="tiles">
+        <div class="tile"><div class="k">&ell;</div><div class="v" id="lT1">&ndash;</div></div>
+        <div class="tile"><div class="k">&sigma;<sub>y</sub></div><div class="v" id="lT2">&ndash;</div></div>
+        <div class="tile"><div class="k">log marginal lik.</div><div class="v" id="lT3">&ndash;</div></div>
+        <div class="tile"><div class="k">data fit / complexity</div><div class="v" id="lT4">&ndash;</div></div>
+      </div>
+    </div>
+    <p style="margin-top:14px">Because the objective isn't convex, gradient-based optimizers can land in either mode depending on where they start. Common remedies are several random restarts, priors on $\boldsymbol\theta$, or keeping both explanations by averaging over $\boldsymbol\theta$. With only 14 points, both stories are honestly supported by the data.</p>
+  </section>
+
+  <!-- ============================== X: forecasting ============================== -->
+  <section class="block hl" id="forecast">
+    <h2><span class="num">Application</span>Forecasting a seasonal series by composing kernels</h2>
+    <div class="kicker">Everything at once: pick kernel parts, and the GP decomposes the data and extrapolates each part in its own way.</div>
+    <p>Here is ten years of simulated monthly measurements (think atmospheric CO&#8322; or electricity demand): a rising, slightly curving trend, a yearly cycle with a second harmonic, some slow irregular drift, and measurement noise. The task is to forecast the next four years. The kernel is a <b>sum</b> of parts, so the GP models the data as a sum of independent functions, one per part:</p>
+    <div class="eqbox">$$\mathcal{K} = \underbrace{\sigma_1^2\,\mathrm{Lin}}_{\text{trend}} + \underbrace{\sigma_2^2\,\mathrm{SE}_{\ell=4}}_{\text{smooth trend}} + \underbrace{\sigma_3^2\,\mathrm{Per}_{p}\times\mathrm{SE}_{\ell=15}}_{\text{seasonal, slowly changing}} + \underbrace{\sigma_4^2\,\mathrm{SE}_{\ell=0.4}}_{\text{short-term}} + \sigma_y^2\,\delta_{xx'}$$</div>
+    <p>Each component's posterior mean is $\mathbf{K}^{(c)}_{X,*}{}^\top\mathbf{K}_\sigma^{-1}\mathbf{y}$: the same weights, but only that component's kernel. The total forecast is the sum of the components. Switch parts on and off, then reveal the true future to score the forecast.</p>
+    <div class="demo">
+      <div class="demo-title">Demo 12 &middot; Build the forecaster</div>
+      <div class="row"><span class="lbl">Kernel parts</span>
+        <button class="pill on" data-xc="lin"><span class="dot" style="background:var(--k1)"></span>Linear trend</button>
+        <button class="pill on" data-xc="trend"><span class="dot" style="background:var(--k3)"></span>Smooth SE trend</button>
+        <button class="pill on" data-xc="seas"><span class="dot" style="background:var(--k2)"></span>Per &times; SE seasonal</button>
+        <button class="pill on" data-xc="short"><span class="dot" style="background:var(--k4)"></span>Short-term SE</button>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label>Assumed period p (years) <b id="xPv">1.00</b></label><input type="range" id="xP" min="0.5" max="1.5" step="0.01" value="1"></div>
+        <div class="row" style="margin:0">
+          <button class="pill primary" id="xReveal">Reveal the true future</button>
+          <button class="pill" id="xOnlySE">Try: one SE kernel only</button>
+          <button class="pill" id="xAll">All parts</button>
+        </div>
+      </div>
+      <div class="plot"><svg id="xSvg" viewBox="0 0 640 300"></svg></div>
+      <div class="legend">
+        <span><span class="sw round" style="background:var(--ink)"></span>training data (years 0&ndash;10)</span>
+        <span><span class="sw line" style="background:var(--k0)"></span>GP mean</span>
+        <span><span class="sw band" style="background:var(--band)"></span>&plusmn; 2 sd</span>
+        <span><span class="sw round" style="background:none;border:1.5px solid var(--k1)"></span>true future (when revealed)</span>
+      </div>
+      <div class="tiles">
+        <div class="tile" id="xT1b"><div class="k">forecast RMSE, years 10&ndash;14</div><div class="v" id="xT1">hidden</div></div>
+        <div class="tile"><div class="k">log marginal likelihood (train)</div><div class="v" id="xT2">&ndash;</div></div>
+        <div class="tile"><div class="k">truth inside &plusmn;2 sd</div><div class="v" id="xT3">hidden</div></div>
+        <div class="tile"><div class="k">kernel parts</div><div class="v" id="xT4">&ndash;</div></div>
+      </div>
+      <div class="panel-h" style="margin-top:12px">The decomposition: posterior mean of each part (each plot has its own vertical scale)</div>
+      <div class="plot"><svg id="xDec" viewBox="0 0 640 260"></svg></div>
+      <div class="readout" id="xRead"></div>
+    </div>
+    <div class="callout"><b>Lessons from the forecaster.</b> (1) Far from the data, every part decays to its prior mean, so <em>what a GP extrapolates is set entirely by the kernel</em>. An SE trend flattens back to 0 after about one length-scale, a linear part keeps going, and a periodic part keeps repeating. (2) With only one SE kernel, the fit to the past is good but the forecast collapses to the mean within a year. (3) A wrong period is caught by the marginal likelihood: watch it drop as you move $p$ off 1.00. In a real analysis you would learn $p$ and every $\sigma$ and $\ell$ by maximizing it, as in Demo 11.</div>
+  </section>
+
+  <!-- ============================== MORE ============================== -->
+  <section class="block" id="more">
+    <h2><span class="num">17.2</span>The rest of &sect;17.2 in brief</h2>
+    <h3>Weight space vs. function space</h3>
+    <p>Bayesian linear regression with features $\boldsymbol\phi(\mathbf{x})$ and prior $\mathbf{w}\sim\mathcal{N}(\mathbf{0},\boldsymbol\Sigma_w)$ gives exactly the same predictions as a GP with kernel $\mathcal{K}(\mathbf{x},\mathbf{x}') = \boldsymbol\phi(\mathbf{x})^\top\boldsymbol\Sigma_w\boldsymbol\phi(\mathbf{x}')$. Demo 3 is this statement. The weight-space version costs $O(M^3)$ in the number of features, and the function-space version costs $O(N^3)$ in the number of data points. With infinitely many features, only the function-space version is possible.</p>
+    <h3>Numerical issues</h3>
+    <p>Never invert $\mathbf{K}_\sigma$. Factor it as $\mathbf{K}_\sigma = \mathbf{L}\mathbf{L}^\top$ (Cholesky) and solve two triangular systems: $\boldsymbol\alpha = \mathbf{L}^{-\top}(\mathbf{L}^{-1}\mathbf{y})$, then $\boldsymbol\mu_* = \mathbf{K}_{X,*}^\top\boldsymbol\alpha$. The log-determinant comes for free as $2\sum_i\log L_{ii}$. Smooth kernels like SE produce nearly singular Gram matrices (Demo 4: the eigenvalues fall off a cliff), so a small "jitter" $\epsilon\mathbf{I}$ is added to the diagonal. Every demo on this page does exactly this, and the GP playground shows the jitter it needed.</p>
+    <h3>GPs for classification</h3>
+    <p>For labels, push the latent GP through a sigmoid: $p(y=1\mid\mathbf{x}) = \sigma(f(\mathbf{x}))$. The posterior is no longer Gaussian, so it is approximated (Laplace, variational inference, or EP). The kernel's role is unchanged: it encodes which inputs should get similar predictions.</p>
+    <h3>Connections with deep learning</h3>
+    <p>A neural network with one infinitely wide hidden layer and random Gaussian weights is a GP, with a kernel determined by the activation function (the neural-network GP). Deep versions give other kernels, and the neural tangent kernel describes how wide networks train. "Kernel" and "network" are closer than they look.</p>
+    <h3>Scaling up</h3>
+    <p>The $O(N^3)$ Cholesky becomes the bottleneck past roughly $10^4$ points. Standard fixes are low-rank approximations: inducing points (a small set of pseudo-inputs), or random Fourier features (Demo 3), which turn the GP back into Bayesian linear regression with $M \ll N$ features.</p>
+  </section>
+
+  <!-- ============================== QUIZ ============================== -->
+  <section class="block" id="quiz">
+    <h2><span class="num">Check</span>Quiz &amp; cheat sheet</h2>
+    <div class="kicker">Click an answer to see the reasoning.</div>
+    <div id="quizbox"></div>
+    <div class="score" id="quizscore"></div>
+
+    <h3>Cheat sheet</h3>
+    <div class="scroll-x">
+    <table class="cheat">
+      <tr><th>Concept</th><th>Formula</th><th>Key fact</th></tr>
+      <tr><td>Mercer kernel</td><td>$\mathbf{c}^\top\mathbf{K}\mathbf{c}\ge 0$ for all points and all $\mathbf{c}$</td><td>Every Gram matrix is PSD, so it is a valid covariance matrix.</td></tr>
+      <tr><td>Mercer's theorem</td><td>$\mathcal{K}(\mathbf{x},\mathbf{x}') = \sum_m\lambda_m\phi_m(\mathbf{x})\phi_m(\mathbf{x}')$</td><td>Every Mercer kernel is an inner product of (possibly infinitely many) features.</td></tr>
+      <tr><td>Kernel trick</td><td>$(\mathbf{x}^\top\mathbf{x}')^2 = \boldsymbol\phi(\mathbf{x})^\top\boldsymbol\phi(\mathbf{x}')$</td><td>Compute in input space and get feature-space results. Cost $O(D)$ instead of $O(D^M)$.</td></tr>
+      <tr><td>Features &rarr; kernel</td><td>$\mathcal{K} = \boldsymbol\phi(\mathbf{x})^\top\boldsymbol\phi(\mathbf{x}')$</td><td>Always valid. It is the covariance of $f = \mathbf{w}^\top\boldsymbol\phi$ with $\mathbf{w}\sim\mathcal{N}(\mathbf{0},\mathbf{I})$.</td></tr>
+      <tr><td>SE / RBF</td><td>$\exp(-r^2/2\ell^2)$</td><td>Infinitely smooth samples. Infinitely many features. $\ell$ = how far before $f$ changes.</td></tr>
+      <tr><td>Mat&eacute;rn $\nu$</td><td>$\nu=\frac12$: $e^{-r/\ell}$</td><td>Samples are $\lceil\nu\rceil-1$ times differentiable. $\nu\to\infty$ gives SE.</td></tr>
+      <tr><td>Periodic</td><td>$\exp(-\frac{2}{\ell^2}\sin^2(\pi r/p))$</td><td>Exactly periodic samples. Multiply by SE to let the pattern drift.</td></tr>
+      <tr><td>ARD</td><td>$\exp(-\frac12\sum_d (x_d-x_d')^2/\ell_d^2)$</td><td>Large learned $\ell_d$ means input $d$ is irrelevant.</td></tr>
+      <tr><td>Closure rules</td><td>$c\mathcal{K}$, $f\mathcal{K}f$, $\mathcal{K}_1+\mathcal{K}_2$, $\mathcal{K}_1\mathcal{K}_2$, $\exp(\mathcal{K})$</td><td>Build any kernel from simple pieces. $\mathcal{K}_1-\mathcal{K}_2$ is <em>not</em> safe.</td></tr>
+      <tr><td>Sum vs. product</td><td>$+$: OR, $\times$: AND</td><td>Sum = additive independent components. Product = similar only if both agree.</td></tr>
+      <tr><td>String kernel</td><td>$\sum_u\phi_u(s)\phi_u(s')$</td><td>Kernels work on any input type.</td></tr>
+      <tr><td>GP posterior</td><td>$\boldsymbol\mu_* = \mathbf{K}_{X,*}^\top\mathbf{K}_\sigma^{-1}\mathbf{y}$</td><td>Linear smoother whose weights can be negative. $O(N^3)$ via Cholesky.</td></tr>
+      <tr><td>Marginal likelihood</td><td>$-\frac12\mathbf{y}^\top\mathbf{K}_\sigma^{-1}\mathbf{y} - \frac12\log|\mathbf{K}_\sigma| - \frac N2\log2\pi$</td><td>Data fit vs. complexity. Learns $\ell,\sigma_f,\sigma_y$. Can have several optima.</td></tr>
+    </table>
+    </div>
+    <div class="callout"><b>One-sentence summary.</b> A Mercer kernel is a similarity function whose Gram matrices are always positive semidefinite, which makes it both an inner product in some feature space (the kernel trick) and a valid covariance for a Gaussian process. You generate kernels from features, from the standard zoo, or by adding, multiplying and exponentiating existing ones, and in a GP the kernel you build is literally the assumption about what the unknown function looks like.</div>
+  </section>
+
+  <div class="foot">Companion to K. P. Murphy, <em>Probabilistic Machine Learning: An Introduction</em> (MIT Press, 2022), &sect;17.1&ndash;17.2. All data are simulated from fixed seeds. Every kernel, eigendecomposition, Cholesky factorization and GP is written from scratch in plain JavaScript. Equations follow the chapter's notation, but this page is a study aid, not a substitute for the text.</div>
+</div>
+
+<script>
+// ============================================================
+// Shared helpers
+// ============================================================
+const $ = id => document.getElementById(id);
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : '–');
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function randn(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+function svgPt(svg, evt) {
+  const p = svg.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+const tip = $('tip');
+function showTip(evt, html) {
+  tip.innerHTML = html; tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = evt.clientX + 14, y = evt.clientY + 14;
+  if (x + w > window.innerWidth - 8) x = evt.clientX - w - 14;
+  if (y + h > window.innerHeight - 8) y = evt.clientY - h - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+function hexRGB(h) {
+  h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function pillGroup(attr, onSel) {
+  const btns = document.querySelectorAll(`[data-${attr}]`);
+  const key = attr.replace(/-./g, m => m[1].toUpperCase());
+  btns.forEach(b => b.addEventListener('click', () => {
+    btns.forEach(x => x.classList.remove('on')); b.classList.add('on'); onSel(b.dataset[key]);
+  }));
+  return v => btns.forEach(x => x.classList.toggle('on', x.dataset[key] === v));
+}
+function toggle(id, onChange) {
+  const b = $(id); b.addEventListener('click', () => { b.classList.toggle('on'); onChange(b.classList.contains('on')); });
+  return () => b.classList.contains('on');
+}
+// log-scaled range input; returns a setter
+function logRange(id, lo, hi, init, onInput, labelId, d = 2) {
+  const el = $(id); el.min = 0; el.max = 1000; el.step = 1;
+  const to = v => lo * Math.pow(hi / lo, v / 1000);
+  const from = x => Math.round(1000 * Math.log(x / lo) / Math.log(hi / lo));
+  el.value = from(init); if (labelId) $(labelId).textContent = init.toFixed(d);
+  el.addEventListener('input', () => { const x = to(+el.value); if (labelId) $(labelId).textContent = x.toFixed(d); onInput(x); });
+  return x => { el.value = from(x); if (labelId) $(labelId).textContent = x.toFixed(d); };
+}
+function rafThrottle(fn) { let q = false; return () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; fn(); }); }; }
+const KX = { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }], throwOnError: false };
+function typeset(el) { if (window.renderMathInElement) renderMathInElement(el, KX); }
+const REPAINT = [];
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => REPAINT.forEach(f => f()));
+
+// ---------- plotting frame ----------
+function Frame(W, H, m, xd, yd) {
+  const X = v => m.l + (v - xd[0]) / (xd[1] - xd[0]) * (W - m.l - m.r);
+  const Y = v => H - m.b - (v - yd[0]) / (yd[1] - yd[0]) * (H - m.t - m.b);
+  const ix = px => xd[0] + (px - m.l) / (W - m.l - m.r) * (xd[1] - xd[0]);
+  const iy = py => yd[0] + (H - m.b - py) / (H - m.t - m.b) * (yd[1] - yd[0]);
+  return { W, H, m, xd, yd, X, Y, ix, iy, x0: m.l, x1: W - m.r, y0: H - m.b, y1: m.t };
+}
+function axesSVG(F, { xt = [], yt = [], xf = v => v, yf = v => v, xlabel = '', ylabel = '', zero = false }) {
+  let s = '';
+  yt.forEach(v => { const y = F.Y(v); s += `<line class="grid" x1="${F.x0}" x2="${F.x1}" y1="${y}" y2="${y}"/><text class="muted" x="${F.x0 - 6}" y="${y + 4}" text-anchor="end" font-size="11">${yf(v)}</text>`; });
+  s += `<line class="axis" x1="${F.x0}" x2="${F.x1}" y1="${F.y0}" y2="${F.y0}"/>`;
+  if (zero && F.yd[0] < 0 && F.yd[1] > 0) s += `<line x1="${F.x0}" x2="${F.x1}" y1="${F.Y(0)}" y2="${F.Y(0)}" stroke="var(--muted)" stroke-width="1" opacity=".5"/>`;
+  xt.forEach(v => { const x = F.X(v); s += `<line class="axis" x1="${x}" x2="${x}" y1="${F.y0}" y2="${F.y0 + 4}"/><text class="muted" x="${x}" y="${F.y0 + 17}" text-anchor="middle" font-size="11">${xf(v)}</text>`; });
+  if (xlabel) s += `<text class="muted" x="${(F.x0 + F.x1) / 2}" y="${F.H - 4}" text-anchor="middle" font-size="11">${xlabel}</text>`;
+  if (ylabel) s += `<text class="muted" x="${F.x0}" y="${F.y1 - 6}" text-anchor="start" font-size="11">${ylabel}</text>`;
+  return s;
+}
+function pathD(F, xs, ys) {
+  let d = '', pen = false;
+  for (let i = 0; i < xs.length; i++) {
+    const y = ys[i];
+    if (!Number.isFinite(y)) { pen = false; continue; }
+    d += (pen ? 'L' : 'M') + F.X(xs[i]).toFixed(1) + ',' + F.Y(clamp(y, F.yd[0] - 1e3, F.yd[1] + 1e3)).toFixed(1);
+    pen = true;
+  }
+  return d;
+}
+function bandD(F, xs, lo, hi) {
+  let d = 'M' + xs.map((x, i) => F.X(x).toFixed(1) + ',' + F.Y(clamp(hi[i], F.yd[0] - 50, F.yd[1] + 50)).toFixed(1)).join('L');
+  for (let i = xs.length - 1; i >= 0; i--) d += 'L' + F.X(xs[i]).toFixed(1) + ',' + F.Y(clamp(lo[i], F.yd[0] - 50, F.yd[1] + 50)).toFixed(1);
+  return d + 'Z';
+}
+const clipRect = (id, F) => `<defs><clipPath id="${id}"><rect x="${F.x0}" y="${F.y1}" width="${F.x1 - F.x0}" height="${F.y0 - F.y1}"/></clipPath></defs>`;
+const linspace = (a, b, n) => Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
+function niceTicks(a, b, n = 5) {
+  const span = b - a, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(s => s * mag).find(s => span / s <= n) || 10 * mag;
+  const out = []; for (let v = Math.ceil(a / step) * step; v <= b + 1e-9; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+const tickFmt = v => (Math.abs(v) >= 100 || Number.isInteger(v)) ? String(Math.round(v)) : (Math.abs(v) < 1 ? v.toFixed(2).replace(/0$/, '') : v.toFixed(1));
+const SERIES = ['var(--k0)', 'var(--k1)', 'var(--k2)', 'var(--k3)', 'var(--k4)', 'var(--k5)'];
+// symmetric y-range that fits all arrays
+function symRange(arrs, min = 1) {
+  let m = min; arrs.forEach(a => a.forEach(v => { if (Number.isFinite(v)) m = Math.max(m, Math.abs(v)); }));
+  return Math.ceil(m * 1.1 * 2) / 2;
+}
+
+// ---------- diverging colors for heatmaps ----------
+let PAL = null;
+function readPal() { PAL = { panel: hexRGB(cssv('--panel')), pos: hexRGB(cssv('--pos')), neg: hexRGB(cssv('--neg')), ink: hexRGB(cssv('--ink')) }; }
+readPal(); REPAINT.unshift(readPal);
+function divRGB(v, vmax) {
+  const t = clamp(v / (vmax || 1), -1, 1), c = t >= 0 ? PAL.pos : PAL.neg, a = Math.pow(Math.abs(t), 0.85), b = PAL.panel;
+  return [b[0] + (c[0] - b[0]) * a, b[1] + (c[1] - b[1]) * a, b[2] + (c[2] - b[2]) * a];
+}
+const rgbStr = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+// sequential (viridis-like) for the likelihood surface
+const SEQ = [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]];
+function seqRGB(t) {
+  t = clamp(t, 0, 1) * (SEQ.length - 1); const i = Math.min(SEQ.length - 2, Math.floor(t)), f = t - i;
+  return SEQ[i].map((v, k) => v + (SEQ[i + 1][k] - v) * f);
+}
+// paint an nx × ny grid into the frame's plot area. fn(i, r) → [r,g,b], i = column (left→right), r = row (top→bottom)
+function heatInto(cv, F, nx, ny, fn, smooth = false) {
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(F.W * dpr); cv.height = Math.round(F.H * dpr);
+  const off = document.createElement('canvas'); off.width = nx; off.height = ny;
+  const ox = off.getContext('2d'), img = ox.createImageData(nx, ny);
+  for (let r = 0; r < ny; r++) for (let i = 0; i < nx; i++) {
+    const c = fn(i, r), k = (r * nx + i) * 4;
+    img.data[k] = c[0]; img.data[k + 1] = c[1]; img.data[k + 2] = c[2]; img.data[k + 3] = 255;
+  }
+  ox.putImageData(img, 0, 0);
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, F.W, F.H);
+  ctx.imageSmoothingEnabled = smooth;
+  ctx.drawImage(off, F.x0, F.y1, F.x1 - F.x0, F.y0 - F.y1);
+}
+
+// ============================================================
+// Linear algebra (flat row-major Float64Arrays)
+// ============================================================
+function chol(A, n) {
+  const L = new Float64Array(n * n);
+  for (let j = 0; j < n; j++) {
+    let s = A[j * n + j];
+    for (let k = 0; k < j; k++) s -= L[j * n + k] * L[j * n + k];
+    if (!(s > 0)) return null;
+    const d = Math.sqrt(s); L[j * n + j] = d;
+    for (let i = j + 1; i < n; i++) {
+      let t = A[i * n + j];
+      for (let k = 0; k < j; k++) t -= L[i * n + k] * L[j * n + k];
+      L[i * n + j] = t / d;
+    }
+  }
+  return L;
+}
+// Cholesky with escalating diagonal jitter (relative to the largest diagonal entry)
+function cholJ(A, n, maxRel = 1e-4) {
+  let dmax = 0; for (let i = 0; i < n; i++) dmax = Math.max(dmax, Math.abs(A[i * n + i]));
+  dmax = dmax || 1;
+  for (let rel = 0; rel <= maxRel; rel = rel ? rel * 10 : 1e-10) {
+    const B = rel ? Float64Array.from(A) : A;
+    if (rel) for (let i = 0; i < n; i++) B[i * n + i] += rel * dmax;
+    const L = chol(B, n);
+    if (L) return { L, jitter: rel * dmax };
+  }
+  return null;
+}
+function fwd(L, b, n) { const z = new Float64Array(n); for (let i = 0; i < n; i++) { let s = b[i]; for (let k = 0; k < i; k++) s -= L[i * n + k] * z[k]; z[i] = s / L[i * n + i]; } return z; }
+function bwd(L, z, n) { const x = new Float64Array(n); for (let i = n - 1; i >= 0; i--) { let s = z[i]; for (let k = i + 1; k < n; k++) s -= L[k * n + i] * x[k]; x[i] = s / L[i * n + i]; } return x; }
+function lowerMul(L, z, n) { const out = new Float64Array(n); for (let i = 0; i < n; i++) { let s = 0; for (let k = 0; k <= i; k++) s += L[i * n + k] * z[k]; out[i] = s; } return out; }
+// cyclic Jacobi eigendecomposition of a symmetric matrix; returns eigenpairs sorted by decreasing eigenvalue
+function eigSym(A0, n) {
+  const A = Float64Array.from(A0), V = new Float64Array(n * n);
+  for (let i = 0; i < n; i++) V[i * n + i] = 1;
+  let norm = 0; for (let i = 0; i < n * n; i++) norm += A[i] * A[i];
+  for (let sweep = 0; sweep < 60; sweep++) {
+    let off = 0;
+    for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) off += A[p * n + q] * A[p * n + q];
+    if (off <= 1e-24 * norm || off === 0) break;
+    for (let p = 0; p < n - 1; p++) for (let q = p + 1; q < n; q++) {
+      const apq = A[p * n + q];
+      if (Math.abs(apq) < 1e-300) continue;
+      const theta = (A[q * n + q] - A[p * n + p]) / (2 * apq);
+      const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+      const c = 1 / Math.sqrt(t * t + 1), s = t * c;
+      for (let k = 0; k < n; k++) {
+        const akp = A[k * n + p], akq = A[k * n + q];
+        A[k * n + p] = c * akp - s * akq; A[k * n + q] = s * akp + c * akq;
+      }
+      for (let k = 0; k < n; k++) {
+        const apk = A[p * n + k], aqk = A[q * n + k];
+        A[p * n + k] = c * apk - s * aqk; A[q * n + k] = s * apk + c * aqk;
+      }
+      for (let k = 0; k < n; k++) {
+        const vkp = V[k * n + p], vkq = V[k * n + q];
+        V[k * n + p] = c * vkp - s * vkq; V[k * n + q] = s * vkp + c * vkq;
+      }
+    }
+  }
+  const idx = [...Array(n).keys()].sort((a, b) => A[b * n + b] - A[a * n + a]);
+  return {
+    vals: idx.map(i => A[i * n + i]),
+    vecs: idx.map(i => { const v = new Float64Array(n); for (let k = 0; k < n; k++) v[k] = V[k * n + i]; return v; }),
+  };
+}
+function gramOf(xs, kf) {
+  const n = xs.length, K = new Float64Array(n * n);
+  for (let i = 0; i < n; i++) for (let j = i; j < n; j++) { const v = kf(xs[i], xs[j]); K[i * n + j] = v; K[j * n + i] = v; }
+  return K;
+}
+// fixed standard-normal vectors, so samples morph smoothly as kernels change
+const ZS = [0, 1, 2].map(s => { const r = mulberry32(1000 + 17 * s); return Array.from({ length: 400 }, () => randn(r)); });
+function priorSamples(xs, kf, Z = ZS) {
+  const n = xs.length, ch = cholJ(gramOf(xs, kf), n, 1e-3);
+  return ch ? Z.map(z => lowerMul(ch.L, z, n)) : null;
+}
+
+// ============================================================
+// Kernel library (1D). Stationary kernels are written in r = x − x'.
+// ============================================================
+const KZ = {
+  se: { name: 'Squared exponential', st: (r, p) => Math.exp(-r * r / (2 * p.l * p.l)), uses: ['l'] },
+  m52: { name: 'Matérn 5/2', st: (r, p) => { const s = Math.sqrt(5) * Math.abs(r) / p.l; return (1 + s + s * s / 3) * Math.exp(-s); }, uses: ['l'] },
+  m32: { name: 'Matérn 3/2', st: (r, p) => { const s = Math.sqrt(3) * Math.abs(r) / p.l; return (1 + s) * Math.exp(-s); }, uses: ['l'] },
+  m12: { name: 'Matérn 1/2', st: (r, p) => Math.exp(-Math.abs(r) / p.l), uses: ['l'] },
+  rq: { name: 'Rational quadratic', st: (r, p) => Math.pow(1 + r * r / (2 * p.alpha * p.l * p.l), -p.alpha), uses: ['l', 'alpha'] },
+  per: { name: 'Periodic', st: (r, p) => { const s = Math.sin(Math.PI * Math.abs(r) / p.p); return Math.exp(-2 * s * s / (p.l * p.l)); }, uses: ['l', 'p'] },
+  cos: { name: 'Cosine', st: (r, p) => Math.cos(2 * Math.PI * r / p.p), uses: ['p'] },
+  lin: { name: 'Linear', f: (a, b, p) => 0.25 + (a - p.c) * (b - p.c) / 9, uses: ['c'] },
+  poly: { name: 'Polynomial', f: (a, b, p) => Math.pow(1 + a * b / 25, p.M), uses: ['M'] },
+};
+const kEval = (id, a, b, p) => (KZ[id].f ? KZ[id].f(a, b, p) : KZ[id].st(a - b, p));
+const DEFP = { l: 1, p: 2.5, alpha: 1, M: 2, c: 0 };
+
+// ============================================================
+// DEMO 1 · Gram matrix lab
+// ============================================================
+(function demoG() {
+  const KS = {
+    se: { ok: true, f: (a, b, l) => Math.exp(-((a - b) ** 2) / (2 * l * l)) },
+    m12: { ok: true, f: (a, b, l) => Math.exp(-Math.abs(a - b) / l) },
+    per: { ok: true, f: (a, b, l) => Math.exp(-2 * Math.sin(Math.PI * Math.abs(a - b) / 3) ** 2 / (l * l)) },
+    lin: { ok: true, f: (a, b) => a * b / 4 },
+    poly: { ok: true, f: (a, b) => (1 + a * b / 4) ** 2 },
+    box: { ok: false, f: (a, b, l) => (Math.abs(a - b) <= l ? 1 : 0) },
+    epan: { ok: false, f: (a, b, l) => Math.max(0, 1 - (a - b) ** 2 / (l * l)) },
+    cube: { ok: false, f: (a, b, l) => Math.exp(-((Math.abs(a - b) / l) ** 3)) },
+    tanh: { ok: false, f: (a, b, l) => Math.tanh(0.5 * a * b / l - 1) },
+  };
+  const INIT = [-3.6, -2.5, -1.9, -1.2, -0.4, 0.3, 0.9, 1.5, 2.4, 3.3];
+  const rng = mulberry32(31);
+  let pts = INIT.slice(), kid = 'se', l = 1, drag = null;
+  const svgP = $('gPts'), svgH = $('gHeat'), svgE = $('gEig');
+  const FP = Frame(640, 200, { l: 44, r: 16, t: 22, b: 30 }, [-5, 5], [-3, 3]);
+  document.querySelector('#mercer .legend').innerHTML =
+    `<span><span class="sw" style="background:var(--pos)"></span>positive entry / eigenvalue</span><span><span class="sw" style="background:var(--neg)"></span>negative</span>`;
+
+  function draw() {
+    const n = pts.length, k = KS[kid];
+    const K = new Float64Array(n * n);
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) K[i * n + j] = k.f(pts[i], pts[j], l);
+    const E = eigSym(K, n), lmax = E.vals[0], lmin = E.vals[n - 1];
+    const tol = 1e-9 * Math.max(1, Math.abs(lmax));
+    const psd = lmin >= -tol, nneg = E.vals.filter(v => v < -tol).length;
+    const ch = psd ? cholJ(K, n, 1e-6) : null;
+    const samp = ch ? lowerMul(ch.L, ZS[0], n) : null;
+    const worst = E.vecs[n - 1];
+
+    // --- points / sample strip
+    let s = axesSVG(FP, { xt: [-4, -2, 0, 2, 4], yt: [-2, 0, 2], zero: true,
+      ylabel: psd ? 'one draw of (f(x₁), …, f(x_N)) ~ N(0, K)' : 'the bad direction c (eigenvector of λ_min)' });
+    const ord = [...pts.keys()].sort((a, b) => pts[a] - pts[b]);
+    if (samp) {
+      s += `<path d="${'M' + ord.map(i => FP.X(pts[i]).toFixed(1) + ',' + FP.Y(clamp(samp[i], -3, 3)).toFixed(1)).join('L')}" fill="none" stroke="var(--k0)" stroke-width="2"/>`;
+      ord.forEach(i => { s += `<circle cx="${FP.X(pts[i])}" cy="${FP.Y(clamp(samp[i], -3, 3))}" r="3.5" fill="var(--k0)"/>`; });
+    } else {
+      const m = Math.max(...worst.map(Math.abs)) || 1;
+      pts.forEach((x, i) => {
+        const v = 2.4 * worst[i] / m, X = FP.X(x);
+        s += `<line x1="${X}" x2="${X}" y1="${FP.Y(0)}" y2="${FP.Y(v)}" stroke="var(--bad)" stroke-width="3" stroke-linecap="round"/>`;
+      });
+    }
+    pts.forEach((x, i) => {
+      const X = FP.X(x);
+      s += `<line x1="${X}" x2="${X}" y1="${FP.y1}" y2="${FP.y0}" stroke="var(--muted)" stroke-dasharray="2 4" opacity=".5"/>`;
+      s += `<g style="cursor:ew-resize"><circle cx="${X}" cy="${FP.y0}" r="9" fill="var(--ink)" stroke="var(--panel)" stroke-width="2"/><text x="${X}" y="${FP.y0 + 3.5}" text-anchor="middle" font-size="9.5" font-weight="700" style="fill:var(--panel)">${i + 1}</text></g>`;
+    });
+    svgP.innerHTML = s;
+
+    // --- Gram heatmap
+    const m0 = 24, cell = (300 - m0 - 6) / n;
+    let vmax = 0; for (let i = 0; i < n * n; i++) vmax = Math.max(vmax, Math.abs(K[i]));
+    let h = '';
+    for (let i = 0; i < n; i++) {
+      h += `<text class="muted" x="${m0 - 5}" y="${m0 + (i + 0.5) * cell + 3.5}" text-anchor="end" font-size="9">${i + 1}</text>`;
+      h += `<text class="muted" x="${m0 + (i + 0.5) * cell}" y="${m0 - 6}" text-anchor="middle" font-size="9">${i + 1}</text>`;
+      for (let j = 0; j < n; j++) h += `<rect x="${m0 + j * cell}" y="${m0 + i * cell}" width="${cell + 0.3}" height="${cell + 0.3}" fill="${rgbStr(divRGB(K[i * n + j], vmax))}" data-i="${i}" data-j="${j}"/>`;
+    }
+    svgH.innerHTML = h;
+    svgH._K = K; svgH._n = n;
+
+    // --- eigenvalue bars
+    const lo = Math.min(0, lmin * 1.15), hi = Math.max(lmax * 1.1, 1e-6);
+    const FE = Frame(300, 300, { l: 40, r: 10, t: 16, b: 26 }, [0, n], [lo, hi]);
+    let e = axesSVG(FE, { yt: niceTicks(lo, hi, 5), yf: tickFmt, xlabel: 'eigenvalue index', zero: true });
+    E.vals.forEach((v, m) => {
+      const neg = v < -tol, y0 = FE.Y(0), y1 = FE.Y(v);
+      e += `<rect x="${FE.X(m + 0.15)}" width="${FE.X(m + 0.85) - FE.X(m + 0.15)}" y="${Math.min(y0, y1)}" height="${Math.max(1, Math.abs(y1 - y0))}" fill="${neg ? 'var(--neg)' : 'var(--pos)'}" rx="1.5"><title>λ${m + 1} = ${v.toFixed(4)}</title></rect>`;
+    });
+    svgE.innerHTML = e;
+
+    // --- tiles + readout
+    const T = (id, v, cls) => { const t = $(id); t.className = 'tile ' + (cls || ''); t.querySelector('.v').textContent = v; };
+    const f4 = v => (Math.abs(v) < 5e-5 ? 0 : v).toFixed(4);
+    T('gT1', f4(lmin), psd ? 'good' : 'bad');
+    T('gT2', String(nneg), nneg ? 'bad' : 'good');
+    T('gT3', f4(lmin), psd ? '' : 'bad');
+    T('gT4', ch ? 'succeeds' : 'fails', ch ? 'good' : 'bad');
+    let msg;
+    if (psd) {
+      msg = `<b>All ${n} eigenvalues are ≥ 0</b>, so $\\mathbf{c}^\\top\\mathbf{K}\\mathbf{c} \\ge 0$ for every $\\mathbf{c}$. $\\mathbf{K}$ is a legal covariance matrix, and the blue curve is one random draw of $(f(x_1),\\dots,f(x_N))$.`;
+      if (!k.ok) msg += ` <b>But this is an impostor.</b> This particular arrangement happens to pass. Drag points or change ℓ, because a Mercer kernel has to pass for <em>every</em> set of points.`;
+      else if (lmin < 1e-6 * lmax) msg += ' The smallest eigenvalue is essentially 0 (two points nearly coincide, or the kernel has finite rank), which is still allowed.';
+    } else {
+      msg = `<b>λ_min = ${lmin.toFixed(3)} &lt; 0.</b> Take $\\mathbf{c}$ = its eigenvector (red stems). Then $\\mathbf{c}^\\top\\mathbf{K}\\mathbf{c} = ${lmin.toFixed(3)}$. If $\\mathbf{K}$ were a covariance, this would be $\\mathrm{Var}[\\sum_i c_i f(x_i)]$, and variances can't be negative. So no Gaussian process has this covariance, no feature map reproduces this similarity, and Cholesky breaks down.`;
+    }
+    $('gRead').innerHTML = msg; typeset($('gRead'));
+  }
+  const redraw = rafThrottle(draw);
+  pillGroup('gk', v => { kid = v; draw(); });
+  logRange('gL', 0.2, 4, 1, v => { l = v; redraw(); }, 'gLv');
+  $('gAdd').addEventListener('click', () => { if (pts.length < 20) { pts.push(+(-4.5 + 9 * rng()).toFixed(2)); draw(); } });
+  $('gDel').addEventListener('click', () => { if (pts.length > 2) { pts.pop(); draw(); } });
+  $('gReset').addEventListener('click', () => { pts = INIT.slice(); draw(); });
+  svgP.addEventListener('pointerdown', e => {
+    const p = svgPt(svgP, e); let best = -1, bd = 14;
+    pts.forEach((x, i) => { const d = Math.abs(FP.X(x) - p.x); if (d < bd) { bd = d; best = i; } });
+    if (best >= 0) { drag = best; svgP.setPointerCapture(e.pointerId); }
+  });
+  svgP.addEventListener('pointermove', e => { if (drag === null) return; pts[drag] = +clamp(FP.ix(svgPt(svgP, e).x), -4.9, 4.9).toFixed(3); redraw(); });
+  svgP.addEventListener('pointerup', () => { drag = null; });
+  svgH.addEventListener('pointermove', e => {
+    const t = e.target; if (!t.dataset || t.dataset.i === undefined) { hideTip(); return; }
+    const i = +t.dataset.i, j = +t.dataset.j;
+    showTip(e, `K(x<sub>${i + 1}</sub>, x<sub>${j + 1}</sub>) = <b>${svgH._K[i * svgH._n + j].toFixed(3)}</b><br><span style="color:var(--muted)">x = ${pts[i].toFixed(2)}, x′ = ${pts[j].toFixed(2)}</span>`);
+  });
+  svgH.addEventListener('pointerleave', hideTip);
+  REPAINT.push(draw);
+  draw();
+})();
+
+// ============================================================
+// DEMO 2 · quadratic kernel lift
+// ============================================================
+(function demoQ() {
+  const r = mulberry32(7), P = [];
+  for (let i = 0; i < 28; i++) { const rad = 0.95 * Math.sqrt(r()), th = 2 * Math.PI * r(); P.push({ x: [rad * Math.cos(th), rad * Math.sin(th)], c: 0 }); }
+  for (let i = 0; i < 34; i++) { const rad = 1.45 + 0.7 * r(), th = 2 * Math.PI * r(); P.push({ x: [rad * Math.cos(th), rad * Math.sin(th)], c: 1 }); }
+  let q = [0.75, 0.85], ref = 30, az = -0.5, el = 0.32, dragQ = false, rot = null;
+  const phi = ([a, b]) => [a * a, Math.SQRT2 * a * b, b * b];
+  const svgI = $('qIn'), svg3 = $('q3d');
+  const FI = Frame(320, 320, { l: 30, r: 10, t: 10, b: 26 }, [-2.5, 2.5], [-2.5, 2.5]);
+  const S = 29;
+  function proj([u, v, w]) {
+    u -= 2; w -= 2;
+    const xr = u * Math.cos(az) - w * Math.sin(az), zr = u * Math.sin(az) + w * Math.cos(az);
+    const ys = v * Math.cos(el) - zr * Math.sin(el), d = v * Math.sin(el) + zr * Math.cos(el);
+    return [160 + S * xr, 162 - S * ys, d];
+  }
+  const col = c => c ? 'var(--k1)' : 'var(--k0)';
+  const star = (x, y, rr) => {
+    let d = ''; for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rad = k % 2 ? rr * 0.45 : rr; d += (k ? 'L' : 'M') + (x + rad * Math.cos(a)).toFixed(1) + ',' + (y + rad * Math.sin(a)).toFixed(1); }
+    return `<path d="${d}Z" fill="var(--k5)" stroke="var(--ink)" stroke-width="1.2"/>`;
+  };
+  function draw() {
+    // input space
+    let s = axesSVG(FI, { xt: [-2, -1, 0, 1, 2], yt: [-2, -1, 0, 1, 2] });
+    s += `<circle cx="${FI.X(0)}" cy="${FI.Y(0)}" r="${FI.X(1.2) - FI.X(0)}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 4"/>`;
+    P.forEach((p, i) => { s += `<circle cx="${FI.X(p.x[0])}" cy="${FI.Y(p.x[1])}" r="${i === ref ? 6 : 4}" fill="${col(p.c)}" ${i === ref ? 'stroke="var(--ink)" stroke-width="2.5"' : 'stroke="var(--panel)" stroke-width="1"'} style="cursor:pointer"/>`; });
+    s += `<text class="halo" x="${FI.X(P[ref].x[0]) + 9}" y="${FI.Y(P[ref].x[1]) - 7}" font-size="12" font-weight="700">x′</text>`;
+    s += star(FI.X(q[0]), FI.Y(q[1]), 10) + `<text class="halo" x="${FI.X(q[0]) + 11}" y="${FI.Y(q[1]) + 4}" font-size="12" font-weight="700">x</text>`;
+    svgI.innerHTML = s;
+
+    // feature space
+    let t = '';
+    const axis = (a, b, label) => { const A = proj(a), B = proj(b); return `<line x1="${A[0]}" y1="${A[1]}" x2="${B[0]}" y2="${B[1]}" stroke="var(--muted)" stroke-width="1.2"/><text class="muted halo" x="${B[0]}" y="${B[1]}" font-size="11" text-anchor="middle">${label}</text>`; };
+    t += axis([0, 0, 0], [5.2, 0, 0], 'φ₁ = x₁²') + axis([0, -3.6, 0], [0, 3.6, 0], 'φ₂ = √2·x₁x₂') + axis([0, 0, 0], [0, 0, 5.2], 'φ₃ = x₂²');
+    const c = 1.44, plane = [[-0.3, -3.4, c + 0.3], [c + 0.3, -3.4, -0.3], [c + 0.3, 3.4, -0.3], [-0.3, 3.4, c + 0.3]].map(proj);
+    t += `<path d="M${plane.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join('L')}Z" fill="var(--accent)" fill-opacity=".18" stroke="var(--accent)" stroke-width="1.2"/>`;
+    const items = P.map((p, i) => ({ i, pr: proj(phi(p.x)), c: p.c })).sort((a, b) => b.pr[2] - a.pr[2]);
+    items.forEach(it => { t += `<circle cx="${it.pr[0].toFixed(1)}" cy="${it.pr[1].toFixed(1)}" r="${it.i === ref ? 6 : 4}" fill="${col(it.c)}" ${it.i === ref ? 'stroke="var(--ink)" stroke-width="2.5"' : 'stroke="var(--panel)" stroke-width="1"'}/>`; });
+    const qp = proj(phi(q));
+    t += star(qp[0], qp[1], 10);
+    svg3.innerHTML = t;
+
+    // readout
+    const a = phi(q), b = phi(P[ref].x), dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const k = (q[0] * P[ref].x[0] + q[1] * P[ref].x[1]) ** 2, r2 = q[0] ** 2 + q[1] ** 2;
+    const v3 = v => '(' + v.map(x => x.toFixed(2)).join(', ') + ')';
+    $('qRead').innerHTML = `φ(x) = ${v3(a)} &nbsp;·&nbsp; φ(x′) = ${v3(b)}<br>` +
+      `φ(x)ᵀφ(x′) = <b>${dot.toFixed(4)}</b> &nbsp;=&nbsp; (xᵀx′)² = <b>${k.toFixed(4)}</b> ✓ &nbsp; Same number, without ever building φ.<br>` +
+      `‖x‖² = φ₁ + φ₃ = ${r2.toFixed(2)} → the star is <b>${r2 < 1.44 ? 'below' : 'above'}</b> the plane, so the linear rule in feature space puts it in the <b style="color:${col(r2 < 1.44 ? 0 : 1)}">${r2 < 1.44 ? 'inner' : 'outer'}</b> class.`;
+  }
+  svgI.addEventListener('pointerdown', e => {
+    const p = svgPt(svgI, e);
+    if (Math.hypot(p.x - FI.X(q[0]), p.y - FI.Y(q[1])) < 14) { dragQ = true; svgI.setPointerCapture(e.pointerId); return; }
+    let best = -1, bd = 9;
+    P.forEach((pt, i) => { const d = Math.hypot(p.x - FI.X(pt.x[0]), p.y - FI.Y(pt.x[1])); if (d < bd) { bd = d; best = i; } });
+    if (best >= 0) { ref = best; draw(); return; }
+    q = [clamp(FI.ix(p.x), -2.4, 2.4), clamp(FI.iy(p.y), -2.4, 2.4)]; dragQ = true; svgI.setPointerCapture(e.pointerId); draw();
+  });
+  svgI.addEventListener('pointermove', e => { if (!dragQ) return; const p = svgPt(svgI, e); q = [clamp(FI.ix(p.x), -2.4, 2.4), clamp(FI.iy(p.y), -2.4, 2.4)]; draw(); });
+  svgI.addEventListener('pointerup', () => { dragQ = false; });
+  svg3.addEventListener('pointerdown', e => { rot = { x: e.clientX, y: e.clientY, az, el }; svg3.setPointerCapture(e.pointerId); });
+  svg3.addEventListener('pointermove', e => { if (!rot) return; az = rot.az + (e.clientX - rot.x) * 0.012; el = clamp(rot.el + (e.clientY - rot.y) * 0.012, -1.45, 1.45); draw(); });
+  svg3.addEventListener('pointerup', () => { rot = null; });
+  draw();
+
+  // feature-count calculator
+  const DS = [2, 3, 5, 10, 20, 50, 100, 256, 784, 1000, 3072, 10000, 100000];
+  const big = v => v < 1e6 ? Math.round(v).toLocaleString() : v.toExponential(1).replace('e+', '×10^');
+  function calc() {
+    const D = DS[+$('qD').value], M = +$('qM').value;
+    let f = 1; for (let i = 1; i <= M; i++) f *= (D - 1 + i) / i;
+    $('qDv').textContent = D.toLocaleString() + (D === 784 ? ' (MNIST)' : D === 3072 ? ' (CIFAR)' : ''); $('qMv').textContent = M;
+    $('qF').textContent = big(f); $('qC1').textContent = '≈ ' + big(f * (M + 1)) + ' ops'; $('qC2').textContent = '≈ ' + big(D + Math.ceil(Math.log2(M)) + 1) + ' ops';
+  }
+  $('qD').addEventListener('input', calc); $('qM').addEventListener('input', calc); calc();
+})();
+
+// ============================================================
+// DEMO 3 · features → kernel
+// ============================================================
+(function demoF() {
+  const COUNTS = {
+    taylor: Array.from({ length: 21 }, (_, i) => i + 1),
+    bumps: [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 20, 25, 30, 35, 40, 50, 60, 70, 80, 100],
+    rff: [1, 2, 3, 5, 8, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000, 2000],
+  };
+  const R = mulberry32(55), NMAX = 2000;
+  const OM = Array.from({ length: NMAX }, () => randn(R)), BB = Array.from({ length: NMAX }, () => 2 * Math.PI * R());
+  const W = [0, 1, 2].map(s => { const r = mulberry32(900 + s); return Array.from({ length: NMAX }, () => randn(r)); });
+  let fam = 'taylor', idx = 6, l = 1, x0 = 1.5, drag = false;
+  const xs = linspace(-5, 5, 241);
+  const svgF = $('fFeat'), svgK = $('fK'), svgS = $('fS');
+  const FK = Frame(320, 220, { l: 36, r: 10, t: 16, b: 26 }, [-5, 5], [-0.4, 1.25]);
+  function featFn(M) {
+    if (fam === 'taylor') return x => {
+      const out = new Float64Array(M), u = x / l; let t = Math.exp(-x * x / (2 * l * l));
+      for (let m = 0; m < M; m++) { out[m] = t; t *= u / Math.sqrt(m + 1); }
+      return out;
+    };
+    if (fam === 'bumps') {
+      const lo = -8, D = 16 / M, cs = Array.from({ length: M }, (_, m) => lo + D * (m + 0.5)), sc = Math.sqrt(D / (l * Math.sqrt(Math.PI / 2)));
+      return x => Float64Array.from(cs, c => sc * Math.exp(-((x - c) ** 2) / (l * l)));
+    }
+    const sc = Math.sqrt(2 / M);
+    return x => { const out = new Float64Array(M); for (let m = 0; m < M; m++) out[m] = sc * Math.cos(OM[m] / l * x + BB[m]); return out; };
+  }
+  function draw() {
+    const M = COUNTS[fam][idx], f = featFn(M), Phi = xs.map(f), p0 = f(x0);
+    const kx = Phi.map(ph => { let s = 0; for (let m = 0; m < M; m++) s += ph[m] * p0[m]; return s; });
+    const se = xs.map(x => Math.exp(-((x - x0) ** 2) / (2 * l * l)));
+    let err = 0; kx.forEach((v, i) => { err = Math.max(err, Math.abs(v - se[i])); });
+    // features
+    const show = M <= 12 ? [...Array(M).keys()] : Array.from({ length: 12 }, (_, i) => Math.round(i * (M - 1) / 11));
+    const fr = symRange(show.map(m => Phi.map(ph => ph[m])), 0.1);
+    const FF = Frame(320, 220, { l: 36, r: 10, t: 16, b: 26 }, [-5, 5], [-fr, fr]);
+    let s = axesSVG(FF, { xt: [-4, -2, 0, 2, 4], yt: niceTicks(-fr, fr, 4), yf: tickFmt, zero: true });
+    show.forEach((m, j) => { s += `<path d="${pathD(FF, xs, Phi.map(ph => ph[m]))}" fill="none" stroke="${SERIES[j % 6]}" stroke-width="1.6" opacity=".85"/>`; });
+    if (M > 12) s += `<text class="muted halo" x="${FF.x1 - 4}" y="${FF.y1 + 10}" text-anchor="end" font-size="11">showing 12 of ${M}</text>`;
+    svgF.innerHTML = s;
+    // kernel
+    let k = axesSVG(FK, { xt: [-4, -2, 0, 2, 4], yt: [0, 0.5, 1], yf: tickFmt, zero: true });
+    k += `<path d="${pathD(FK, xs, se)}" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="5 4" opacity=".7"/>`;
+    k += `<path d="${pathD(FK, xs, kx)}" fill="none" stroke="var(--k0)" stroke-width="2.4"/>`;
+    const X0 = FK.X(x0);
+    k += `<line x1="${X0}" x2="${X0}" y1="${FK.y1}" y2="${FK.y0}" stroke="var(--k5)" stroke-width="2"/><rect x="${X0 - 6}" y="${FK.y0 - 18}" width="12" height="18" rx="3" fill="var(--k5)" style="cursor:ew-resize"/><text class="halo" x="${X0 + 8}" y="${FK.y0 - 6}" font-size="11">x₀</text>`;
+    k += `<text class="muted halo" x="${FK.x0 + 4}" y="${FK.y1 + 10}" font-size="10.5">dashed: SE target · solid: Σφφ</text>`;
+    svgK.innerHTML = k;
+    // samples
+    const fs = W.map(w => Phi.map(ph => { let s = 0; for (let m = 0; m < M; m++) s += w[m] * ph[m]; return s; }));
+    const sr = symRange(fs, 2);
+    const FS = Frame(640, 200, { l: 36, r: 12, t: 12, b: 26 }, [-5, 5], [-sr, sr]);
+    let t = axesSVG(FS, { xt: [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5], yt: niceTicks(-sr, sr, 4), yf: tickFmt, zero: true });
+    fs.forEach((ys, j) => { t += `<path d="${pathD(FS, xs, ys)}" fill="none" stroke="${SERIES[j]}" stroke-width="2"/>`; });
+    svgS.innerHTML = t;
+    $('fMv').textContent = M; $('fT1').textContent = M;
+    $('fT2').textContent = err.toFixed(err < 0.01 ? 4 : 3);
+    $('fT2b').className = 'tile ' + (err < 0.02 ? 'good' : err > 0.2 ? 'bad' : '');
+    $('fT3').textContent = p0.reduce((a, v) => a + v * v, 0).toFixed(3);
+    $('fT4').textContent = M + ' mult.';
+    const notes = {
+      taylor: 'Each extra term adds one more power of x. Near x = 0 the envelope does all the work, so even M = 1 is exact when x₀ = 0. Move x₀ to 3 and you need about 20 terms.',
+      bumps: 'With few bumps, Σφφ is a lumpy sum of a few overlapping Gaussians. Once the spacing between centers (16/M) is well below ℓ, the sum becomes a smooth integral, which is exactly the SE kernel.',
+      rff: 'Random waves with frequencies ω ~ N(0, 1/ℓ²). Each wave on its own is a cosine kernel. Averaging many gives E[cos(ω(x−x′))], which is the SE kernel (Bochner). The error shrinks like 1/√M and never becomes exactly 0.',
+    };
+    $('fRead').textContent = notes[fam];
+  }
+  const redraw = rafThrottle(draw);
+  pillGroup('ff', v => { fam = v; draw(); });
+  $('fM').addEventListener('input', e => { idx = +e.target.value; redraw(); });
+  logRange('fL', 0.4, 2.5, 1, v => { l = v; redraw(); }, 'fLv');
+  svgK.addEventListener('pointerdown', e => { drag = true; svgK.setPointerCapture(e.pointerId); x0 = clamp(FK.ix(svgPt(svgK, e).x), -4.8, 4.8); redraw(); });
+  svgK.addEventListener('pointermove', e => { if (!drag) return; x0 = clamp(FK.ix(svgPt(svgK, e).x), -4.8, 4.8); redraw(); });
+  svgK.addEventListener('pointerup', () => { drag = false; });
+  draw();
+})();
+
+// ============================================================
+// DEMO 4 · kernel → eigen-features
+// ============================================================
+(function demoE() {
+  const n = 80, xs = linspace(-5, 5, n);
+  let kid = 'se', l = 1, M = 5, j0 = 52, drag = false, E = null, K = null;
+  const svgSp = $('eSpec'), svgFn = $('eFun'), svgR = $('eRec');
+  const FR = Frame(640, 210, { l: 40, r: 12, t: 14, b: 26 }, [-5, 5], [-0.3, 1.2]);
+  const kfOf = () => kid === 'lin' ? (a, b) => kEval('lin', a, b, DEFP) : (a, b) => kEval(kid, a, b, { ...DEFP, l: kid === 'per' ? Math.min(l, 2) : l, p: 2.5 });
+  function recompute() {
+    K = gramOf(xs, kfOf()); E = eigSym(K, n);
+    E.vecs.forEach(v => { let a = 0; v.forEach((x, i) => { if (Math.abs(x) > Math.abs(v[a])) a = i; }); if (v[a] < 0) v.forEach((x, i) => { v[i] = -x; }); });
+    drawStatic(); drawRec();
+  }
+  function drawStatic() {
+    const tr = E.vals.reduce((a, v) => a + Math.max(v, 0), 0), l1 = E.vals[0];
+    const FS = Frame(320, 220, { l: 36, r: 10, t: 14, b: 26 }, [0, 40], [-16, 0.5]);
+    let s = axesSVG(FS, { xt: [1, 10, 20, 30, 40], yt: [-15, -10, -5, 0] });
+    for (let m = 0; m < 40; m++) {
+      const v = Math.log10(Math.max(E.vals[m] / l1, 1e-16)), on = m < M;
+      s += `<rect x="${FS.X(m + 0.12)}" width="${FS.X(m + 0.88) - FS.X(m + 0.12)}" y="${FS.Y(0)}" height="${Math.max(1, FS.Y(v) - FS.Y(0))}" fill="var(--k0)" opacity="${on ? 1 : 0.3}"><title>λ${m + 1}/λ1 = ${(E.vals[m] / l1).toExponential(2)}</title></rect>`;
+    }
+    svgSp.innerHTML = s;
+    const sc = Math.sqrt(n / 10), fns = [0, 1, 2, 3].map(m => Array.from(E.vecs[m], v => v * sc));
+    const fr = symRange(fns, 0.5);
+    const FF = Frame(320, 220, { l: 36, r: 10, t: 14, b: 26 }, [-5, 5], [-fr, fr]);
+    let f = axesSVG(FF, { xt: [-4, -2, 0, 2, 4], yt: niceTicks(-fr, fr, 4), yf: tickFmt, zero: true });
+    fns.forEach((ys, m) => { f += `<path d="${pathD(FF, xs, ys)}" fill="none" stroke="${SERIES[m]}" stroke-width="2" opacity="${E.vals[m] / l1 < 1e-10 ? 0.25 : 1}"/>`; });
+    f += [0, 1, 2, 3].map(m => `<text x="${FF.x0 + 6 + m * 48}" y="${FF.y1 + 10}" font-size="11" style="fill:${SERIES[m]}" class="halo">φ${m + 1}</text>`).join('');
+    svgFn.innerHTML = f;
+    let cum = 0, need = n; for (let m = 0; m < n; m++) { cum += Math.max(E.vals[m], 0); if (cum >= 0.99 * tr) { need = m + 1; break; } }
+    $('eT1').textContent = (100 * l1 / tr).toFixed(1) + '%';
+    $('eT2').textContent = need;
+  }
+  function drawRec() {
+    const tr = E.vals.reduce((a, v) => a + Math.max(v, 0), 0);
+    const exact = xs.map((_, i) => K[i * n + j0]);
+    const rec = xs.map((_, i) => { let s = 0; for (let m = 0; m < M; m++) s += E.vals[m] * E.vecs[m][i] * E.vecs[m][j0]; return s; });
+    const lo = Math.min(-0.3, ...exact, ...rec) * 1.1, hi = Math.max(1.2, ...exact, ...rec) * 1.05;
+    FR.yd[0] = lo; FR.yd[1] = hi;
+    let s = axesSVG(FR, { xt: [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5], yt: niceTicks(lo, hi, 4), yf: tickFmt, zero: true });
+    s += `<path d="${pathD(FR, xs, exact)}" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="5 4" opacity=".7"/>`;
+    s += `<path d="${pathD(FR, xs, rec)}" fill="none" stroke="var(--k0)" stroke-width="2.4"/>`;
+    const X0 = FR.X(xs[j0]);
+    s += `<line x1="${X0}" x2="${X0}" y1="${FR.y1}" y2="${FR.y0}" stroke="var(--k5)" stroke-width="2"/><rect x="${X0 - 6}" y="${FR.y0 - 18}" width="12" height="18" rx="3" fill="var(--k5)" style="cursor:ew-resize"/>`;
+    s += `<text class="muted halo" x="${FR.x0 + 4}" y="${FR.y1 + 10}" font-size="10.5">dashed: exact 𝒦(x, x₀) · solid: top-${M} reconstruction</text>`;
+    svgR.innerHTML = s;
+    let cap = 0; for (let m = 0; m < M; m++) cap += Math.max(E.vals[m], 0);
+    let err = 0; exact.forEach((v, i) => { err = Math.max(err, Math.abs(v - rec[i])); });
+    $('eT3').textContent = (100 * cap / tr).toFixed(cap / tr > 0.999 ? 2 : 1) + '%';
+    $('eT4').textContent = err.toFixed(3);
+    $('eMv').textContent = M;
+  }
+  pillGroup('ek', v => { kid = v; recompute(); });
+  const re = rafThrottle(recompute);
+  logRange('eL', 0.2, 3, 1, v => { l = v; re(); }, 'eLv');
+  $('eM').addEventListener('input', e => { M = +e.target.value; drawStatic(); drawRec(); });
+  const setJ = e => { j0 = clamp(Math.round((FR.ix(svgPt(svgR, e).x) + 5) / 10 * (n - 1)), 0, n - 1); drawRec(); };
+  svgR.addEventListener('pointerdown', e => { drag = true; svgR.setPointerCapture(e.pointerId); setJ(e); });
+  svgR.addEventListener('pointermove', e => { if (drag) setJ(e); });
+  svgR.addEventListener('pointerup', () => { drag = false; });
+  recompute();
+})();
+
+// ============================================================
+// DEMO 5 · gallery
+// ============================================================
+(function demoZ() {
+  const xs = linspace(-5, 5, 161), xk = linspace(-5, 5, 301);
+  let kid = 'se', x0 = 0, drag = false;
+  const P = { ...DEFP };
+  const svgK = $('zK'), svgS = $('zS');
+  const FK = Frame(320, 240, { l: 36, r: 10, t: 14, b: 26 }, [-5, 5], [0, 1]);
+  const NOTES = {
+    se: 'Infinitely differentiable, so the samples are very smooth. ℓ is roughly the distance you must move before f changes appreciably. Over [−5, 5] you see about 10/ℓ wiggles.',
+    m52: 'Twice differentiable. Visually close to SE, but small-scale texture survives. A popular default for real data and Bayesian optimization.',
+    m32: 'Once differentiable: smooth curves with visible kinks in curvature.',
+    m12: 'Continuous but nowhere differentiable, like a random walk that is pulled back to 0 (the Ornstein–Uhlenbeck process). Note the kernel\'s sharp peak at x₀: a corner in 𝒦 means a rough f.',
+    rq: 'A scale mixture of SE kernels with different length-scales. Small α gives a mixture of slow and fast wiggles. As α → ∞ it becomes the SE kernel (try α = 50).',
+    per: 'Exactly periodic with period p. The ℓ here controls how wiggly each repetition is, not how quickly similarity decays. Similarity returns to 1 at every multiple of p.',
+    cos: 'A single frequency: every sample is A·cos(2πx/p) + B·sin(2πx/p). The Gram matrix has rank 2, so these functions have only 2 degrees of freedom.',
+    lin: 'Not stationary: 𝒦(x, x₀) is a straight line in x, and the variance (x−c)² grows away from the offset c. The samples are straight lines. A GP with this kernel is Bayesian linear regression.',
+    poly: 'Samples are polynomials of degree M. Like the linear kernel, it is not stationary, and the rank is only M + 1.',
+  };
+  function drawK() {
+    const kf = (a, b) => kEval(kid, a, b, P);
+    const ys = xk.map(x => kf(x, x0));
+    const lo = Math.min(0, ...ys) - 0.1, hi = Math.max(1, ...ys) * 1.08;
+    FK.yd[0] = lo; FK.yd[1] = hi;
+    let s = axesSVG(FK, { xt: [-4, -2, 0, 2, 4], yt: niceTicks(lo, hi, 4), yf: tickFmt, zero: true });
+    s += `<path d="${pathD(FK, xk, ys)}" fill="none" stroke="var(--k0)" stroke-width="2.4"/>`;
+    const X0 = FK.X(x0);
+    s += `<line x1="${X0}" x2="${X0}" y1="${FK.y1}" y2="${FK.y0}" stroke="var(--k5)" stroke-width="2"/><rect x="${X0 - 6}" y="${FK.y0 - 18}" width="12" height="18" rx="3" fill="var(--k5)" style="cursor:ew-resize"/><text class="halo" x="${X0 + 8}" y="${FK.y0 - 6}" font-size="11">x₀</text>`;
+    svgK.innerHTML = s;
+  }
+  function drawS() {
+    const kf = (a, b) => kEval(kid, a, b, P), S = priorSamples(xs, kf);
+    const sr = S ? symRange(S, 3) : 3;
+    const FS = Frame(320, 240, { l: 36, r: 10, t: 14, b: 26 }, [-5, 5], [-sr, sr]);
+    let s = axesSVG(FS, { xt: [-4, -2, 0, 2, 4], yt: niceTicks(-sr, sr, 4), yf: tickFmt, zero: true });
+    if (S) S.forEach((ys, j) => { s += `<path d="${pathD(FS, xs, ys)}" fill="none" stroke="${SERIES[j]}" stroke-width="1.8"/>`; });
+    svgS.innerHTML = s;
+    $('zRead').innerHTML = `<b>${KZ[kid].name}.</b> ${NOTES[kid]}`;
+  }
+  const draw = () => { drawK(); drawS(); };
+  const redraw = rafThrottle(draw);
+  pillGroup('zk', v => {
+    kid = v;
+    const u = KZ[kid].uses;
+    $('zLc').hidden = !u.includes('l'); $('zPc').hidden = !u.includes('p'); $('zAc').hidden = !u.includes('alpha');
+    $('zMc').hidden = !u.includes('M'); $('zCc').hidden = !u.includes('c');
+    draw();
+  });
+  logRange('zL', 0.15, 4, 1, v => { P.l = v; redraw(); }, 'zLv');
+  logRange('zA', 0.1, 50, 1, v => { P.alpha = v; redraw(); }, 'zAv');
+  $('zP').addEventListener('input', e => { P.p = +e.target.value; $('zPv').textContent = P.p.toFixed(2); redraw(); });
+  $('zM').addEventListener('input', e => { P.M = +e.target.value; $('zMv').textContent = P.M; redraw(); });
+  $('zC').addEventListener('input', e => { P.c = +e.target.value; $('zCv').textContent = P.c.toFixed(2); redraw(); });
+  svgK.addEventListener('pointerdown', e => { drag = true; svgK.setPointerCapture(e.pointerId); x0 = clamp(FK.ix(svgPt(svgK, e).x), -5, 5); drawK(); });
+  svgK.addEventListener('pointermove', e => { if (!drag) return; x0 = clamp(FK.ix(svgPt(svgK, e).x), -5, 5); drawK(); });
+  svgK.addEventListener('pointerup', () => { drag = false; });
+  draw();
+})();
+
+// ============================================================
+// DEMO 6 · ARD (random Fourier features in 2D)
+// ============================================================
+(function demoA() {
+  const D = 300, G = 72;
+  let l1 = 1, l2 = 1, seed = 3, W, B, A;
+  const set1 = logRange('aL1', 0.2, 8, 1, v => { l1 = v; redraw(); }, 'aL1v');
+  const set2 = logRange('aL2', 0.2, 8, 1, v => { l2 = v; redraw(); }, 'aL2v');
+  function draws() { const r = mulberry32(seed); W = Array.from({ length: D }, () => [randn(r), randn(r)]); B = Array.from({ length: D }, () => 2 * Math.PI * r()); A = Array.from({ length: D }, () => randn(r)); }
+  const F = Frame(320, 320, { l: 30, r: 10, t: 10, b: 26 }, [-3, 3], [-3, 3]);
+  function draw() {
+    const g = linspace(-3, 3, G), vals = new Float64Array(G * G), sc = Math.sqrt(2 / D);
+    for (let r = 0; r < G; r++) {
+      const y = g[G - 1 - r];
+      for (let i = 0; i < G; i++) {
+        const x = g[i]; let s = 0;
+        for (let d = 0; d < D; d++) s += A[d] * Math.cos(W[d][0] * x / l1 + W[d][1] * y / l2 + B[d]);
+        vals[r * G + i] = sc * s;
+      }
+    }
+    heatInto($('aCv'), F, G, G, (i, r) => divRGB(vals[r * G + i], 2.2), true);
+    $('aSvg').innerHTML = axesSVG(F, { xt: [-3, -2, -1, 0, 1, 2, 3], yt: [-3, -2, -1, 0, 1, 2, 3] }) +
+      `<text class="muted halo" x="${F.x1 - 4}" y="${F.y0 - 6}" text-anchor="end" font-size="11">x₁ →</text><text class="muted halo" x="${F.x0 + 4}" y="${F.y1 + 12}" font-size="11">↑ x₂</text>`;
+    $('aR1').textContent = (1 / l1).toFixed(2); $('aR2').textContent = (1 / l2).toFixed(2);
+  }
+  const redraw = rafThrottle(draw);
+  $('aNew').addEventListener('click', () => { seed++; draws(); draw(); });
+  $('aIrr').addEventListener('click', () => { l1 = 0.6; l2 = 8; set1(l1); set2(l2); draw(); });
+  REPAINT.push(draw);
+  draws(); draw();
+})();
+
+// ============================================================
+// DEMO 7 · deriving SE from the linear kernel
+// ============================================================
+(function demoD() {
+  const n = 40, xs = linspace(-3, 3, n), xc = linspace(-3, 3, 241);
+  let step = 1, M = 20, l = 1;
+  const F = Frame(300, 300, { l: 30, r: 8, t: 8, b: 26 }, [-3, 3], [-3, 3]);
+  function kf(a, b) {
+    const k1 = a * b / (l * l);
+    if (step === 1) return k1;
+    let s = 0, t = 1; for (let m = 0; m <= M; m++) { s += t; t *= k1 / (m + 1); }
+    if (step === 2) return s;
+    return Math.exp(-a * a / (2 * l * l)) * s * Math.exp(-b * b / (2 * l * l));
+  }
+  function draw() {
+    document.querySelectorAll('#dSteps li').forEach(li => li.classList.toggle('on', +li.dataset.ds === step));
+    const K = gramOf(xs, kf), E = eigSym(K, n);
+    let vmax = 0; for (let i = 0; i < n * n; i++) vmax = Math.max(vmax, Math.abs(K[i]));
+    heatInto($('dCv'), F, n, n, (i, r) => divRGB(K[r * n + i], vmax));
+    $('dHeat').innerHTML = axesSVG(F, { xt: [-3, -2, -1, 0, 1, 2, 3], yt: [] }) +
+      [-3, -2, -1, 0, 1, 2, 3].map(v => `<text class="muted" x="${F.x0 - 5}" y="${F.Y(-v) + 4}" text-anchor="end" font-size="11">${v}</text>`).join('');
+    // slices
+    const x0s = [-1.5, 0, 1.5], ys = x0s.map(x0 => xc.map(x => kf(x, x0)));
+    let lo = Infinity, hi = -Infinity; ys.forEach(a => a.forEach(v => { lo = Math.min(lo, v); hi = Math.max(hi, v); }));
+    lo = Math.min(lo, 0); hi = Math.max(hi, 1); const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+    const FC = Frame(320, 300, { l: 44, r: 10, t: 14, b: 26 }, [-3, 3], [lo, hi]);
+    let s = axesSVG(FC, { xt: [-3, -2, -1, 0, 1, 2, 3], yt: niceTicks(lo, hi, 5), yf: v => Math.abs(v) >= 1000 ? v.toExponential(0) : tickFmt(v), zero: true });
+    if (step === 3) x0s.forEach((x0, j) => { s += `<path d="${pathD(FC, xc, xc.map(x => Math.exp(-((x - x0) ** 2) / (2 * l * l))))}" fill="none" stroke="var(--ink)" stroke-width="1.4" stroke-dasharray="4 4" opacity=".6"/>`; });
+    ys.forEach((a, j) => { s += `<path d="${pathD(FC, xc, a)}" fill="none" stroke="${SERIES[j]}" stroke-width="2.2"/>`; });
+    s += x0s.map((x0, j) => `<text x="${FC.x0 + 6 + j * 70}" y="${FC.y1 + 10}" font-size="11" class="halo" style="fill:${SERIES[j]}">x₀ = ${x0}</text>`).join('');
+    $('dCurve').innerHTML = s;
+    const ratio = E.vals[n - 1] / E.vals[0], ok = ratio > -1e-9;
+    const t = $('dT1'); t.className = 'tile ' + (ok ? 'good' : 'bad');
+    t.querySelector('.v').textContent = Math.abs(ratio) < 1e-12 ? '≈ 0 (≥ 0 ✓)' : ratio.toExponential(1) + (ok ? ' ✓' : '');
+    $('dT2').textContent = vmax >= 1e4 ? vmax.toExponential(1) : vmax.toFixed(2);
+    let err = 0; if (step === 3) for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) err = Math.max(err, Math.abs(K[i * n + j] - Math.exp(-((xs[i] - xs[j]) ** 2) / (2 * l * l))));
+    $('dT3').textContent = step === 3 ? (err < 1e-6 ? err.toExponential(1) : err.toFixed(4)) : '(step 3)';
+  }
+  const redraw = rafThrottle(draw);
+  pillGroup('dstep', v => { step = +v; draw(); });
+  $('dM').addEventListener('input', e => { M = +e.target.value; $('dMv').textContent = M; redraw(); });
+  logRange('dL', 0.6, 3, 1, v => { l = v; redraw(); }, 'dLv');
+  REPAINT.push(draw);
+  draw();
+})();
+
+// ============================================================
+// DEMO 8 · kernel composer
+// ============================================================
+(function demoC() {
+  const BASE = {
+    se: { name: 'SE', pn: 'ℓ', lo: 0.2, hi: 5, def: 2, f: (a, b, v) => Math.exp(-((a - b) ** 2) / (2 * v * v)) },
+    per: { name: 'Per', pn: 'p', lo: 0.5, hi: 5, def: 1.5, f: (a, b, v) => { const s = Math.sin(Math.PI * Math.abs(a - b) / v); return Math.exp(-2 * s * s); } },
+    lin: { name: 'Lin', pn: 'c', lo: -4, hi: 4, def: 0, f: (a, b, v) => 0.1 + (a - v) * (b - v) / 9 },
+    rq: { name: 'RQ', pn: 'ℓ', lo: 0.2, hi: 5, def: 1, f: (a, b, v) => 1 / (1 + (a - b) ** 2 / (2 * v * v)) },
+    m12: { name: 'Matérn½', pn: 'ℓ', lo: 0.2, hi: 5, def: 1, f: (a, b, v) => Math.exp(-Math.abs(a - b) / v) },
+  };
+  const S = { A: { id: 'se', v: 3 }, B: { id: 'per', v: 1.5 } };
+  let op = '*', x0 = 1, drag = false;
+  const xs = linspace(-5, 5, 161), xk = linspace(-5, 5, 301), G = 90, xg = linspace(-5, 5, G);
+  const FK = Frame(320, 260, { l: 36, r: 10, t: 14, b: 26 }, [-5, 5], [0, 1]);
+  const FH = Frame(320, 260, { l: 66, r: 36, t: 8, b: 26 }, [-5, 5], [-5, 5]);
+  const kf = (a, b) => { const ka = BASE[S.A.id].f(a, b, S.A.v), kb = BASE[S.B.id].f(a, b, S.B.v); return op === '+' ? ka + kb : ka * kb; };
+  function syncSlot(k) {
+    const s = S[k], b = BASE[s.id], el = $('c' + k + 'p');
+    el.min = b.lo; el.max = b.hi; el.step = 0.05; el.value = s.v;
+    $('c' + k + 'pn').textContent = b.pn; $('c' + k + 'pv').textContent = s.v.toFixed(2);
+    $('c' + k).value = s.id;
+  }
+  function draw() {
+    const ys = xk.map(x => kf(x, x0));
+    const lo = Math.min(0, ...ys) - 0.1, hi = Math.max(1, ...ys) * 1.08;
+    FK.yd[0] = lo; FK.yd[1] = hi;
+    let s = axesSVG(FK, { xt: [-4, -2, 0, 2, 4], yt: niceTicks(lo, hi, 4), yf: tickFmt, zero: true });
+    s += `<path d="${pathD(FK, xk, ys)}" fill="none" stroke="var(--k0)" stroke-width="2.4"/>`;
+    const X0 = FK.X(x0);
+    s += `<line x1="${X0}" x2="${X0}" y1="${FK.y1}" y2="${FK.y0}" stroke="var(--k5)" stroke-width="2"/><rect x="${X0 - 6}" y="${FK.y0 - 18}" width="12" height="18" rx="3" fill="var(--k5)" style="cursor:ew-resize"/><text class="halo" x="${X0 + 8}" y="${FK.y0 - 6}" font-size="11">x₀</text>`;
+    $('cK').innerHTML = s;
+    const Kg = gramOf(xg, kf); let vmax = 0; for (let i = 0; i < G * G; i++) vmax = Math.max(vmax, Math.abs(Kg[i]));
+    heatInto($('cCv'), FH, G, G, (i, r) => divRGB(Kg[(G - 1 - r) * G + i], vmax), true);
+    $('cH').innerHTML = axesSVG(FH, { xt: [-4, -2, 0, 2, 4], yt: [-4, -2, 0, 2, 4] }) + `<text class="muted" x="${FH.x0 - 26}" y="${(FH.y0 + FH.y1) / 2}" font-size="11" text-anchor="middle">x′</text>` +
+      `<line x1="${FH.x0}" y1="${FH.y0}" x2="${FH.x1}" y2="${FH.y1}" stroke="var(--ink)" stroke-dasharray="3 4" opacity=".35"/>`;
+    const Sm = priorSamples(xs, kf), sr = Sm ? symRange(Sm, 2.5) : 3;
+    const FS = Frame(640, 200, { l: 36, r: 12, t: 12, b: 26 }, [-5, 5], [-sr, sr]);
+    let t = axesSVG(FS, { xt: [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5], yt: niceTicks(-sr, sr, 4), yf: tickFmt, zero: true });
+    if (Sm) Sm.forEach((y, j) => { t += `<path d="${pathD(FS, xs, y)}" fill="none" stroke="${SERIES[j]}" stroke-width="1.9"/>`; });
+    $('cS').innerHTML = t;
+    const nm = k => `${BASE[S[k].id].name}(${BASE[S[k].id].pn} = ${S[k].v.toFixed(2)})`;
+    const stat = S.A.id !== 'lin' && S.B.id !== 'lin';
+    $('cRead').innerHTML = `𝒦(x, x′) = <b>${nm('A')} ${op === '+' ? '+' : '×'} ${nm('B')}</b> &nbsp;·&nbsp; ${stat ? 'stationary (constant along diagonals)' : 'not stationary (contains a linear factor)'}`;
+  }
+  const redraw = rafThrottle(draw);
+  const setOp = pillGroup('cop', v => { op = v; draw(); });
+  ['A', 'B'].forEach(k => {
+    $('c' + k).addEventListener('change', e => { S[k].id = e.target.value; S[k].v = BASE[S[k].id].def; syncSlot(k); draw(); });
+    $('c' + k + 'p').addEventListener('input', e => { S[k].v = +e.target.value; $('c' + k + 'pv').textContent = S[k].v.toFixed(2); redraw(); });
+  });
+  const PRE = {
+    linlin: [['lin', 0], ['lin', 0], '*'], seper: [['se', 3], ['per', 1.5], '*'], linper: [['lin', 0], ['per', 1.5], '+'],
+    linxper: [['lin', 0], ['per', 1.5], '*'], sese: [['se', 3], ['se', 0.35], '+'],
+  };
+  document.querySelectorAll('[data-cpre]').forEach(b => b.addEventListener('click', () => {
+    const [a, c, o] = PRE[b.dataset.cpre];
+    S.A = { id: a[0], v: a[1] }; S.B = { id: c[0], v: c[1] }; op = o; setOp(o); syncSlot('A'); syncSlot('B'); draw();
+  }));
+  $('cK').addEventListener('pointerdown', e => { drag = true; $('cK').setPointerCapture(e.pointerId); x0 = clamp(FK.ix(svgPt($('cK'), e).x), -5, 5); redraw(); });
+  $('cK').addEventListener('pointermove', e => { if (!drag) return; x0 = clamp(FK.ix(svgPt($('cK'), e).x), -5, 5); redraw(); });
+  $('cK').addEventListener('pointerup', () => { drag = false; });
+  REPAINT.push(draw);
+  syncSlot('A'); syncSlot('B'); draw();
+})();
+
+// ============================================================
+// DEMO 9 · string kernel
+// ============================================================
+(function demoS() {
+  const WORDS = ['kernel', 'kernels', 'colonel', 'kennel', 'machine', 'machines', 'learning', 'earning'];
+  const spec = (s, k) => { const m = new Map(); s = s.toLowerCase(); for (let i = 0; i + k <= s.length; i++) { const u = s.slice(i, i + k); m.set(u, (m.get(u) || 0) + 1); } return m; };
+  const kk = (a, b) => { let s = 0; a.forEach((v, u) => { if (b.has(u)) s += v * b.get(u); }); return s; };
+  function draw() {
+    const k = +$('sK').value, a = spec($('sA').value, k), b = spec($('sB').value, k);
+    const kab = kk(a, b), kaa = kk(a, a), kbb = kk(b, b);
+    $('sKv').textContent = k;
+    $('sT1').textContent = kab; $('sT2').textContent = kaa; $('sT3').textContent = kbb;
+    $('sT4').textContent = kaa && kbb ? (kab / Math.sqrt(kaa * kbb)).toFixed(3) : '–';
+    const shared = [...a.keys()].filter(u => b.has(u));
+    $('sChips').innerHTML = shared.length ? shared.map(u => `<span class="chip">${u.replace(/ /g, '·').replace(/</g, '&lt;')} <b>${a.get(u)}×${b.get(u)}</b></span>`).join('') : '<span class="hint">no shared substrings of this length</span>';
+    // word Gram matrix
+    const S = WORDS.map(w => spec(w, k)), n = WORDS.length, d = S.map(s => kk(s, s));
+    const W = 640, m0 = { l: 90, t: 64 }, cell = Math.min(28, (300 - m0.t - 6) / n), x0 = m0.l + (W - m0.l - n * cell) / 2 - 40;
+    let h = '';
+    for (let i = 0; i < n; i++) {
+      h += `<text x="${x0 - 6}" y="${m0.t + (i + 0.5) * cell + 4}" text-anchor="end" font-size="11">${WORDS[i]}</text>`;
+      h += `<text x="${x0 + (i + 0.5) * cell}" y="${m0.t - 6}" font-size="11" transform="rotate(-40 ${x0 + (i + 0.5) * cell} ${m0.t - 6})">${WORDS[i]}</text>`;
+      for (let j = 0; j < n; j++) {
+        const v = d[i] && d[j] ? kk(S[i], S[j]) / Math.sqrt(d[i] * d[j]) : 0;
+        h += `<rect x="${x0 + j * cell}" y="${m0.t + i * cell}" width="${cell - 1}" height="${cell - 1}" rx="2" fill="${rgbStr(divRGB(v, 1))}"><title>${WORDS[i]} vs ${WORDS[j]}: ${v.toFixed(2)}</title></rect>`;
+        if (cell >= 24) h += `<text x="${x0 + (j + 0.5) * cell}" y="${m0.t + (i + 0.5) * cell + 3.5}" text-anchor="middle" font-size="9" style="fill:${v > 0.55 ? '#fff' : 'var(--ink)'}">${v ? v.toFixed(2).replace(/^0/, '') : ''}</text>`;
+      }
+    }
+    const tx = x0 + n * cell + 24;
+    h += `<text x="${tx}" y="${m0.t + 10}" font-size="12" font-weight="700">k = ${k}</text>`;
+    h += `<text class="muted" x="${tx}" y="${m0.t + 30}" font-size="11">Diagonal is 1 after normalizing.</text>`;
+    h += `<text class="muted" x="${tx}" y="${m0.t + 48}" font-size="11">Small k: any shared letters count.</text>`;
+    h += `<text class="muted" x="${tx}" y="${m0.t + 66}" font-size="11">Large k: only long exact matches.</text>`;
+    h += `<text class="muted" x="${tx}" y="${m0.t + 84}" font-size="11">"kernel" and "colonel" sound alike</text>`;
+    h += `<text class="muted" x="${tx}" y="${m0.t + 100}" font-size="11">but share little spelling.</text>`;
+    $('sHeat').innerHTML = h;
+  }
+  ['sA', 'sB', 'sK'].forEach(id => $(id).addEventListener('input', draw));
+  REPAINT.push(draw);
+  draw();
+})();
+
+// ============================================================
+// GP machinery
+// ============================================================
+function gpFit(X, y, kf, sn2) {
+  const n = X.length;
+  if (!n) return { n: 0, X, y, kf, alpha: new Float64Array(0), lml: 0, dataFit: 0, complexity: 0, jitter: 0 };
+  const K = gramOf(X, kf); for (let i = 0; i < n; i++) K[i * n + i] += sn2;
+  const ch = cholJ(K, n, 1e-2); if (!ch) return null;
+  const L = ch.L, alpha = bwd(L, fwd(L, y, n), n);
+  let ld = 0, yy = 0; for (let i = 0; i < n; i++) { ld += Math.log(L[i * n + i]); yy += y[i] * alpha[i]; }
+  return { n, X, y, kf, L, alpha, jitter: ch.jitter, dataFit: -0.5 * yy, complexity: -ld, lml: -0.5 * yy - ld - 0.5 * n * Math.log(2 * Math.PI) };
+}
+function gpPredict(g, xs) {
+  const mu = new Float64Array(xs.length), sd = new Float64Array(xs.length);
+  xs.forEach((x, j) => {
+    const kxx = g.kf(x, x);
+    if (!g.n) { sd[j] = Math.sqrt(Math.max(kxx, 0)); return; }
+    const ks = g.X.map(xi => g.kf(xi, x));
+    let m = 0; for (let i = 0; i < g.n; i++) m += ks[i] * g.alpha[i];
+    const v = fwd(g.L, ks, g.n); let vv = 0; for (let i = 0; i < g.n; i++) vv += v[i] * v[i];
+    mu[j] = m; sd[j] = Math.sqrt(Math.max(kxx - vv, 0));
+  });
+  return { mu, sd };
+}
+function gpSamples(g, xs, mu) {
+  const m = xs.length, S = gramOf(xs, g.kf);
+  if (g.n) {
+    const V = xs.map(x => fwd(g.L, g.X.map(xi => g.kf(xi, x)), g.n));
+    for (let a = 0; a < m; a++) for (let b = a; b < m; b++) { let s = 0; for (let i = 0; i < g.n; i++) s += V[a][i] * V[b][i]; S[a * m + b] -= s; if (a !== b) S[b * m + a] -= s; }
+  }
+  const ch = cholJ(S, m, 1e-2); if (!ch) return [];
+  return ZS.map(z => { const f = lowerMul(ch.L, z, m); return Array.from(f, (v, i) => v + mu[i]); });
+}
+
+// ============================================================
+// DEMO 10 · GP playground
+// ============================================================
+(function demoP() {
+  const INIT = [[-4, -0.7], [-2.6, 0.55], [-1.3, 1.05], [0.4, 0.15], [1.6, -0.95], [3.4, 0.3]];
+  let pts = INIT.map(p => p.slice()), kid = 'se', l = 1, sf = 1, sn = 0.1, per = 3, qx = 0.9;
+  let drag = null, showSamp = false, prior = false, nw = false;
+  const svg = $('pSvg'), svgW = $('pW'), xs = linspace(-5, 5, 201);
+  const F = Frame(640, 320, { l: 40, r: 14, t: 14, b: 28 }, [-5, 5], [-3, 3]);
+  const kfOf = (L, SF, P = per) => (a, b) => SF * SF * kEval(kid, a, b, { ...DEFP, l: L, p: P });
+  const setL = logRange('pL', 0.1, 6, 1, v => { l = v; redraw(); }, 'pLv');
+  function fit() {
+    const kf = kfOf(l, sf), g = gpFit(pts.map(p => p[0]), pts.map(p => p[1]), kf, Math.max(sn * sn, 1e-8));
+    return g;
+  }
+  function draw() {
+    const g = fit(); if (!g) return;
+    const pr = gpPredict(g, xs), dataShown = !prior;
+    const gp = prior ? gpFit([], [], g.kf, 0) : g, P = prior ? gpPredict(gp, xs) : pr;
+    let s = clipRect('pclip', F) + axesSVG(F, { xt: [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5], yt: [-3, -2, -1, 0, 1, 2, 3], zero: true });
+    s += `<g clip-path="url(#pclip)">`;
+    s += `<path d="${bandD(F, xs, Array.from(P.mu, (m, i) => m - 2 * P.sd[i]), Array.from(P.mu, (m, i) => m + 2 * P.sd[i]))}" fill="var(--band)" opacity=".16"/>`;
+    if (showSamp) gpSamples(gp, xs.filter((_, i) => i % 2 === 0), Array.from(P.mu).filter((_, i) => i % 2 === 0)).forEach((f, j) => {
+      s += `<path d="${pathD(F, xs.filter((_, i) => i % 2 === 0), f)}" fill="none" stroke="${SERIES[j + 1]}" stroke-width="1.4" opacity=".85"/>`;
+    });
+    // Nadaraya–Watson with the same length-scale (SE weights)
+    const nwW = x => { const w = pts.map(p => Math.exp(-((x - p[0]) ** 2) / (2 * l * l))); const z = w.reduce((a, b) => a + b, 0); return w.map(v => z > 1e-300 ? v / z : 0); };
+    if (nw && dataShown && pts.length) s += `<path d="${pathD(F, xs, xs.map(x => nwW(x).reduce((a, w, i) => a + w * pts[i][1], 0)))}" fill="none" stroke="var(--k1)" stroke-width="2" stroke-dasharray="6 4"/>`;
+    s += `<path d="${pathD(F, xs, P.mu)}" fill="none" stroke="var(--k0)" stroke-width="2.6"/>`;
+    s += `</g>`;
+    const QX = F.X(qx);
+    s += `<line x1="${QX}" x2="${QX}" y1="${F.y1}" y2="${F.y0}" stroke="var(--k5)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+    s += `<text class="halo" x="${QX + 5}" y="${F.y1 + 11}" font-size="11">x* = ${qx.toFixed(2)}</text>`;
+    if (dataShown) pts.forEach(p => { s += `<circle cx="${F.X(p[0])}" cy="${F.Y(p[1])}" r="6" fill="var(--ink)" stroke="var(--panel)" stroke-width="2" style="cursor:grab"/>`; });
+    svg.innerHTML = s;
+
+    // weights strip
+    const FW = Frame(640, 130, { l: 40, r: 14, t: 12, b: 22 }, [-5, 5], [-1, 1]);
+    let w = [], wn = [];
+    if (pts.length && !prior) {
+      const ks = pts.map(p => g.kf(p[0], qx)); w = Array.from(bwd(g.L, fwd(g.L, ks, g.n), g.n)); wn = nwW(qx);
+    }
+    const wr = Math.max(0.25, ...w.map(Math.abs), ...(nw ? wn : [0])) * 1.12;
+    FW.yd[0] = -wr; FW.yd[1] = wr;
+    let t = axesSVG(FW, { xt: [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5], yt: [-wr, 0, wr].map(v => +v.toFixed(2)), yf: v => v.toFixed(2), zero: true });
+    t += `<line x1="${QX}" x2="${QX}" y1="${FW.y1}" y2="${FW.y0}" stroke="var(--k5)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+    pts.forEach((p, i) => {
+      if (!w.length) return;
+      const X = F.X(p[0]);
+      t += `<line x1="${X - (nw ? 3 : 0)}" x2="${X - (nw ? 3 : 0)}" y1="${FW.Y(0)}" y2="${FW.Y(w[i])}" stroke="${w[i] < 0 ? 'var(--neg)' : 'var(--k0)'}" stroke-width="3"/><circle cx="${X - (nw ? 3 : 0)}" cy="${FW.Y(w[i])}" r="3.5" fill="${w[i] < 0 ? 'var(--neg)' : 'var(--k0)'}"/>`;
+      if (nw) t += `<line x1="${X + 3}" x2="${X + 3}" y1="${FW.Y(0)}" y2="${FW.Y(wn[i])}" stroke="var(--k1)" stroke-width="3" opacity=".8"/>`;
+    });
+    if (prior) t += `<text class="muted" x="${(FW.x0 + FW.x1) / 2}" y="${FW.Y(0) - 8}" text-anchor="middle" font-size="11">(prior: no data, no weights)</text>`;
+    t += `<text class="muted halo" x="${FW.x0 + 4}" y="${FW.y1 + 6}" font-size="10.5">GP weight${nw ? ' (left, blue/red) vs. NW weight (right, orange)' : ' (red = negative)'}</text>`;
+    svgW.innerHTML = t;
+
+    const q = gpPredict(gp, [qx]);
+    $('pT1').textContent = `${q.mu[0].toFixed(2)} ± ${(2 * q.sd[0]).toFixed(2)}`;
+    $('pT2').textContent = pts.length ? g.lml.toFixed(2) : '–';
+    $('pT3').textContent = pts.length;
+    $('pT4').textContent = g.jitter ? g.jitter.toExponential(0) : '0';
+    const neg = w.filter(v => v < -1e-3).length;
+    let msg = '';
+    if (prior) msg = 'Prior only: the band is ±2σ_f everywhere and the samples show what this kernel expects <em>before</em> seeing data.';
+    else if (!pts.length) msg = 'No data yet, so the posterior equals the prior. Click to add points.';
+    else {
+      msg = `At x* = ${qx.toFixed(2)}: μ = Σ wₙ yₙ with Σ wₙ = ${w.reduce((a, b) => a + b, 0).toFixed(3)}` + (neg ? `, and <b>${neg} weight${neg > 1 ? 's are' : ' is'} negative</b>.` : '.');
+      if (sn < 0.005) msg += ' With σ_y ≈ 0 the mean interpolates every point and the band pinches to 0 at the data (noise-free GP).';
+      if (Math.abs(w.reduce((a, b) => a + b, 0)) < 0.2) msg += ' The weights sum to almost 0, so x* is far from the data and the prediction reverts to the prior mean of 0.';
+    }
+    $('pRead').innerHTML = msg;
+  }
+  const redraw = rafThrottle(draw);
+  pillGroup('pk', v => { kid = v; $('pPc').hidden = kid !== 'per'; draw(); });
+  $('pF').addEventListener('input', e => { sf = +e.target.value; $('pFv').textContent = sf.toFixed(2); redraw(); });
+  $('pN').addEventListener('input', e => { sn = +e.target.value; $('pNv').textContent = sn.toFixed(2); redraw(); });
+  $('pP').addEventListener('input', e => { per = +e.target.value; $('pPv').textContent = per.toFixed(2); redraw(); });
+  toggle('pSamp', v => { showSamp = v; draw(); });
+  toggle('pPrior', v => { prior = v; draw(); });
+  toggle('pNW', v => { nw = v; $('pLegNW').hidden = !v; draw(); });
+  $('pClear').addEventListener('click', () => { pts = []; draw(); });
+  $('pReset').addEventListener('click', () => { pts = INIT.map(p => p.slice()); draw(); });
+  $('pFit').addEventListener('click', () => {
+    if (pts.length < 2) return;
+    const X = pts.map(p => p[0]), y = pts.map(p => p[1]);
+    let best = { v: -Infinity };
+    const Ls = kid === 'lin' ? [l] : linspace(Math.log(0.1), Math.log(6), 26).map(Math.exp);
+    const Fs = linspace(Math.log(0.15), Math.log(3), 14).map(Math.exp), Ns = linspace(Math.log(0.01), Math.log(1), 16).map(Math.exp);
+    Ls.forEach(L => Fs.forEach(SF => Ns.forEach(SN => {
+      const g = gpFit(X, y, kfOf(L, SF), SN * SN); if (g && g.lml > best.v) best = { v: g.lml, L, SF, SN };
+    })));
+    if (!best.L) return;
+    l = best.L; sf = best.SF; sn = best.SN; setL(l);
+    $('pF').value = sf; $('pFv').textContent = sf.toFixed(2); $('pN').value = sn; $('pNv').textContent = sn.toFixed(2);
+    draw();
+  });
+  const near = p => pts.findIndex(q => Math.hypot(F.X(q[0]) - p.x, F.Y(q[1]) - p.y) < 11);
+  svg.addEventListener('pointerdown', e => {
+    if (prior) return;
+    const p = svgPt(svg, e); if (p.x < F.x0 || p.x > F.x1 || p.y < F.y1 || p.y > F.y0) return;
+    const i = near(p);
+    if (i >= 0) drag = { i, moved: false, sx: p.x, sy: p.y };
+    else { pts.push([F.ix(p.x), clamp(F.iy(p.y), -2.9, 2.9)]); drag = { i: pts.length - 1, moved: true }; }
+    svg.setPointerCapture(e.pointerId); draw();
+  });
+  svg.addEventListener('pointermove', e => {
+    const p = svgPt(svg, e);
+    if (drag) {
+      if (!drag.moved && Math.hypot(p.x - drag.sx, p.y - drag.sy) < 4) return;
+      drag.moved = true; pts[drag.i] = [clamp(F.ix(p.x), -4.95, 4.95), clamp(F.iy(p.y), -2.9, 2.9)];
+    } else if (p.x >= F.x0 && p.x <= F.x1) qx = F.ix(p.x);
+    redraw();
+  });
+  svg.addEventListener('pointerup', () => { if (drag && !drag.moved) { pts.splice(drag.i, 1); draw(); } drag = null; });
+  draw();
+})();
+
+// ============================================================
+// DEMO 11 · marginal likelihood landscape
+// ============================================================
+(function demoL() {
+  const X = [-4.03, -3.01, -2.94, -2.35, -2.15, -1.04, 0.07, 0.4, 0.56, 1.12, 1.38, 2.34, 3.83, 4.91];
+  const Y = [-0.748, -0.752, -0.996, -1.325, -1.291, -0.449, 0.079, 0.626, 0.962, 0.649, 0.378, 1.548, 0.961, 0.358];
+  const LL = [Math.log(0.1), Math.log(20)], LS = [Math.log(0.02), Math.log(2)], G = 64;
+  const se = L => (a, b) => Math.exp(-((a - b) ** 2) / (2 * L * L));
+  const lml = (L, S) => { const g = gpFit(X, Y, se(L), S * S); return g ? g.lml : -Infinity; };
+  // surface
+  const surf = new Float64Array(G * G), gl = linspace(LL[0], LL[1], G), gs = linspace(LS[0], LS[1], G);
+  for (let i = 0; i < G; i++) for (let j = 0; j < G; j++) surf[j * G + i] = lml(Math.exp(gl[i]), Math.exp(gs[j]));
+  let smax = -Infinity; surf.forEach(v => { smax = Math.max(smax, v); });
+  // local maxima on the grid, refined by a finer local search
+  const peaks = [];
+  for (let i = 1; i < G - 1; i++) for (let j = 1; j < G - 1; j++) {
+    const v = surf[j * G + i]; let ok = true;
+    for (let a = -1; a <= 1 && ok; a++) for (let b = -1; b <= 1; b++) if ((a || b) && surf[(j + b) * G + i + a] > v) { ok = false; break; }
+    if (ok) peaks.push({ v, l: gl[i], s: gs[j] });
+  }
+  peaks.sort((a, b) => a.l - b.l);
+  peaks.forEach(p => {
+    const d = (LL[1] - LL[0]) / G;
+    for (let it = 0; it < 30; it++) {
+      let best = p; [[d, 0], [-d, 0], [0, d], [0, -d]].forEach(([a, b]) => { const v = lml(Math.exp(p.l + a / (it + 1)), Math.exp(p.s + b / (it + 1))); if (v > best.v) best = { v, l: p.l + a / (it + 1), s: p.s + b / (it + 1) }; });
+      Object.assign(p, best);
+    }
+  });
+  const opt = peaks.length >= 2 ? [peaks[0], peaks[peaks.length - 1]] : [peaks[0], peaks[0]];
+  let cur = { l: opt[0].l, s: opt[0].s };
+  const FH = Frame(320, 300, { l: 44, r: 10, t: 10, b: 40 }, LL, LS);
+  const lt = [0.1, 0.3, 1, 3, 10], st = [0.03, 0.1, 0.3, 1];
+  const vmin = smax - 25;
+  function paint() { heatInto($('lCv'), FH, G, G, (i, r) => seqRGB((surf[(G - 1 - r) * G + i] - vmin) / (smax - vmin)), true); }
+  function draw() {
+    let s = axesSVG(FH, { xt: lt.map(Math.log), xf: v => +Math.exp(v).toFixed(2), yt: st.map(Math.log), yf: v => +Math.exp(v).toFixed(2), xlabel: 'length-scale ℓ (log scale)' });
+    s += `<text class="muted" x="${FH.x0 + 4}" y="${FH.y1 + 12}" font-size="11" style="fill:#fff">σ_y ↑</text>`;
+    opt.forEach((p, k) => { s += `<g><circle cx="${FH.X(p.l)}" cy="${FH.Y(p.s)}" r="6" fill="none" stroke="#fff" stroke-width="2"/><text x="${FH.X(p.l) + 9}" y="${FH.Y(p.s) + 4}" font-size="12" font-weight="700" style="fill:#fff">${'AB'[k]}</text></g>`; });
+    s += `<circle cx="${FH.X(cur.l)}" cy="${FH.Y(cur.s)}" r="5" fill="var(--k5)" stroke="#000" stroke-width="1.5"/>`;
+    $('lHeat').innerHTML = s;
+    // fit
+    const L = Math.exp(cur.l), S = Math.exp(cur.s), g = gpFit(X, Y, se(L), S * S), xs = linspace(-5, 5, 161), P = gpPredict(g, xs);
+    const FF = Frame(320, 300, { l: 36, r: 10, t: 10, b: 40 }, [-5, 5], [-2.6, 2.6]);
+    let f = clipRect('lclip', FF) + axesSVG(FF, { xt: [-4, -2, 0, 2, 4], yt: [-2, -1, 0, 1, 2], zero: true, xlabel: 'x' });
+    f += `<g clip-path="url(#lclip)"><path d="${bandD(FF, xs, Array.from(P.mu, (m, i) => m - 2 * Math.sqrt(P.sd[i] ** 2 + S * S)), Array.from(P.mu, (m, i) => m + 2 * Math.sqrt(P.sd[i] ** 2 + S * S)))}" fill="var(--band)" opacity=".08"/>`;
+    f += `<path d="${bandD(FF, xs, Array.from(P.mu, (m, i) => m - 2 * P.sd[i]), Array.from(P.mu, (m, i) => m + 2 * P.sd[i]))}" fill="var(--band)" opacity=".18"/>`;
+    f += `<path d="${pathD(FF, xs, P.mu)}" fill="none" stroke="var(--k0)" stroke-width="2.4"/></g>`;
+    X.forEach((x, i) => { f += `<circle cx="${FF.X(x)}" cy="${FF.Y(Y[i])}" r="4.5" fill="var(--ink)" stroke="var(--panel)" stroke-width="1.5"/>`; });
+    f += `<text class="muted halo" x="${FF.x0 + 4}" y="${FF.y1 + 12}" font-size="10.5">dark band: f ± 2sd · light band: y ± 2sd (adds noise)</text>`;
+    $('lFit').innerHTML = f;
+    // decomposition along ℓ
+    const ls = linspace(LL[0], LL[1], 120), gs2 = ls.map(v => gpFit(X, Y, se(Math.exp(v)), S * S));
+    const df = gs2.map(q => q.dataFit), cx = gs2.map(q => q.complexity), tot = gs2.map(q => q.lml + 0.5 * X.length * Math.log(2 * Math.PI));
+    const all = [...df, ...cx, ...tot];
+    let lo = Math.max(Math.min(...all), -60), hi = Math.max(...all); const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+    const FD = Frame(640, 220, { l: 44, r: 14, t: 12, b: 40 }, LL, [lo, hi]);
+    let d = clipRect('ldclip', FD) + axesSVG(FD, { xt: lt.map(Math.log), xf: v => +Math.exp(v).toFixed(2), yt: niceTicks(lo, hi, 5), yf: tickFmt, zero: true, xlabel: `length-scale ℓ (σ_y = ${S.toFixed(3)} fixed); total shown without the constant −(N/2) log 2π` });
+    d += `<g clip-path="url(#ldclip)"><path d="${pathD(FD, ls, df)}" fill="none" stroke="var(--k2)" stroke-width="2.2"/><path d="${pathD(FD, ls, cx)}" fill="none" stroke="var(--k1)" stroke-width="2.2"/><path d="${pathD(FD, ls, tot)}" fill="none" stroke="var(--ink)" stroke-width="2.6"/></g>`;
+    d += `<line x1="${FD.X(cur.l)}" x2="${FD.X(cur.l)}" y1="${FD.y1}" y2="${FD.y0}" stroke="var(--k5)" stroke-width="2"/>`;
+    $('lDec').innerHTML = d;
+    $('lT1').textContent = L.toFixed(2); $('lT2').textContent = S.toFixed(3); $('lT3').textContent = g.lml.toFixed(2);
+    $('lT4').textContent = `${g.dataFit.toFixed(1)} / ${g.complexity.toFixed(1)}`;
+  }
+  const redraw = rafThrottle(draw);
+  let dragH = false, dragD = false;
+  const fromHeat = e => { const p = svgPt($('lHeat'), e); cur = { l: clamp(FH.ix(p.x), LL[0], LL[1]), s: clamp(FH.iy(p.y), LS[0], LS[1]) }; redraw(); };
+  $('lHeat').addEventListener('pointerdown', e => { dragH = true; $('lHeat').setPointerCapture(e.pointerId); fromHeat(e); });
+  $('lHeat').addEventListener('pointermove', e => { if (dragH) fromHeat(e); });
+  $('lHeat').addEventListener('pointerup', () => { dragH = false; });
+  const FDx = Frame(640, 220, { l: 44, r: 14, t: 12, b: 40 }, LL, [0, 1]);
+  const fromDec = e => { cur = { ...cur, l: clamp(FDx.ix(svgPt($('lDec'), e).x), LL[0], LL[1]) }; redraw(); };
+  $('lDec').addEventListener('pointerdown', e => { dragD = true; $('lDec').setPointerCapture(e.pointerId); fromDec(e); });
+  $('lDec').addEventListener('pointermove', e => { if (dragD) fromDec(e); });
+  $('lDec').addEventListener('pointerup', () => { dragD = false; });
+  $('lOptA').addEventListener('click', () => { cur = { l: opt[0].l, s: opt[0].s }; draw(); });
+  $('lOptB').addEventListener('click', () => { cur = { l: opt[1].l, s: opt[1].s }; draw(); });
+  $('lOptA').textContent = `Go to optimum A (ℓ ≈ ${Math.exp(opt[0].l).toFixed(2)}, σ_y ≈ ${Math.exp(opt[0].s).toFixed(2)})`;
+  $('lOptB').textContent = `Go to optimum B (ℓ ≈ ${Math.exp(opt[1].l).toFixed(2)}, σ_y ≈ ${Math.exp(opt[1].s).toFixed(2)})`;
+  REPAINT.push(() => { paint(); draw(); });
+  paint(); draw();
+})();
+
+// ============================================================
+// DEMO 12 · forecasting with a composite kernel
+// ============================================================
+(function demoX() {
+  const truth = t => 0.16 * t + 0.0045 * t * t + 0.32 * Math.sin(2 * Math.PI * t) + 0.1 * Math.sin(4 * Math.PI * t + 0.8) + 0.06 * Math.sin(1.3 * t);
+  const r = mulberry32(2024);
+  const T = Array.from({ length: 120 }, (_, i) => i / 12), Yr = T.map(t => truth(t) + 0.05 * randn(r));
+  const Tf = Array.from({ length: 48 }, (_, i) => 10 + i / 12), Yf = Tf.map(t => truth(t) + 0.05 * randn(r));
+  const ybar = Yr.reduce((a, b) => a + b, 0) / Yr.length, Y = Yr.map(v => v - ybar);
+  const xs = linspace(0, 14, 281);
+  let on = { lin: true, trend: true, seas: true, short: true }, p = 1, reveal = false;
+  const se = (a, b, L) => Math.exp(-((a - b) ** 2) / (2 * L * L));
+  const COMP = {
+    lin: { name: 'Linear trend', c: 'var(--k1)', f: (a, b) => 0.0625 * (a - 5) * (b - 5) },
+    trend: { name: 'Smooth SE trend', c: 'var(--k3)', f: (a, b) => 0.36 * se(a, b, 4) },
+    seas: { name: 'Seasonal Per × SE', c: 'var(--k2)', f: (a, b) => { const s = Math.sin(Math.PI * Math.abs(a - b) / p); return 0.09 * Math.exp(-2 * s * s) * se(a, b, 15); } },
+    short: { name: 'Short-term SE', c: 'var(--k4)', f: (a, b) => 0.0036 * se(a, b, 0.4) },
+  };
+  const SN2 = 0.05 * 0.05;
+  function draw() {
+    const act = Object.keys(COMP).filter(k => on[k]);
+    const kf = (a, b) => act.reduce((s, k) => s + COMP[k].f(a, b), 0);
+    const g = gpFit(T, Y, kf, SN2), P = gpPredict(g, xs);
+    const mu = Array.from(P.mu, v => v + ybar);
+    const F = Frame(640, 300, { l: 40, r: 14, t: 12, b: 30 }, [0, 14], [-1, 4]);
+    let s = clipRect('xclip', F) + axesSVG(F, { xt: [0, 2, 4, 6, 8, 10, 12, 14], yt: [-1, 0, 1, 2, 3, 4], xlabel: 'years' });
+    s += `<rect x="${F.X(10)}" y="${F.y1}" width="${F.x1 - F.X(10)}" height="${F.y0 - F.y1}" fill="var(--soft)"/><line x1="${F.X(10)}" x2="${F.X(10)}" y1="${F.y1}" y2="${F.y0}" stroke="var(--muted)" stroke-dasharray="4 4"/><text class="muted halo" x="${F.X(10) + 6}" y="${F.y1 + 12}" font-size="11">forecast →</text>`;
+    s += `<g clip-path="url(#xclip)"><path d="${bandD(F, xs, mu.map((m, i) => m - 2 * P.sd[i]), mu.map((m, i) => m + 2 * P.sd[i]))}" fill="var(--band)" opacity=".18"/>`;
+    s += `<path d="${pathD(F, xs, mu)}" fill="none" stroke="var(--k0)" stroke-width="2.2"/></g>`;
+    T.forEach((t, i) => { s += `<circle cx="${F.X(t).toFixed(1)}" cy="${F.Y(Yr[i]).toFixed(1)}" r="2.2" fill="var(--ink)"/>`; });
+    let rmse = null, cover = null;
+    if (reveal) {
+      Tf.forEach((t, i) => { s += `<circle cx="${F.X(t).toFixed(1)}" cy="${F.Y(Yf[i]).toFixed(1)}" r="2.8" fill="none" stroke="var(--k1)" stroke-width="1.4"/>`; });
+      const pf = gpPredict(g, Tf); let se2 = 0, inn = 0;
+      Tf.forEach((t, i) => { const m = pf.mu[i] + ybar, sd = Math.sqrt(pf.sd[i] ** 2 + SN2); se2 += (m - Yf[i]) ** 2; if (Math.abs(m - Yf[i]) <= 2 * sd) inn++; });
+      rmse = Math.sqrt(se2 / Tf.length); cover = inn / Tf.length;
+    }
+    $('xSvg').innerHTML = s;
+    $('xT1').textContent = rmse === null ? 'hidden' : rmse.toFixed(3);
+    $('xT1b').className = 'tile ' + (rmse === null ? '' : rmse < 0.1 ? 'good' : rmse > 0.3 ? 'bad' : '');
+    $('xT2').textContent = g.lml.toFixed(1);
+    $('xT3').textContent = cover === null ? 'hidden' : Math.round(100 * cover) + '%';
+    $('xT4').textContent = act.length ? act.length : 'none';
+    // decomposition
+    const rowH = 82, H = Math.max(120, act.length * rowH + 6);
+    $('xDec').setAttribute('viewBox', `0 0 640 ${H}`);
+    let d = '';
+    if (!act.length) d = `<text class="muted" x="320" y="60" text-anchor="middle">No kernel parts: the GP is pure noise and predicts the mean.</text>`;
+    act.forEach((k, j) => {
+      const comp = COMP[k], cm = xs.map(x => { let m = 0; for (let i = 0; i < T.length; i++) m += comp.f(T[i], x) * g.alpha[i]; return m; });
+      const rr = symRange([cm], 0.05);
+      const FR = Frame(640, rowH, { l: 40, r: 14, t: 22, b: 8 }, [0, 14], [-rr, rr]);
+      d += `<g transform="translate(0, ${j * rowH})">`;
+      d += `<line x1="${FR.x0}" x2="${FR.x1}" y1="${FR.Y(0)}" y2="${FR.Y(0)}" stroke="var(--gridline)"/><line x1="${FR.X(10)}" x2="${FR.X(10)}" y1="${FR.y1}" y2="${FR.y0}" stroke="var(--muted)" stroke-dasharray="3 4" opacity=".6"/>`;
+      d += `<path d="${pathD(FR, xs, cm)}" fill="none" stroke="${comp.c}" stroke-width="2"/>`;
+      d += `<text x="${FR.x0}" y="${13}" font-size="11" font-weight="700" style="fill:${comp.c}">${comp.name}</text><text class="muted" x="${FR.x0 - 6}" y="${FR.Y(rr) + 4}" text-anchor="end" font-size="10">${tickFmt(rr)}</text><text class="muted" x="${FR.x0 - 6}" y="${FR.Y(-rr) + 4}" text-anchor="end" font-size="10">${tickFmt(-rr)}</text>`;
+      d += `</g>`;
+    });
+    $('xDec').innerHTML = d;
+    let msg = '';
+    if (!on.seas && !on.short && on.trend && !on.lin) msg = 'Only one smooth SE kernel. The past is fit as a smooth curve (the seasonal wiggles are treated as noise) and the forecast drifts back toward the mean as you move more than ℓ = 4 years past the data.';
+    else if (!on.seas) msg = 'Without a periodic part, the seasonal cycle has no way to continue into the future. It is absorbed by the short-term part or by noise, and both decay to 0 beyond the data.';
+    else if (!on.lin && on.trend) msg = 'Without the linear part, the trend is carried only by the SE trend. That extrapolates for a while and then flattens, so the forecast increasingly undershoots.';
+    else if (on.lin && !on.trend) msg = 'Linear trend only: the forecast keeps rising in a straight line, so it misses the slight upward curvature of the true trend.';
+    else msg = 'Each part extrapolates in its own way: the linear trend keeps rising, the SE trend fades, the seasonal part keeps repeating with slowly growing uncertainty, and the short-term part dies out within months.';
+    if (Math.abs(p - 1) > 0.03 && on.seas) msg += ` <b>The period is set to ${p.toFixed(2)} years instead of 1</b>, so the seasonal part can't line up with the data. The log marginal likelihood drops sharply, and that is how you would learn p from data.`;
+    $('xRead').innerHTML = msg;
+  }
+  const redraw = rafThrottle(draw);
+  const btns = document.querySelectorAll('[data-xc]');
+  const sync = () => btns.forEach(b => b.classList.toggle('on', on[b.dataset.xc]));
+  btns.forEach(b => b.addEventListener('click', () => { on[b.dataset.xc] = !on[b.dataset.xc]; sync(); draw(); }));
+  $('xP').addEventListener('input', e => { p = +e.target.value; $('xPv').textContent = p.toFixed(2); redraw(); });
+  $('xReveal').addEventListener('click', () => { reveal = !reveal; $('xReveal').classList.toggle('on', reveal); $('xReveal').textContent = reveal ? 'Hide the true future' : 'Reveal the true future'; draw(); });
+  $('xOnlySE').addEventListener('click', () => { on = { lin: false, trend: true, seas: false, short: false }; sync(); draw(); });
+  $('xAll').addEventListener('click', () => { on = { lin: true, trend: true, seas: true, short: true }; sync(); draw(); });
+  draw();
+})();
+
+// ============================================================
+// Quiz
+// ============================================================
+(function quiz() {
+  const Q = [
+    { q: 'Which property must a Mercer kernel have?',
+      a: ['It integrates to 1', 'Every Gram matrix it produces is positive semidefinite', 'It is non-negative and peaks at x = x′'], c: 1,
+      e: 'Mercer means c<sup>T</sup>Kc ≥ 0 for every set of points and every c. Normalization is irrelevant, and the linear kernel xx′ is a valid kernel that takes negative values and has no peak.' },
+    { q: 'A similarity function produces a Gram matrix with an eigenvalue of −0.2 on some set of 10 points. What can you conclude?',
+      a: ['It is still a Mercer kernel if most eigenvalues are positive', 'It is not a Mercer kernel: c<sup>T</sup>Kc < 0 along that eigenvector, which would be a negative variance', 'You need to add jitter and then it is fine'], c: 1,
+      e: 'One failing point set is enough. The eigenvector c gives Var[Σ cᵢ f(xᵢ)] = −0.2, which is impossible, so no GP or feature map has this kernel. Jitter of 0.2 would just be a different kernel.' },
+    { q: 'For x ∈ ℝ², the kernel (xᵀx′)² equals φ(x)ᵀφ(x′) for which φ?',
+      a: ['[x₁, x₂, x₁x₂]', '[x₁², √2·x₁x₂, x₂²]', '[1, x₁, x₂, x₁², x₂²]'], c: 1,
+      e: 'Expanding (x₁x₁′ + x₂x₂′)² gives x₁²x₁′² + 2x₁x₂x₁′x₂′ + x₂²x₂′². The √2 splits the cross-term evenly between φ(x) and φ(x′).' },
+    { q: 'You put independent N(0,1) weights on features φₘ(x) and set f(x) = Σ wₘφₘ(x). What is Cov[f(x), f(x′)]?',
+      a: ['Σₘ φₘ(x)φₘ(x′)', '0, since the weights are independent', 'Σₘ φₘ(x) + φₘ(x′)'], c: 0,
+      e: 'Cov = Σₘ Σₖ E[wₘwₖ]φₘ(x)φₖ(x′) = Σₘ φₘ(x)φₘ(x′). Any feature map generates a valid kernel this way. This is the weight-space view of a GP.' },
+    { q: 'You increase the SE kernel\'s length-scale ℓ. What happens to the Gram matrix\'s eigenvalue spectrum and to GP samples?',
+      a: ['Eigenvalues decay faster and samples get smoother', 'Eigenvalues decay slower and samples get rougher', 'Nothing, since ℓ only rescales K'], c: 0,
+      e: 'Larger ℓ makes nearby points more strongly correlated. Fewer eigen-features carry the variance (Demo 4), so the functions vary more slowly.' },
+    { q: 'GP samples with a Matérn ν = ½ kernel are…',
+      a: ['infinitely differentiable', 'periodic', 'continuous but nowhere differentiable'], c: 2,
+      e: 'Matérn ½ is exp(−r/ℓ), which has a corner at r = 0. A corner in the kernel means rough sample paths (the Ornstein–Uhlenbeck process). Smoothness grows with ν, and ν → ∞ gives SE.' },
+    { q: 'Which construction is NOT guaranteed to give a valid kernel from valid 𝒦₁, 𝒦₂?',
+      a: ['𝒦₁ · 𝒦₂', 'exp(𝒦₁)', '𝒦₁ − 𝒦₂'], c: 2,
+      e: 'Subtraction can make eigenvalues negative (try 𝒦₂ = 2𝒦₁). Products are safe by the Schur product theorem, and exp is a limit of polynomials with positive coefficients.' },
+    { q: 'You want to model a seasonal pattern whose shape slowly changes over the years. Which kernel fits best?',
+      a: ['Periodic + SE', 'Periodic × SE', 'Periodic alone'], c: 1,
+      e: 'The product says two times are similar only if they are at the same phase AND close in time, so the pattern can evolve. Periodic + SE is an exactly repeating pattern plus a separate smooth component.' },
+    { q: 'In GP regression with σ_y = 0 (noise-free), what does the posterior look like at a training point?',
+      a: ['The mean passes through yₙ and the variance is 0 there', 'The mean is the average of nearby yₙ', 'The variance equals σ_f² there'], c: 0,
+      e: 'Without noise, f(xₙ) is observed exactly, so conditioning pins it down. The GP becomes an interpolator, as in §17.2.1. Adding σ_y > 0 turns it into a smoother.' },
+    { q: 'Why can a GP\'s weights on yₙ be negative while Nadaraya–Watson\'s can\'t?',
+      a: ['GPs use a different kernel', 'The GP weights K_σ⁻¹k* account for correlations between the training points themselves', 'It is a numerical error from Cholesky'], c: 1,
+      e: 'NW normalizes k* directly, so its weights are positive. The GP multiplies by K_σ⁻¹, which "explains away" redundancy among the training points. That can produce negative weights, especially just beyond a cluster.' },
+    { q: 'In the log marginal likelihood, what does the −½ log|K_σ| term do?',
+      a: ['It rewards fitting the data closely', 'It penalizes flexible models that spread probability over many possible datasets', 'It is a constant and can be ignored'], c: 1,
+      e: 'Short length-scales make K_σ closer to diagonal and |K_σ| larger, so the penalty grows. Data fit (−½yᵀK⁻¹y) pulls the other way. The balance is the built-in Occam\'s razor (Demo 11).' },
+    { q: 'A GP with only an SE kernel (ℓ = 4 years) is used to forecast 4 years ahead. What happens far beyond the data?',
+      a: ['It continues the last trend linearly', 'It reverts to the prior mean with growing uncertainty', 'It repeats the last year'], c: 1,
+      e: 'Correlation with the data fades over a few length-scales, so the posterior returns to the prior: mean 0 and ±2σ_f. Continuing a trend requires a linear kernel, and repeating requires a periodic one.' },
+  ];
+  const box = $('quizbox'); let score = 0, done = 0;
+  Q.forEach((it, qi) => {
+    const d = document.createElement('div'); d.className = 'quiz-q';
+    d.innerHTML = `<div class="sc"><b>${qi + 1}.</b> ${it.q}</div><div class="row">${it.a.map((a, i) => `<button class="pill" data-i="${i}">${a}</button>`).join('')}</div><div class="fb"></div>`;
+    d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      if (d.classList.contains('done')) return;
+      const i = +b.dataset.i, ok = i === it.c;
+      d.classList.add('done'); done++; if (ok) score++;
+      b.classList.add(ok ? 'right' : 'wrong');
+      if (!ok) d.querySelector(`button[data-i="${it.c}"]`).classList.add('right');
+      d.querySelector('.fb').innerHTML = `<span class="verdict ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'}</span> ${it.e}`;
+      $('quizscore').textContent = `Score: ${score} / ${done}` + (done === Q.length ? ` (all ${Q.length} answered)` : '');
+    }));
+    box.appendChild(d);
+  });
+})();
+
+// ============================================================
+// KaTeX
+// ============================================================
+function boot() { typeset(document.body); }
+if (window.renderMathInElement) boot(); else window.addEventListener('load', boot);
+</script>
+</body>
+</html>
