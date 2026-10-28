@@ -1,0 +1,1198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Support Vector Machines</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --soft: #fafaf9;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --gridline: #ecebe8;
+    --k0: #2a78d6; --k1: #eb6834; --k2: #1baf7a; --k3: #6250d6; --k4: #e87ba4; --k5: #c9a227;
+    /* heatmaps: positive / negative similarity */
+    --pos: #2a78d6; --neg: #e34948;
+    --good: #138a6a;
+    --bad: #e34948;
+    --band: #2a78d6;
+    --accent: #6a4bc4;
+    --callout-bg: #fbf3e8;
+    --callout-border: #ecd9b8;
+    --code-bg: #f1f0ed;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+      --border: #34342f; --gridline: #2a2a27;
+      --k0: #3987e5; --k1: #d95926; --k2: #199e70; --k3: #9085e9; --k4: #d55181; --k5: #d4b13f;
+      --pos: #4a92ea; --neg: #e66767;
+      --good: #2fb88e; --bad: #e66767; --band: #3987e5; --accent: #9a8ae6;
+      --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+    --border: #34342f; --gridline: #2a2a27;
+    --k0: #3987e5; --k1: #d95926; --k2: #199e70; --k3: #9085e9; --k4: #d55181; --k5: #d4b13f;
+    --pos: #4a92ea; --neg: #e66767;
+    --good: #2fb88e; --bad: #e66767; --band: #3987e5; --accent: #9a8ae6;
+    --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 30px 16px 70px; }
+  header h1 { font-size: 1.75rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  nav.toc { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a {
+    font-size: 0.78rem; text-decoration: none; color: var(--ink);
+    border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 3px 10px;
+  }
+  nav.toc a:hover { border-color: var(--ink); }
+  section.block {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px 24px 26px; margin-top: 26px; overflow-x: clip; position: relative;
+  }
+  section.block.hl { border-top: 4px solid var(--accent); }
+  @media (max-width: 560px) { section.block { padding: 18px 14px 20px; } }
+  section.block h2 { font-size: 1.22rem; margin: 0 0 4px; }
+  section.block h2 .num { color: var(--muted); font-weight: 600; font-size: 0.9rem; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .part { margin: 40px 0 -8px; }
+  .part h2 { font-size: 1.4rem; margin: 0 0 4px; }
+  .part p { color: var(--muted); margin: 0; font-size: 0.95rem; }
+  .kicker { color: var(--muted); font-size: 0.86rem; margin-bottom: 12px; font-style: italic; }
+  h3 { font-size: 0.98rem; margin: 20px 0 6px; }
+  p { margin: 0 0 12px; font-size: 0.95rem; }
+  ol, ul { font-size: 0.95rem; margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  .eqbox {
+    background: var(--soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 18px; margin: 14px 0; overflow-x: auto;
+  }
+  .eqbox .label { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .callout {
+    margin: 16px 0 0; padding: 10px 14px; border-radius: 8px;
+    background: var(--callout-bg); border: 1px solid var(--callout-border); font-size: 0.9rem;
+  }
+  details { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); }
+  details summary { cursor: pointer; padding: 8px 14px; font-size: 0.88rem; font-weight: 600; }
+  details > div { padding: 0 14px 12px; overflow-x: auto; font-size: 0.9rem; }
+  code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; font-size: 0.88em; }
+  .demo { border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 14px; }
+  .demo-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .two > * { min-width: 0; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+  .panel-h { font-size: 0.84rem; font-weight: 700; margin: 0 0 4px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .row .lbl { font-size: 0.76rem; color: var(--muted); font-weight: 600; margin-right: 2px; }
+  button.pill {
+    font-size: 0.8rem; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink); font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  button.pill:hover { border-color: var(--ink); }
+  button.pill.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button.pill.primary { border-color: var(--accent); font-weight: 600; }
+  button.pill.fake { border-style: dashed; }
+  button.pill .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  select {
+    font: inherit; font-size: 0.82rem; padding: 4px 8px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink);
+  }
+  input[type=text] {
+    font: inherit; font-size: 0.9rem; padding: 5px 9px; border-radius: 8px; width: 100%;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink);
+  }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 6px 0 10px; }
+  .ctrl { display: flex; flex-direction: column; gap: 2px; min-width: 180px; flex: 1; }
+  .ctrl[hidden] { display: none; }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .ctrl label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .tiles.three { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px) { .tiles, .tiles.three { grid-template-columns: 1fr 1fr; } }
+  .tile { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; min-width: 0; }
+  .tile .k { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+  .tile .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .tile .s { font-size: 0.72rem; color: var(--muted); }
+  .tile.good .v { color: var(--good); }
+  .tile.bad .v { color: var(--bad); }
+  svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  svg text { fill: var(--ink); font-family: inherit; font-size: 12px; }
+  svg .muted { fill: var(--muted); }
+  svg .axis { stroke: var(--border); }
+  svg .grid { stroke: var(--gridline); }
+  svg text.halo { paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  .plot { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; position: relative; }
+  .plot canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 8px; }
+  .plot svg { position: relative; }
+  .touchnone { touch-action: none; }
+  .grab { cursor: grab; }
+  .readout { font-size: 0.86rem; background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-variant-numeric: tabular-nums; margin-top: 8px; min-height: 2.6em; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+  .legend > span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw.line { height: 3px; border-radius: 2px; width: 18px; }
+  .sw.dash { height: 0; width: 18px; border-top: 2px dashed; border-radius: 0; background: none !important; }
+  .sw.round { border-radius: 50%; width: 10px; height: 10px; }
+  .sw.band { width: 18px; height: 10px; opacity: .25; }
+  table.cheat { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+  table.cheat th { text-align: left; font-size: 0.74rem; color: var(--muted); border-bottom: 2px solid var(--border); padding: 6px 8px; }
+  table.cheat td { border-bottom: 1px solid var(--border); padding: 8px 8px; vertical-align: top; }
+  table.cheat td:first-child { font-weight: 700; white-space: nowrap; }
+  .scroll-x { overflow-x: auto; }
+  .steps { list-style: none; padding: 0; margin: 8px 0; }
+  .steps li { border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; margin-bottom: 6px; font-size: 0.88rem; background: var(--soft); opacity: .6; overflow-x: auto; }
+  .steps li.on { opacity: 1; border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+  .steps li .rule { color: var(--muted); font-size: 0.8rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .chip { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8rem; border: 1px solid var(--border); background: var(--soft); border-radius: 6px; padding: 1px 6px; white-space: pre; }
+  .chip b { color: var(--k0); }
+  .quiz-q { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 10px 0; background: var(--soft); }
+  .quiz-q .sc { font-size: 0.92rem; margin-bottom: 8px; }
+  .quiz-q .fb { font-size: 0.86rem; margin-top: 8px; display: none; padding: 8px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); }
+  .quiz-q.done .fb { display: block; }
+  .quiz-q button.pill { text-align: left; }
+  .quiz-q button.pill.right { background: var(--good); border-color: var(--good); color: #fff; }
+  .quiz-q button.pill.wrong { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .verdict { font-weight: 700; }
+  .verdict.ok { color: var(--good); } .verdict.no { color: var(--bad); }
+  .score { font-size: 0.9rem; font-weight: 600; }
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; display: none; max-width: 300px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 10px; font-size: 0.8rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); font-variant-numeric: tabular-nums;
+  }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
+  a { color: var(--k0); }
+  .plain { background: var(--soft); border-left: 4px solid var(--k2); border-radius: 6px; padding: 10px 14px; margin: 14px 0; font-size: 0.93rem; }
+  .plain .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--k2); font-weight: 700; margin-bottom: 2px; }
+  .story { background: var(--callout-bg); border: 1px solid var(--callout-border); border-radius: 8px; padding: 10px 14px; margin: 14px 0; font-size: 0.93rem; }
+  .story .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+  .tldr { font-size: 1rem; font-weight: 600; margin: 4px 0 14px; }
+  .takeaways { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px 4px; margin-top: 16px; }
+  .takeaways h3 { margin-top: 0; }
+  .warn { color: var(--bad); font-weight: 600; }
+  .okc { color: var(--good); font-weight: 600; }
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0 4px; }
+  @media (max-width: 720px) { .flow { grid-template-columns: 1fr 1fr; } }
+  .flow > div { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.86rem; }
+  .flow b { display: block; font-size: 0.78rem; color: var(--muted); }
+  .flow .big { font-size: 0.95rem; font-weight: 700; margin: 2px 0 4px; }
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<div class="wrap">
+  <header>
+    <h1>Support Vector Machines</h1>
+    <div class="subtitle">A plain-language companion to &sect;17.3.1&ndash;17.3.4 of Murphy's <em>Probabilistic Machine Learning: An Introduction</em>. Each subsection gets a one-sentence version, a real-world example, the key equation with a translation into English, and a demo you can play with. No step assumes you followed the book's derivation. Built for CS 473 self-study.</div>
+    <nav class="toc">
+      <a href="#intro">The big picture</a>
+      <a href="#s1">17.3.1 Widest road</a>
+      <a href="#s2">17.3.2 Support vectors (the dual)</a>
+      <a href="#s3">17.3.3 Allowing mistakes</a>
+      <a href="#s4">17.3.4 Kernel trick</a>
+      <a href="#quiz">Quiz &amp; cheat sheet</a>
+    </nav>
+  </header>
+
+  <!-- ============================== INTRO ============================== -->
+  <section class="block" id="intro">
+    <h2><span class="num">17.3</span>The big picture</h2>
+    <p class="tldr">An SVM sorts things into two groups by drawing the widest possible "road" between them.</p>
+    <p>Say you have examples from two groups: approved and denied loans, spam and real email, tumors that turned out benign or malignant. You want a rule that sorts <em>new</em> examples into the right group. A <b>support vector machine</b> (SVM) is one way to learn that rule. Each of the four subsections adds one idea:</p>
+    <div class="flow">
+      <div><b>17.3.1</b><div class="big">Draw the widest road</div>Of all the lines that split the groups, pick the one with the most empty space on both sides.</div>
+      <div><b>17.3.2</b><div class="big">Only the edge cases matter</div>Rewriting the problem shows that the road depends only on the few points touching its edges, the <em>support vectors</em>.</div>
+      <div><b>17.3.3</b><div class="big">Allow a few mistakes</div>Real data is messy. Let some points sit on the road or on the wrong side, and charge a penalty for each one.</div>
+      <div><b>17.3.4</b><div class="big">Bend the road</div>Swap every dot product for a <em>kernel</em> and the straight road becomes a curve, at almost no extra cost.</div>
+    </div>
+    <h3>Three things to know before starting</h3>
+    <ul>
+      <li><b>Labels are $-1$ and $+1$</b> (not 0 and 1). This makes the math neater. The book writes them as $\tilde{y}_n$; this page writes $y_n$.</li>
+      <li><b>The classifier is a line</b> (a plane, in more dimensions): $f(\mathbf{x}) = \mathbf{w}^\top\mathbf{x} + w_0$. If $f(\mathbf{x}) &gt; 0$, predict $+1$. If $f(\mathbf{x}) &lt; 0$, predict $-1$. The line itself is where $f(\mathbf{x}) = 0$.</li>
+      <li><b>$\mathbf{w}$ points across the line.</b> It sets the line's tilt. $w_0$ slides the line back and forth without tilting it.</li>
+    </ul>
+    <div class="plain"><div class="label">Quick check: what does $y_n f(\mathbf{x}_n)$ mean?</div>It is positive when point $n$ is on the correct side, negative when it's on the wrong side, and bigger the farther it is from the line on the correct side. You will see $y_n f(\mathbf{x}_n)$ in almost every equation below, so it's worth remembering: <b>positive = correct, and bigger = safer</b>.</div>
+  </section>
+
+  <!-- ============================== 17.3.1 ============================== -->
+  <section class="block hl" id="s1">
+    <h2><span class="num">17.3.1</span>Large margin classifiers: draw the widest road</h2>
+    <p class="tldr">Many lines split the training data perfectly. Pick the one that stays as far as possible from the closest point on each side.</p>
+
+    <div class="story"><div class="label">Real-world example: a bank approving loans</div>
+      A bank has past applicants plotted by <b>yearly income</b> and <b>total debt</b>. Some were approved (blue) and some were denied (orange). The bank wants a line that sorts future applicants. Plenty of lines sort the old applicants perfectly. Some pass very close to an approved applicant and some pass very close to a denied one. A new applicant who is a bit different from the old ones could easily land on the wrong side of those lines. The safest line runs <b>right down the middle of the gap</b>.
+    </div>
+
+    <h3>The road analogy</h3>
+    <p>Picture the line as the <b>center stripe of a road</b>. Make the road as wide as you can without any point (house) standing on it. The two edges of the road are the <b>curbs</b>, and the distance from the center stripe to a curb is the <b>margin</b>. An SVM picks the line with the <b>largest margin</b>, which is why the book calls it a "large margin classifier."</p>
+    <p><b>Why the widest road?</b> New data never looks exactly like the old data. A wide road leaves room for that wobble. If future applicants land a little off from past ones, they are still on the right side.</p>
+
+    <h3>Turning "widest road" into math, in three steps</h3>
+    <p><b>Step 1: How far is a point from the line?</b> Plug the point into $f$ and divide by the length of $\mathbf{w}$:</p>
+    <div class="eqbox"><div class="label">Distance from point to line</div>$$\text{distance}(\mathbf{x}) = \frac{f(\mathbf{x})}{\lVert\mathbf{w}\rVert} = \frac{\mathbf{w}^\top\mathbf{x}+w_0}{\lVert\mathbf{w}\rVert}$$</div>
+    <p>Dividing by $\lVert\mathbf{w}\rVert$ turns "how big is $f$" into "how many actual units away is the point."</p>
+
+    <p><b>Step 2: Fix the scale.</b> The equations $2x + 4y - 6 = 0$ and $x + 2y - 3 = 0$ describe the <em>same</em> line. You can multiply $\mathbf{w}$ and $w_0$ by any positive number and the line doesn't move. Since we're free to pick that number, pick it so the closest points have $y_n f(\mathbf{x}_n) = 1$ exactly. The curbs are then the lines $f(\mathbf{x}) = +1$ and $f(\mathbf{x}) = -1$, and by Step 1 the margin is</p>
+    <div class="eqbox"><div class="label">Margin, after fixing the scale</div>$$\text{margin} = \frac{1}{\lVert\mathbf{w}\rVert}$$</div>
+
+    <p><b>Step 3: Make the margin big.</b> Making $1/\lVert\mathbf{w}\rVert$ big is the same as making $\lVert\mathbf{w}\rVert$ small. The book squares it and puts a $\tfrac12$ in front, which doesn't change the answer and makes the calculus easier. The result is the SVM training problem:</p>
+    <div class="eqbox"><div class="label">Hard-margin SVM (book eq. 17.75)</div>$$\min_{\mathbf{w},\,w_0}\ \tfrac12\lVert\mathbf{w}\rVert^2 \quad\text{subject to}\quad y_n(\mathbf{w}^\top\mathbf{x}_n + w_0) \ge 1 \ \text{ for every training point } n$$</div>
+    <div class="plain"><div class="label">In plain English</div>"Make the road as wide as possible ($\lVert\mathbf{w}\rVert$ small), as long as every training point is on its own side and not standing on the road ($y_n f(\mathbf{x}_n) \ge 1$)."</div>
+    <p>This is a <b>quadratic program</b> (a quadratic objective with linear constraints). Standard solvers handle it, and it has a single best answer with no bad local optima. One detail: $w_0$ is not in the objective, because sliding the road sideways doesn't change its width.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 1 &middot; Can you beat the SVM? Drag the two purple handles to draw your own line.</div>
+      <div class="two">
+        <div>
+          <div id="p1"></div>
+          <div class="legend">
+            <span><i class="sw round" style="background:var(--k0)"></i>approved</span>
+            <span><i class="sw round" style="background:var(--k1)"></i>denied</span>
+            <span><i class="sw line" style="background:var(--k3)"></i>your line + your road</span>
+            <span><i class="sw line" style="background:var(--ink)"></i>SVM's line</span>
+          </div>
+        </div>
+        <div>
+          <div class="row">
+            <button class="pill on" id="d1svm">Show SVM's road</button>
+            <button class="pill" id="d1test">Bring in 40 new applicants</button>
+            <button class="pill" id="d1new">New data</button>
+          </div>
+          <div class="tiles three" style="grid-template-columns:1fr 1fr">
+            <div class="tile" id="d1tYou"><div class="k">Your road width (grid units)</div><div class="v" id="d1you">–</div><div class="s" id="d1yous"></div></div>
+            <div class="tile good"><div class="k">SVM's road width (grid units)</div><div class="v" id="d1svmw">–</div><div class="s">the widest possible</div></div>
+          </div>
+          <div class="readout" id="d1msg"></div>
+          <p class="hint" style="margin-top:10px">You can drag the data points too, and the SVM refits as you go. Try making your line as good as the SVM's, then click <b>Bring in 40 new applicants</b> to see which line makes fewer mistakes on people it has never seen. Hollow markers are the new applicants.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.3.1</h3><ul>
+      <li>Many lines separate the data. The SVM picks the one with the <b>biggest margin</b> (widest road).</li>
+      <li>After fixing the scale so the closest points have $y_n f(\mathbf{x}_n) = 1$, <b>margin $= 1/\lVert\mathbf{w}\rVert$</b>, so "maximize margin" becomes "minimize $\tfrac12\lVert\mathbf{w}\rVert^2$."</li>
+      <li>Every training point must satisfy $y_n f(\mathbf{x}_n) \ge 1$: on its own side and off the road.</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== 17.3.2 ============================== -->
+  <section class="block hl" id="s2">
+    <h2><span class="num">17.3.2</span>The dual problem: only the edge cases matter</h2>
+    <p class="tldr">Rewrite the problem so that each training point gets a "push" weight $\alpha_n$. When you solve it, almost every point's push is zero. Only the points touching the curbs (the support vectors) hold the road in place.</p>
+
+    <div class="story"><div class="label">Real-world example: a fence between two farms</div>
+      Two farmers want a fence exactly halfway between their fields, as far from both as possible. Where the fence goes depends only on the <b>closest</b> buildings on each side. A barn half a mile back on either farm has no effect. You could move it, tear it down or build ten more barns back there, and the fence would stay put. Those closest buildings "support" the fence's position. In an SVM they are called <b>support vectors</b>.
+    </div>
+
+    <h3>What "dual" means</h3>
+    <p>Section 17.3.1 solved for $\mathbf{w}$ directly. That is the <b>primal</b> problem. The <b>dual</b> problem asks a different question that has the same answer: <em>how hard does each training point have to push on the road to hold it in place?</em> That push is the number $\alpha_n \ge 0$, one per training point. (Formally, $\alpha_n$ is a Lagrange multiplier for the constraint $y_n f(\mathbf{x}_n) \ge 1$. "Push" is a good way to picture it.)</p>
+    <p>Working through the calculus (setting derivatives of the Lagrangian to zero) gives two facts:</p>
+    <div class="eqbox"><div class="label">What the derivatives tell you (book eqs. 17.78&ndash;17.79)</div>$$\mathbf{w} = \sum_{n=1}^N \alpha_n y_n \mathbf{x}_n \qquad\qquad \sum_{n=1}^N \alpha_n y_n = 0$$</div>
+    <div class="plain"><div class="label">In plain English</div>
+      <b>Left:</b> the road's direction $\mathbf{w}$ is a weighted mix of the training points, where each point is weighted by how hard it pushes ($\alpha_n$) and which side it's on ($y_n$).<br>
+      <b>Right:</b> the total push from the $+1$ side equals the total push from the $-1$ side. Otherwise the road would slide over, like a door pushed harder from one side.
+    </div>
+    <p>Substituting these back in gives the dual problem: find the pushes $\alpha_n$ that</p>
+    <div class="eqbox"><div class="label">The dual problem (book eq. 17.81)</div>$$\max_{\boldsymbol\alpha}\ \sum_n \alpha_n - \frac12\sum_n\sum_m \alpha_n\alpha_m\, y_n y_m\, \underbrace{\mathbf{x}_n^\top\mathbf{x}_m}_{\text{dot product}} \quad\text{subject to}\quad \alpha_n \ge 0,\ \ \sum_n\alpha_n y_n = 0$$</div>
+    <p>You don't need to memorize this. One thing to notice now, because 17.3.4 depends on it: <b>the data only appear as dot products $\mathbf{x}_n^\top\mathbf{x}_m$</b>, which measure how similar two points are. The coordinates themselves never appear.</p>
+
+    <h3>Why most pushes are zero</h3>
+    <p>At the solution, every point satisfies a condition called <b>complementary slackness</b> (one of the KKT conditions):</p>
+    <div class="eqbox"><div class="label">Complementary slackness (book eq. 17.84)</div>$$\alpha_n\,\big(y_n f(\mathbf{x}_n) - 1\big) = 0$$</div>
+    <p>A product is zero only if one of its factors is zero, so every point is in one of two cases:</p>
+    <ul>
+      <li><b>$\alpha_n = 0$:</b> the point doesn't push at all. That's most points: the barns far back from the fence.</li>
+      <li><b>$y_n f(\mathbf{x}_n) = 1$:</b> the point is exactly on a curb. Only these points can have $\alpha_n &gt; 0$. They are the <b>support vectors</b>.</li>
+    </ul>
+    <p>It's like people leaning on a wall: only those actually touching it can push.</p>
+
+    <h3>Making predictions with only the support vectors</h3>
+    <p>Put $\mathbf{w} = \sum_n\alpha_n y_n\mathbf{x}_n$ into $f$. Since $\alpha_n = 0$ for everyone else, only the set of support vectors $\mathcal{S}$ remains:</p>
+    <div class="eqbox"><div class="label">Prediction (book eq. 17.85)</div>$$f(\mathbf{x}) = \sum_{n\in\mathcal{S}} \alpha_n y_n\, \mathbf{x}_n^\top\mathbf{x} + w_0$$</div>
+    <p>To find $w_0$: each support vector sits on a curb, so $y_n f(\mathbf{x}_n) = 1$, which gives $w_0 = y_n - \mathbf{w}^\top\mathbf{x}_n$. The book averages this over all support vectors to reduce rounding error: $w_0 = \frac{1}{|\mathcal{S}|}\sum_{n\in\mathcal{S}}(y_n - \mathbf{w}^\top\mathbf{x}_n)$.</p>
+    <div class="plain"><div class="label">Why anyone cares</div>
+      <b>1. Compact model:</b> once trained, you can throw away every training point except the support vectors.<br>
+      <b>2. Size depends on N, not D:</b> the dual has one unknown per <em>training point</em>, not per <em>feature</em>. That helps when there are more features than data points.<br>
+      <b>3. Only dot products:</b> this sets up the kernel trick in 17.3.4.
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Demo 2 &middot; Fence test. Click any point to delete it and watch whether the line moves.</div>
+      <div class="two">
+        <div>
+          <div id="p2"></div>
+          <div class="legend">
+            <span><i class="sw round" style="background:var(--k0)"></i>$y=+1$</span>
+            <span><i class="sw round" style="background:var(--k1)"></i>$y=-1$</span>
+            <span><i class="sw round" style="background:none;border:2px solid var(--ink)"></i>support vector (label = $\alpha_n$)</span>
+            <span><i class="sw dash" style="border-color:var(--muted)"></i>line before your last click</span>
+          </div>
+        </div>
+        <div>
+          <div class="row"><button class="pill" id="d2reset">Put all points back</button></div>
+          <div class="readout" id="d2msg">Delete a point that is <b>not</b> ringed first, then delete a ringed one.</div>
+          <div class="tiles three" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="tile"><div class="k">Training points</div><div class="v" id="d2n">–</div></div>
+            <div class="tile"><div class="k">Support vectors</div><div class="v" id="d2s">–</div></div>
+            <div class="tile"><div class="k">Push balance $\sum\alpha_n y_n$</div><div class="v" id="d2bal">–</div></div>
+          </div>
+          <h3>The line's direction, built from support vectors only</h3>
+          <div class="readout" id="d2w" style="overflow-x:auto"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.3.2</h3><ul>
+      <li>The dual gives each point a push $\alpha_n \ge 0$, and $\mathbf{w} = \sum_n\alpha_n y_n\mathbf{x}_n$.</li>
+      <li>Complementary slackness: <b>either $\alpha_n = 0$, or the point is on a curb</b>. The points on the curbs are the support vectors.</li>
+      <li>Predictions use only support vectors, and the data only appear as <b>dot products</b>.</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== 17.3.3 ============================== -->
+  <section class="block hl" id="s3">
+    <h2><span class="num">17.3.3</span>Soft margin classifiers: allow a few mistakes</h2>
+    <p class="tldr">Real data overlaps, so a perfect road usually doesn't exist. Let points cross onto the road, or even past it, but charge a penalty $C$ for every unit of crossing.</p>
+
+    <div class="story"><div class="label">Real-world example: a spam filter and Aunt Linda's newsletter</div>
+      You sort email by <b>number of links</b> and <b>number of ALL-CAPS words</b>. Spam usually has lots of both. Then Aunt Linda sends a family newsletter with 20 links and "HAPPY BIRTHDAY!!!" everywhere. It's real email, but it sits deep in spam territory. The hard-margin SVM from 17.3.1 must get <em>every</em> email right, so it either bends the line badly around this one email or fails completely when no line works. A sensible filter accepts that one oddball is misfiled and keeps a good line for everything else.
+    </div>
+
+    <h3>Slack variables: how far each point crosses</h3>
+    <p>Give each point a <b>slack</b> $\xi_n \ge 0$ (Greek "xi"), which measures how far it crosses its curb. The constraint becomes $y_n f(\mathbf{x}_n) \ge 1 - \xi_n$:</p>
+    <ul>
+      <li><b>$\xi_n = 0$:</b> the point is on its own side and off the road. It's behaving.</li>
+      <li><b>$0 &lt; \xi_n \le 1$:</b> the point is on the road, but still on the correct side of the center line. It's still classified correctly.</li>
+      <li><b>$\xi_n &gt; 1$:</b> the point is past the center line. It's <b>misclassified</b>.</li>
+    </ul>
+    <p>Each misclassified point has $\xi_n &gt; 1$, so $\sum_n\xi_n$ is always at least the number of training mistakes.</p>
+
+    <div class="eqbox"><div class="label">Soft-margin SVM (book eq. 17.87)</div>$$\min_{\mathbf{w},\,w_0,\,\boldsymbol\xi}\ \underbrace{\tfrac12\lVert\mathbf{w}\rVert^2}_{\text{want a wide road}} + \underbrace{C\sum_{n}\xi_n}_{\text{penalty for crossing}} \quad\text{s.t.}\quad y_n(\mathbf{w}^\top\mathbf{x}_n+w_0) \ge 1-\xi_n,\ \ \xi_n \ge 0$$</div>
+    <div class="plain"><div class="label">In plain English: $C$ is the size of the fine</div>
+      Think of $C$ as a fine for each unit a point crosses onto the road.<br>
+      <b>Big $C$ (strict):</b> crossing is expensive, so the SVM narrows the road to keep points off it. It gets close to the hard margin and can overfit to oddballs like Aunt Linda.<br>
+      <b>Small $C$ (lenient):</b> crossing is cheap, so the SVM makes the road wide and lets many points onto it. It can underfit.<br>
+      In practice you choose $C$ by cross-validation.
+    </div>
+
+    <h3>What changes in the dual: a cap on each push</h3>
+    <p>The dual problem is almost the same as in 17.3.2. The only change is that each push now has a ceiling:</p>
+    <div class="eqbox"><div class="label">Box constraint (book eq. 17.88)</div>$$0 \le \alpha_n \le C$$</div>
+    <p>No single point can push harder than $C$. That's why an outlier can't take over: Aunt Linda's email can push only so hard before the SVM gives up and lets her sit on the wrong side. Each point's $\alpha_n$ tells you where it is:</p>
+    <div class="scroll-x"><table class="cheat">
+      <tr><th>Push $\alpha_n$</th><th>Slack $\xi_n$</th><th>Where the point is</th><th>Support vector?</th></tr>
+      <tr><td>$\alpha_n = 0$</td><td>$0$</td><td>Safely on its own side, beyond the curb</td><td>No</td></tr>
+      <tr><td>$0 &lt; \alpha_n &lt; C$</td><td>$0$</td><td>Exactly on the curb</td><td>Yes</td></tr>
+      <tr><td>$\alpha_n = C$</td><td>$0 &lt; \xi_n \le 1$</td><td>On the road, but on the correct side</td><td>Yes</td></tr>
+      <tr><td>$\alpha_n = C$</td><td>$\xi_n &gt; 1$</td><td>On the wrong side (misclassified)</td><td>Yes</td></tr>
+    </table></div>
+    <p><b>The &nu;-SVM.</b> $C$ can be hard to interpret, so the book mentions an equivalent setting: $C = 1/(\nu N)$ with $0 &lt; \nu \le 1$. The number $\nu$ ("nu") is easier to read. At most a fraction $\nu$ of the points end up on the road or the wrong side, and at least a fraction $\nu$ of the points are support vectors. For example, $\nu = 0.1$ means "allow up to about 10% of the points to cross."</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 3 &middot; Turn the fine $C$ up and down. Hover a point to see its $\alpha_n$ and $\xi_n$.</div>
+      <div class="two">
+        <div>
+          <div id="p3"></div>
+          <div class="legend">
+            <span><i class="sw round" style="background:var(--k0)"></i>spam ($+1$)</span>
+            <span><i class="sw round" style="background:var(--k1)"></i>real email ($-1$)</span>
+            <span><i class="sw round" style="background:none;border:2px solid var(--ink)"></i>on curb</span>
+            <span><i class="sw round" style="background:none;border:2px dashed var(--ink)"></i>on the road</span>
+            <span>&times; misclassified</span>
+          </div>
+        </div>
+        <div>
+          <div class="ctrls"><div class="ctrl"><label><span>Fine per unit of crossing, $C$</span> <b id="d3cv">1.00</b></label><input type="range" id="d3c"></div></div>
+          <div class="row">
+            <button class="pill on" id="d3aunt">Include Aunt Linda's email</button>
+            <button class="pill" data-d3c="0.02">Lenient (C = 0.02)</button>
+            <button class="pill" data-d3c="1">Medium (C = 1)</button>
+            <button class="pill" data-d3c="200">Strict (C = 200)</button>
+          </div>
+          <div class="tiles">
+            <div class="tile"><div class="k">Road width</div><div class="v" id="d3w">–</div></div>
+            <div class="tile"><div class="k">Support vectors</div><div class="v" id="d3s">–</div></div>
+            <div class="tile"><div class="k">On the road or wrong side</div><div class="v" id="d3in">–</div></div>
+            <div class="tile"><div class="k">Training mistakes</div><div class="v" id="d3err">–</div></div>
+          </div>
+          <div class="readout" id="d3msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.3.3</h3><ul>
+      <li>Slack $\xi_n$ lets a point cross its curb. $\xi_n &gt; 1$ means it's misclassified.</li>
+      <li>The objective trades off a <b>wide road</b> ($\tfrac12\lVert\mathbf{w}\rVert^2$) against <b>total crossing</b> ($C\sum\xi_n$). Big $C$ = strict, small $C$ = lenient.</li>
+      <li>In the dual, the only change is $0 \le \alpha_n \le C$. Capping the push keeps any single outlier from taking over.</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== 17.3.4 ============================== -->
+  <section class="block hl" id="s4">
+    <h2><span class="num">17.3.4</span>The kernel trick: bend the road</h2>
+    <p class="tldr">Everything an SVM does uses only dot products $\mathbf{x}_n^\top\mathbf{x}_m$. Replace each one with a kernel $\mathcal{K}(\mathbf{x}_n, \mathbf{x}_m)$ and the SVM draws a curved boundary, as if the data had first been moved into a much bigger feature space.</p>
+
+    <div class="story"><div class="label">Real-world example 1: the thermostat</div>
+      You record whether people felt comfortable at different room temperatures. Around 66&ndash;77&deg;F is comfortable, and both colder and hotter are not. <b>No single cutoff works</b>: "above 66&deg;" also includes 90&deg;. But add a second feature, <b>"how far from 71&deg;, squared"</b>, and the problem becomes easy: comfortable means that number is small. In the new two-feature space, a straight line works.
+    </div>
+
+    <h3>Step 1: Lift the data so a straight line works</h3>
+    <p>This is the general idea. Map each input $\mathbf{x}$ to a longer feature vector $\boldsymbol\phi(\mathbf{x})$, then run the ordinary straight-road SVM on $\boldsymbol\phi(\mathbf{x})$. A straight line in the new space looks curved when you map it back to the original space.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 4a &middot; Slide to add the feature (temperature &minus; 71)&sup2; and lift the points</div>
+      <div class="ctrls"><div class="ctrl"><label>How much to lift <b id="d4lv">0%</b></label><input type="range" id="d4l" min="0" max="100" value="0"></div></div>
+      <div id="p4a"></div>
+      <div class="readout" id="d4amsg"></div>
+    </div>
+
+    <h3>Step 2: The problem is that features get expensive</h3>
+    <p>For a photo with 1,000 pixel values, "all pairs of pixels multiplied together" is about 500,000 features. With all triples it's about 166 million. Some useful feature maps have <em>infinitely</em> many features. Computing $\boldsymbol\phi(\mathbf{x})$ explicitly isn't practical.</p>
+
+    <h3>Step 3: The trick is that you never need $\boldsymbol\phi$, only dot products</h3>
+    <p>Remember the observation from 17.3.2: training and prediction use the data only through dot products. In feature space those would be $\boldsymbol\phi(\mathbf{x}_n)^\top\boldsymbol\phi(\mathbf{x}_m)$. A <b>kernel</b> is a function that computes that dot product <em>directly from the original inputs</em>, without ever building $\boldsymbol\phi$:</p>
+    <div class="eqbox"><div class="label">Kernel</div>$$\mathcal{K}(\mathbf{x}, \mathbf{x}') = \boldsymbol\phi(\mathbf{x})^\top\boldsymbol\phi(\mathbf{x}')$$</div>
+    <details><summary>Worked example with numbers: the kernel $(\mathbf{x}^\top\mathbf{x}')^2$ does the work of 3 features</summary><div>
+      <p>Take $\mathbf{x} = (1, 2)$ and $\mathbf{x}' = (3, 1)$.</p>
+      <p><b>The long way (build features):</b> use $\boldsymbol\phi(\mathbf{x}) = (x_1^2,\ \sqrt2\,x_1x_2,\ x_2^2)$. Then $\boldsymbol\phi(\mathbf{x}) = (1,\ 2\sqrt2,\ 4)$ and $\boldsymbol\phi(\mathbf{x}') = (9,\ 3\sqrt2,\ 1)$. Their dot product is $9 + 12 + 4 = 25$.</p>
+      <p><b>The kernel way:</b> $\mathbf{x}^\top\mathbf{x}' = 1\cdot3 + 2\cdot1 = 5$, and $5^2 = 25$. It's the same answer, with no features built.</p>
+      <p>For 2 inputs the saving is small. For 1,000 inputs and degree 3, the kernel is still one dot product and one cube, while the feature vector would have millions of entries.</p>
+    </div></details>
+    <p>So take the dual from 17.3.2 and replace every $\mathbf{x}_n^\top\mathbf{x}_m$ with $\mathcal{K}(\mathbf{x}_n,\mathbf{x}_m)$. The prediction becomes:</p>
+    <div class="eqbox"><div class="label">Kernel SVM prediction (book eq. 17.92)</div>$$f(\mathbf{x}) = \sum_{n\in\mathcal{S}} \alpha_n y_n\, \mathcal{K}(\mathbf{x}_n, \mathbf{x}) + w_0$$</div>
+    <div class="plain"><div class="label">In plain English: a vote among the support vectors</div>
+      To classify a new point, compare it with each support vector. $\mathcal{K}$ says how similar they are. Each support vector votes for its own label ($y_n$), and the vote is weighted by its push ($\alpha_n$) and by how similar it is to the new point. Add up the votes. Positive means $+1$ and negative means $-1$.
+    </div>
+    <p>The offset is found the same way as before, with dot products swapped for kernels: $w_0 = \frac{1}{|\mathcal{S}|}\sum_{n\in\mathcal{S}}\big(y_n - \sum_{m\in\mathcal{S}}\alpha_m y_m\,\mathcal{K}(\mathbf{x}_m, \mathbf{x}_n)\big)$. You never compute $\mathbf{w}$ itself, which is good, since it may have infinitely many entries.</p>
+
+    <h3>The most popular kernel: RBF (Gaussian)</h3>
+    <div class="eqbox"><div class="label">RBF kernel</div>$$\mathcal{K}(\mathbf{x}, \mathbf{x}') = \exp\!\big(-\gamma\,\lVert\mathbf{x}-\mathbf{x}'\rVert^2\big)$$</div>
+    <p>It scores 1 for identical points and fades toward 0 as points get farther apart. The setting $\gamma$ ("gamma", which is $1/(2\ell^2)$ in the book's length-scale notation) controls <b>how far each support vector's influence reaches</b>. Small $\gamma$: far, so the boundary is smooth and nearly straight. Large $\gamma$: only a tiny neighbourhood, so each point gets its own little island, which is overfitting.</p>
+
+    <div class="story"><div class="label">Real-world example 2: the pizza delivery zone</div>
+      A pizza shop delivers to houses within a few miles and not beyond. Plot houses on a map, blue if they got delivery and orange if not. The boundary is a <b>circle</b> around the shop, and no straight line can draw it. A kernel SVM can.
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Demo 4b &middot; Pizza delivery zone. Choose a kernel. Click empty space to add a house and click a house to remove it.</div>
+      <div class="two">
+        <div>
+          <div id="p4b"></div>
+          <div class="legend">
+            <span><i class="sw round" style="background:var(--k0)"></i>delivers ($+1$)</span>
+            <span><i class="sw round" style="background:var(--k1)"></i>doesn't ($-1$)</span>
+            <span><i class="sw round" style="background:none;border:2px solid var(--ink)"></i>support vector</span>
+            <span><i class="sw line" style="background:var(--ink)"></i>boundary $f=0$</span>
+          </div>
+        </div>
+        <div>
+          <div class="row"><span class="lbl">Kernel</span>
+            <button class="pill" data-d4k="lin">Linear $\mathbf{x}^\top\mathbf{x}'$</button>
+            <button class="pill" data-d4k="poly">Quadratic $(1+\mathbf{x}^\top\mathbf{x}')^2$</button>
+            <button class="pill on" data-d4k="rbf">RBF</button>
+          </div>
+          <div class="ctrls">
+            <div class="ctrl" id="d4gwrap"><label><span>RBF reach $\gamma$ (bigger = shorter reach)</span> <b id="d4gv">1.00</b></label><input type="range" id="d4g"></div>
+            <div class="ctrl"><label><span>Fine $C$</span> <b id="d4cv">10.0</b></label><input type="range" id="d4c"></div>
+          </div>
+          <div class="row"><span class="lbl">Clicks add</span>
+            <button class="pill on" data-d4add="1"><i class="dot" style="background:var(--k0)"></i>delivers</button>
+            <button class="pill" data-d4add="-1"><i class="dot" style="background:var(--k1)"></i>doesn't</button>
+            <button class="pill" id="d4reset">Reset houses</button>
+          </div>
+          <div class="tiles three">
+            <div class="tile"><div class="k">Training accuracy</div><div class="v" id="d4acc">–</div></div>
+            <div class="tile"><div class="k">Support vectors</div><div class="v" id="d4s">–</div></div>
+            <div class="tile"><div class="k">Accuracy on 400 new houses</div><div class="v" id="d4test">–</div></div>
+          </div>
+          <div class="readout" id="d4msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.3.4</h3><ul>
+      <li>A straight line in a lifted feature space $\boldsymbol\phi(\mathbf{x})$ is a curve in the original space.</li>
+      <li>The SVM only needs dot products, so replace $\mathbf{x}_n^\top\mathbf{x}_m$ with $\mathcal{K}(\mathbf{x}_n,\mathbf{x}_m)$ and <b>never build $\boldsymbol\phi$</b>.</li>
+      <li>Prediction is a similarity-weighted vote of support vectors: $f(\mathbf{x}) = \sum_{n\in\mathcal{S}}\alpha_n y_n\mathcal{K}(\mathbf{x}_n,\mathbf{x}) + w_0$.</li>
+      <li>For RBF, $\gamma$ and $C$ together control smooth vs. wiggly. Too big overfits and too small underfits.</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== QUIZ ============================== -->
+  <section class="block" id="quiz">
+    <h2><span class="num">Check</span>Quiz &amp; cheat sheet</h2>
+    <div class="kicker">Click an answer to see the reasoning.</div>
+    <div id="quizbox"></div>
+    <div class="score" id="quizscore"></div>
+
+    <h3>Cheat sheet</h3>
+    <div class="scroll-x">
+    <table class="cheat">
+      <tr><th>Idea</th><th>Formula</th><th>Plain English</th></tr>
+      <tr><td>Classifier</td><td>$f(\mathbf{x}) = \mathbf{w}^\top\mathbf{x} + w_0$</td><td>Sign of $f$ = predicted label. $y_n f(\mathbf{x}_n) &gt; 0$ means correct.</td></tr>
+      <tr><td>Margin</td><td>$1/\lVert\mathbf{w}\rVert$</td><td>Half the road width, after fixing the scale so the closest points have $y_n f = 1$.</td></tr>
+      <tr><td>Hard margin</td><td>$\min \tfrac12\lVert\mathbf{w}\rVert^2$ s.t. $y_n f(\mathbf{x}_n)\ge1$</td><td>Widest road with nobody on it.</td></tr>
+      <tr><td>Dual weights</td><td>$\mathbf{w} = \sum_n\alpha_n y_n\mathbf{x}_n$, $\sum_n\alpha_n y_n = 0$</td><td>Each point pushes with force $\alpha_n$, and the two sides' pushes balance.</td></tr>
+      <tr><td>Complementary slackness</td><td>$\alpha_n(y_n f(\mathbf{x}_n)-1)=0$</td><td>Only points on the curb push. They are the support vectors.</td></tr>
+      <tr><td>Soft margin</td><td>$\min \tfrac12\lVert\mathbf{w}\rVert^2 + C\sum\xi_n$</td><td>Allow crossing, but pay $C$ per unit. Big $C$ = strict.</td></tr>
+      <tr><td>Slack</td><td>$\xi_n = \max(0,\ 1 - y_n f(\mathbf{x}_n))$</td><td>0 = fine, between 0 and 1 = on the road, over 1 = wrong side.</td></tr>
+      <tr><td>Box constraint</td><td>$0\le\alpha_n\le C$</td><td>No point can push harder than $C$, so outliers can't take over.</td></tr>
+      <tr><td>&nu;-SVM</td><td>$C = 1/(\nu N)$</td><td>&nu; &asymp; the fraction of points allowed to cross.</td></tr>
+      <tr><td>Kernel</td><td>$\mathcal{K}(\mathbf{x},\mathbf{x}') = \boldsymbol\phi(\mathbf{x})^\top\boldsymbol\phi(\mathbf{x}')$</td><td>A dot product in a big feature space, computed cheaply.</td></tr>
+      <tr><td>Kernel prediction</td><td>$f(\mathbf{x}) = \sum_{n\in\mathcal{S}}\alpha_n y_n\mathcal{K}(\mathbf{x}_n,\mathbf{x}) + w_0$</td><td>A similarity-weighted vote of the support vectors.</td></tr>
+      <tr><td>RBF</td><td>$\exp(-\gamma\lVert\mathbf{x}-\mathbf{x}'\rVert^2)$</td><td>$\gamma$ = how short each support vector's reach is. Big $\gamma$ = islands (overfitting).</td></tr>
+    </table>
+    </div>
+    <div class="callout"><b>One-paragraph summary.</b> An SVM draws the widest road between two groups (17.3.1). Rewriting the problem in terms of how hard each point pushes on the road shows that only the points touching the curbs (the support vectors) matter, and that the data only appear as dot products (17.3.2). Real data overlaps, so you allow points to cross onto the road for a fee $C$, which also caps how hard any single point can push (17.3.3). Finally, replacing every dot product with a kernel lets the same machinery draw curved boundaries, as though the data lived in a huge feature space, without ever building it (17.3.4).</div>
+  </section>
+
+  <div class="foot">Companion to K. P. Murphy, <em>Probabilistic Machine Learning: An Introduction</em> (MIT Press, 2022), &sect;17.3.1&ndash;17.3.4. All data are simulated from fixed seeds. The SVMs are trained live in your browser by a small SMO solver (the same algorithm LIBSVM uses) written in plain JavaScript. Equation numbers refer to the book, but this page is a study aid, not a substitute for the text.</div>
+</div>
+
+<script>
+// ============================================================
+// Shared helpers
+// ============================================================
+const $ = id => document.getElementById(id);
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : '–');
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function randn(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+function svgPt(svg, evt) {
+  const p = svg.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+const tip = $('tip');
+function showTip(evt, html) {
+  tip.innerHTML = html; tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = evt.clientX + 14, y = evt.clientY + 14;
+  if (x + w > window.innerWidth - 8) x = evt.clientX - w - 14;
+  if (y + h > window.innerHeight - 8) y = evt.clientY - h - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+function hexRGB(h) {
+  h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function pillGroup(attr, onSel) {
+  const btns = document.querySelectorAll(`[data-${attr}]`);
+  const key = attr.replace(/-./g, m => m[1].toUpperCase());
+  btns.forEach(b => b.addEventListener('click', () => {
+    btns.forEach(x => x.classList.remove('on')); b.classList.add('on'); onSel(b.dataset[key]);
+  }));
+  return v => btns.forEach(x => x.classList.toggle('on', x.dataset[key] === v));
+}
+function toggle(id, onChange) {
+  const b = $(id); b.addEventListener('click', () => { b.classList.toggle('on'); onChange(b.classList.contains('on')); });
+  return () => b.classList.contains('on');
+}
+// log-scaled range input; returns a setter
+function logRange(id, lo, hi, init, onInput, labelId, d = 2) {
+  const el = $(id); el.min = 0; el.max = 1000; el.step = 1;
+  const to = v => lo * Math.pow(hi / lo, v / 1000);
+  const from = x => Math.round(1000 * Math.log(x / lo) / Math.log(hi / lo));
+  el.value = from(init); if (labelId) $(labelId).textContent = init.toFixed(d);
+  el.addEventListener('input', () => { const x = to(+el.value); if (labelId) $(labelId).textContent = x.toFixed(d); onInput(x); });
+  return x => { el.value = from(x); if (labelId) $(labelId).textContent = x.toFixed(d); };
+}
+function rafThrottle(fn) { let q = false; return () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; fn(); }); }; }
+const KX = { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }], throwOnError: false };
+function typeset(el) { if (window.renderMathInElement) renderMathInElement(el, KX); }
+const REPAINT = [];
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => REPAINT.forEach(f => f()));
+
+// ---------- plotting frame ----------
+function Frame(W, H, m, xd, yd) {
+  const X = v => m.l + (v - xd[0]) / (xd[1] - xd[0]) * (W - m.l - m.r);
+  const Y = v => H - m.b - (v - yd[0]) / (yd[1] - yd[0]) * (H - m.t - m.b);
+  const ix = px => xd[0] + (px - m.l) / (W - m.l - m.r) * (xd[1] - xd[0]);
+  const iy = py => yd[0] + (H - m.b - py) / (H - m.t - m.b) * (yd[1] - yd[0]);
+  return { W, H, m, xd, yd, X, Y, ix, iy, x0: m.l, x1: W - m.r, y0: H - m.b, y1: m.t };
+}
+function axesSVG(F, { xt = [], yt = [], xf = v => v, yf = v => v, xlabel = '', ylabel = '' }) {
+  let s = '';
+  yt.forEach(v => { const y = F.Y(v); s += `<line class="grid" x1="${F.x0}" x2="${F.x1}" y1="${y}" y2="${y}"/><text class="muted" x="${F.x0 - 6}" y="${y + 4}" text-anchor="end" font-size="11">${yf(v)}</text>`; });
+  s += `<line class="axis" x1="${F.x0}" x2="${F.x1}" y1="${F.y0}" y2="${F.y0}"/>`;
+  xt.forEach(v => { const x = F.X(v); s += `<line class="axis" x1="${x}" x2="${x}" y1="${F.y0}" y2="${F.y0 + 4}"/><text class="muted" x="${x}" y="${F.y0 + 17}" text-anchor="middle" font-size="11">${xf(v)}</text>`; });
+  if (xlabel) s += `<text class="muted" x="${(F.x0 + F.x1) / 2}" y="${F.H - 4}" text-anchor="middle" font-size="11">${xlabel}</text>`;
+  if (ylabel) s += `<text class="muted halo" x="${F.x0 + 6}" y="${F.y1 + 14}" text-anchor="start" font-size="11">${ylabel}</text>`;
+  return s;
+}
+const clipRect = (id, F) => `<defs><clipPath id="${id}"><rect x="${F.x0}" y="${F.y1}" width="${F.x1 - F.x0}" height="${F.y0 - F.y1}"/></clipPath></defs>`;
+const CLS = y => (y > 0 ? 'var(--k0)' : 'var(--k1)');
+
+// A 2D plot: canvas (shaded regions) under an SVG (axes, contours, points). Equal aspect: 10 × 8 data units.
+function makePlot(host, opts = {}) {
+  const W = 556, H = 446, m = { l: 40, r: 16, t: 12, b: 34 };
+  const F = Frame(W, H, m, opts.xd || [0, 10], opts.yd || [0, 8]);
+  host.classList.add('plot');
+  host.innerHTML = `<canvas></canvas><svg viewBox="0 0 ${W} ${H}"${opts.drag ? ' class="touchnone"' : ''}></svg>`;
+  return { F, cv: host.querySelector('canvas'), svg: host.querySelector('svg') };
+}
+let PAL = null;
+function readPal() {
+  PAL = { panel: hexRGB(cssv('--panel')), pos: hexRGB(cssv('--k0')), neg: hexRGB(cssv('--k1')), road: hexRGB(cssv('--muted')) };
+}
+readPal(); REPAINT.unshift(readPal);
+const mix = (b, c, a) => [b[0] + (c[0] - b[0]) * a, b[1] + (c[1] - b[1]) * a, b[2] + (c[2] - b[2]) * a];
+// tint by side; the road (|f| < 1) is a pale neutral strip
+function sideRGB(v, road = true) {
+  if (road && Math.abs(v) < 1) return mix(PAL.panel, PAL.road, 0.13);
+  return mix(PAL.panel, v > 0 ? PAL.pos : PAL.neg, 0.16);
+}
+// evaluate f on a grid, paint it, and return the grid for contouring
+function shade(P, f, colorFn = sideRGB, nx = 139, ny = 108) {
+  const { F, cv } = P, dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(F.W * dpr); cv.height = Math.round(F.H * dpr);
+  const off = document.createElement('canvas'); off.width = nx; off.height = ny;
+  const ox = off.getContext('2d'), img = ox.createImageData(nx, ny), vals = new Float64Array(nx * ny);
+  for (let r = 0; r < ny; r++) {
+    const yv = F.yd[1] - (r + 0.5) / ny * (F.yd[1] - F.yd[0]);
+    for (let c = 0; c < nx; c++) {
+      const xv = F.xd[0] + (c + 0.5) / nx * (F.xd[1] - F.xd[0]);
+      const v = f(xv, yv); vals[r * nx + c] = v;
+      const col = colorFn(v), k = 4 * (r * nx + c);
+      img.data[k] = col[0]; img.data[k + 1] = col[1]; img.data[k + 2] = col[2]; img.data[k + 3] = 255;
+    }
+  }
+  ox.putImageData(img, 0, 0);
+  const ctx = cv.getContext('2d'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, F.x0 * dpr, F.y1 * dpr, (F.x1 - F.x0) * dpr, (F.y0 - F.y1) * dpr);
+  return { nx, ny, vals };
+}
+// marching squares → SVG path for the level set f = lev
+function contour(F, g, lev) {
+  const { nx, ny, vals } = g; let d = '';
+  const px = c => (F.x0 + (c + 0.5) / nx * (F.x1 - F.x0)).toFixed(1);
+  const py = r => (F.y1 + (r + 0.5) / ny * (F.y0 - F.y1)).toFixed(1);
+  for (let r = 0; r < ny - 1; r++) for (let c = 0; c < nx - 1; c++) {
+    const a = vals[r * nx + c] - lev, b = vals[r * nx + c + 1] - lev, e = vals[(r + 1) * nx + c + 1] - lev, h = vals[(r + 1) * nx + c] - lev;
+    const p = [];
+    if ((a > 0) !== (b > 0)) p.push([px(c + a / (a - b)), py(r)]);
+    if ((b > 0) !== (e > 0)) p.push([px(c + 1), py(r + b / (b - e))]);
+    if ((e > 0) !== (h > 0)) p.push([px(c + 1 - e / (e - h)), py(r + 1)]);
+    if ((h > 0) !== (a > 0)) p.push([px(c), py(r + 1 - h / (h - a))]);
+    if (p.length >= 2) d += `M${p[0][0]},${p[0][1]}L${p[1][0]},${p[1][1]}`;
+    if (p.length === 4) d += `M${p[2][0]},${p[2][1]}L${p[3][0]},${p[3][1]}`;
+  }
+  return d;
+}
+// clip the infinite line {p : n·p = c} to the frame's data box; returns [[x,y],[x,y]] or null
+function clipLine(F, nvec, c) {
+  const [a, b] = nvec, pts = [], [x0, x1] = F.xd, [y0, y1] = F.yd, eps = 1e-9;
+  if (Math.abs(b) > eps) { [x0, x1].forEach(x => { const y = (c - a * x) / b; if (y >= y0 - eps && y <= y1 + eps) pts.push([x, y]); }); }
+  if (Math.abs(a) > eps) { [y0, y1].forEach(y => { const x = (c - b * y) / a; if (x >= x0 - eps && x <= x1 + eps) pts.push([x, y]); }); }
+  if (pts.length < 2) return null;
+  let best = null, bd = -1;
+  for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+    const dd = (pts[i][0] - pts[j][0]) ** 2 + (pts[i][1] - pts[j][1]) ** 2; if (dd > bd) { bd = dd; best = [pts[i], pts[j]]; }
+  }
+  return best;
+}
+function lineSVG(F, nvec, c, attrs) {
+  const s = clipLine(F, nvec, c); if (!s) return '';
+  return `<line x1="${F.X(s[0][0])}" y1="${F.Y(s[0][1])}" x2="${F.X(s[1][0])}" y2="${F.Y(s[1][1])}" ${attrs}/>`;
+}
+
+// ============================================================
+// SVM solver: SMO with maximal-violating-pair selection (as in LIBSVM)
+// dual:  min ½ αᵀQα − 1ᵀα,  Q_ij = y_i y_j K_ij,  0 ≤ α ≤ C,  yᵀα = 0
+// ============================================================
+function trainSVM(X, y, C, kern) {
+  const n = X.length;
+  const K = X.map(a => X.map(b => kern(a, b)));
+  const a = new Float64Array(n), G = new Float64Array(n).fill(-1);
+  const Q = (i, j) => y[i] * y[j] * K[i][j];
+  const TAU = 1e-12;
+  for (let it = 0; it < 200000; it++) {
+    let i = -1, j = -1, gmax = -Infinity, gmin = Infinity;
+    for (let t = 0; t < n; t++) {
+      const v = -y[t] * G[t];
+      if (((y[t] > 0 && a[t] < C) || (y[t] < 0 && a[t] > 0)) && v > gmax) { gmax = v; i = t; }
+      if (((y[t] < 0 && a[t] < C) || (y[t] > 0 && a[t] > 0)) && v < gmin) { gmin = v; j = t; }
+    }
+    if (i < 0 || j < 0 || gmax - gmin < 1e-5) break;
+    const ai = a[i], aj = a[j];
+    if (y[i] !== y[j]) {
+      let quad = Q(i, i) + Q(j, j) + 2 * Q(i, j); if (quad <= 0) quad = TAU;
+      const delta = (-G[i] - G[j]) / quad, diff = a[i] - a[j];
+      a[i] += delta; a[j] += delta;
+      if (diff > 0) { if (a[j] < 0) { a[j] = 0; a[i] = diff; } } else { if (a[i] < 0) { a[i] = 0; a[j] = -diff; } }
+      if (diff > 0) { if (a[i] > C) { a[i] = C; a[j] = C - diff; } } else { if (a[j] > C) { a[j] = C; a[i] = C + diff; } }
+    } else {
+      let quad = Q(i, i) + Q(j, j) - 2 * Q(i, j); if (quad <= 0) quad = TAU;
+      const delta = (G[i] - G[j]) / quad, sum = a[i] + a[j];
+      a[i] -= delta; a[j] += delta;
+      if (sum > C) { if (a[i] > C) { a[i] = C; a[j] = sum - C; } } else { if (a[j] < 0) { a[j] = 0; a[i] = sum; } }
+      if (sum > C) { if (a[j] > C) { a[j] = C; a[i] = sum - C; } } else { if (a[i] < 0) { a[i] = 0; a[j] = sum; } }
+    }
+    const di = a[i] - ai, dj = a[j] - aj;
+    for (let t = 0; t < n; t++) G[t] += Q(t, i) * di + Q(t, j) * dj;
+  }
+  // offset w0 (= −ρ in LIBSVM): average over free SVs, else midpoint of the feasible interval
+  let ub = Infinity, lb = -Infinity, sum = 0, nf = 0;
+  const tol = 1e-8 * Math.max(1, C);
+  for (let t = 0; t < n; t++) {
+    const yG = y[t] * G[t];
+    if (a[t] >= C - tol) { if (y[t] < 0) ub = Math.min(ub, yG); else lb = Math.max(lb, yG); }
+    else if (a[t] <= tol) { if (y[t] > 0) ub = Math.min(ub, yG); else lb = Math.max(lb, yG); }
+    else { sum += yG; nf++; }
+  }
+  const rho = nf > 0 ? sum / nf : (Number.isFinite(ub) && Number.isFinite(lb) ? (ub + lb) / 2 : (Number.isFinite(ub) ? ub : lb));
+  const w0 = -rho;
+  const sv = []; for (let t = 0; t < n; t++) if (a[t] > 1e-6) sv.push(t);
+  const f = p => { let s = w0; for (const t of sv) s += a[t] * y[t] * kern(X[t], p); return s; };
+  const fTrain = X.map((_, t) => { let s = w0; for (const u of sv) s += a[u] * y[u] * K[u][t]; return s; });
+  return { alpha: a, w0, sv, f, fTrain, C };
+}
+const linK = (a, b) => a[0] * b[0] + a[1] * b[1];
+function linW(X, y, m) { let w = [0, 0]; m.sv.forEach(t => { w[0] += m.alpha[t] * y[t] * X[t][0]; w[1] += m.alpha[t] * y[t] * X[t][1]; }); return w; }
+
+// generator for the loan data: approved (+1) when debt < 0.8·income + 0.4
+const LOAN_N = [0.8 / Math.hypot(0.8, 1), -1 / Math.hypot(0.8, 1)], LOAN_C = -0.4 / Math.hypot(0.8, 1);
+const loanG = (x, yv) => LOAN_N[0] * x + LOAN_N[1] * yv - LOAN_C;
+function loanData(seed, nEach, gap, xLo = 0.4, xHi = 9.6, yLo = 0.4, yHi = 7.6) {
+  const r = mulberry32(seed), X = [], Y = []; let np = 0, nn = 0;
+  while (np < nEach || nn < nEach) {
+    const p = [xLo + (xHi - xLo) * r(), yLo + (yHi - yLo) * r()], g = loanG(p[0], p[1]);
+    if (Math.abs(g) < gap || Math.abs(g) > 3.2) continue;
+    if (g > 0 && np < nEach) { X.push(p); Y.push(1); np++; } else if (g < 0 && nn < nEach) { X.push(p); Y.push(-1); nn++; }
+  }
+  return { X, Y };
+}
+const HARD_C = 1e4;
+
+// ============================================================
+// Demo 1: widest road
+// ============================================================
+(function demo1() {
+  const P = makePlot($('p1'), { drag: true }), F = P.F;
+  let seed = 7, D, H, model, showSVM = true, showTest = false, test = null, drag = null;
+  function setup() {
+    D = loanData(seed, 12, 0.7);
+    const tr = loanData(seed + 1000, 20, 0.05); test = tr;
+    const th = Math.atan(0.8) + 4 * Math.PI / 180, dir = [Math.cos(th), Math.sin(th)], nrm = [-dir[1], dir[0]];
+    const p0 = [5, 4.4], sh = 0.15;
+    H = [[p0[0] - 4.2 * dir[0] + sh * nrm[0], p0[1] - 4.2 * dir[1] + sh * nrm[1]], [p0[0] + 4.2 * dir[0] + sh * nrm[0], p0[1] + 4.2 * dir[1] + sh * nrm[1]]];
+    fit();
+  }
+  function fit() { model = trainSVM(D.X, D.Y, HARD_C, linK); }
+  function userLine() {
+    const [A, B] = H, dx = B[0] - A[0], dy = B[1] - A[1], L = Math.hypot(dx, dy) || 1;
+    let nv = [-dy / L, dx / L], c = nv[0] * A[0] + nv[1] * A[1];
+    let d = D.X.map(p => nv[0] * p[0] + nv[1] * p[1] - c);
+    const score = d.reduce((s, v, i) => s + Math.sign(v) * D.Y[i], 0);
+    if (score < 0) { nv = [-nv[0], -nv[1]]; c = -c; d = d.map(v => -v); }
+    const sep = d.every((v, i) => v * D.Y[i] > 0);
+    const gap = sep ? Math.min(...d.map(Math.abs)) : 0;
+    return { nv, c, sep, gap, wrong: d.filter((v, i) => v * D.Y[i] <= 0).length };
+  }
+  function draw() {
+    const U = userLine(), w = linW(D.X, D.Y, model), wn = Math.hypot(w[0], w[1]);
+    const okSVM = model.fTrain.every((v, i) => v * D.Y[i] > 0.99);
+    const g = shade(P, (x, yv) => showSVM && okSVM ? w[0] * x + w[1] * yv + model.w0 : (U.nv[0] * x + U.nv[1] * yv - U.c) * 1e3, v => sideRGB(v, showSVM && okSVM));
+    let s = clipRect('c1', F) + axesSVG(F, { xt: [0, 2, 4, 6, 8, 10], yt: [0, 2, 4, 6, 8], xf: v => v * 20, yf: v => v * 10, xlabel: 'Yearly income (thousands of dollars)', ylabel: 'Total debt (thousands)' });
+    s += `<g clip-path="url(#c1)">`;
+    if (showSVM && okSVM) {
+      s += `<path d="${contour(F, g, 0)}" stroke="var(--ink)" stroke-width="2.4" fill="none"/>`;
+      s += `<path d="${contour(F, g, 1)}" stroke="var(--ink)" stroke-width="1" opacity=".55" fill="none"/>`;
+      s += `<path d="${contour(F, g, -1)}" stroke="var(--ink)" stroke-width="1" opacity=".55" fill="none"/>`;
+    }
+    if (U.sep) {
+      s += lineSVG(F, U.nv, U.c + U.gap, 'stroke="var(--k3)" stroke-width="1.2" stroke-dasharray="5 4"');
+      s += lineSVG(F, U.nv, U.c - U.gap, 'stroke="var(--k3)" stroke-width="1.2" stroke-dasharray="5 4"');
+    }
+    s += lineSVG(F, U.nv, U.c, 'stroke="var(--k3)" stroke-width="2.4"');
+    s += `</g>`;
+    if (showTest) test.X.forEach((p, i) => {
+      s += `<circle cx="${F.X(p[0])}" cy="${F.Y(p[1])}" r="4.5" fill="var(--panel)" stroke="${CLS(test.Y[i])}" stroke-width="2"/>`;
+    });
+    D.X.forEach((p, i) => {
+      const isSV = showSVM && okSVM && model.alpha[i] > 1e-6;
+      if (isSV) s += `<circle cx="${F.X(p[0])}" cy="${F.Y(p[1])}" r="10" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
+      s += `<circle class="grab" data-p="${i}" cx="${F.X(p[0])}" cy="${F.Y(p[1])}" r="6.5" fill="${CLS(D.Y[i])}" stroke="var(--panel)" stroke-width="1.5"/>`;
+    });
+    H.forEach((h, k) => {
+      s += `<circle class="grab" data-h="${k}" cx="${F.X(h[0])}" cy="${F.Y(h[1])}" r="9" fill="var(--k3)" stroke="var(--panel)" stroke-width="2"/>`;
+    });
+    P.svg.innerHTML = s;
+    // readouts
+    $('d1you').textContent = U.sep ? fmt(2 * U.gap, 2) : 'n/a';
+    $('d1yous').textContent = U.sep ? 'separates all points' : `${U.wrong} point${U.wrong === 1 ? '' : 's'} on the wrong side`;
+    $('d1tYou').className = 'tile ' + (U.sep ? '' : 'bad');
+    $('d1svmw').textContent = okSVM ? fmt(2 / wn, 2) : 'none';
+    let msg;
+    if (!okSVM) msg = `<span class="warn">No straight road fits these points.</span> One group's points are mixed into the other's, so the hard-margin SVM has no solution. That's exactly the problem 17.3.3 fixes. Drag a point back to its own side.`;
+    else if (!U.sep) msg = `Your line puts ${U.wrong} applicant${U.wrong === 1 ? '' : 's'} on the wrong side. Drag the purple handles until every blue point is on one side and every orange point on the other.`;
+    else {
+      const ratio = U.gap / (1 / wn);
+      msg = ratio > 0.985 ? `<span class="okc">You matched the SVM.</span> Your road is as wide as it can be. Notice that it touches exactly the ringed points: those are the <b>support vectors</b> (17.3.2).`
+        : `Your line separates the data, but your road is only <b>${Math.round(100 * ratio)}%</b> as wide as the SVM's. The ringed points are the ones touching the SVM's curbs.`;
+    }
+    if (showTest && okSVM) {
+      const errU = test.X.filter((p, i) => (U.nv[0] * p[0] + U.nv[1] * p[1] - U.c) * test.Y[i] <= 0).length;
+      const errS = test.X.filter((p, i) => (w[0] * p[0] + w[1] * p[1] + model.w0) * test.Y[i] <= 0).length;
+      msg += `<br><b>New applicants misclassified:</b> your line ${errU} / ${test.X.length}, SVM ${errS} / ${test.X.length}.` + (errU > errS ? ' The wider road handles new applicants better.' : '');
+    }
+    $('d1msg').innerHTML = msg;
+  }
+  P.svg.addEventListener('pointerdown', e => {
+    const t = e.target;
+    if (t.dataset.h !== undefined) drag = { h: +t.dataset.h };
+    else if (t.dataset.p !== undefined) drag = { p: +t.dataset.p };
+    else return;
+    P.svg.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  const redraw = rafThrottle(() => { if (drag && drag.p !== undefined) fit(); draw(); });
+  P.svg.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const q = svgPt(P.svg, e), v = [clamp(F.ix(q.x), 0.1, 9.9), clamp(F.iy(q.y), 0.1, 7.9)];
+    if (drag.h !== undefined) H[drag.h] = v; else D.X[drag.p] = v;
+    redraw();
+  });
+  P.svg.addEventListener('pointerup', () => { drag = null; });
+  toggle('d1svm', v => { showSVM = v; draw(); });
+  toggle('d1test', v => { showTest = v; draw(); });
+  $('d1new').addEventListener('click', () => { seed += 17; setup(); draw(); });
+  REPAINT.push(draw);
+  setup(); draw();
+})();
+
+// ============================================================
+// Demo 2: support vectors / fence test
+// ============================================================
+(function demo2() {
+  const P = makePlot($('p2')), F = P.F;
+  const base = loanData(31, 8, 0.45, 1, 9, 0.8, 7.2);
+  let X, Y, model, prev = null, lastMsg = '';
+  const reset = () => { X = base.X.map(p => p.slice()); Y = base.Y.slice(); prev = null; fit(); };
+  function fit() { model = trainSVM(X, Y, HARD_C, linK); }
+  function draw() {
+    const w = linW(X, Y, model);
+    const g = shade(P, (x, yv) => w[0] * x + w[1] * yv + model.w0);
+    let s = clipRect('c2', F) + axesSVG(F, { xt: [0, 2, 4, 6, 8, 10], yt: [0, 2, 4, 6, 8], xlabel: 'feature 1', ylabel: 'feature 2' });
+    s += `<g clip-path="url(#c2)">`;
+    if (prev) s += lineSVG(F, prev.w, -prev.w0, 'stroke="var(--muted)" stroke-width="2" stroke-dasharray="6 5"');
+    s += `<path d="${contour(F, g, 0)}" stroke="var(--ink)" stroke-width="2.4" fill="none"/>`;
+    s += `<path d="${contour(F, g, 1)}" stroke="var(--ink)" stroke-width="1" opacity=".55" fill="none"/>`;
+    s += `<path d="${contour(F, g, -1)}" stroke="var(--ink)" stroke-width="1" opacity=".55" fill="none"/>`;
+    s += `</g>`;
+    X.forEach((p, i) => {
+      const a = model.alpha[i], isSV = a > 1e-6, cx = F.X(p[0]), cy = F.Y(p[1]);
+      if (isSV) s += `<circle cx="${cx}" cy="${cy}" r="10.5" fill="none" stroke="var(--ink)" stroke-width="1.8"/><text class="halo" x="${cx + 13}" y="${cy - 9}" font-size="11.5" font-weight="700">α=${a.toFixed(2)}</text>`;
+      s += `<circle style="cursor:pointer" data-p="${i}" cx="${cx}" cy="${cy}" r="7" fill="${CLS(Y[i])}" stroke="var(--panel)" stroke-width="1.5"/>`;
+    });
+    P.svg.innerHTML = s;
+    $('d2n').textContent = X.length;
+    $('d2s').textContent = model.sv.length;
+    const bal = model.sv.reduce((t, i) => t + model.alpha[i] * Y[i], 0);
+    $('d2bal').textContent = fmt(Math.abs(bal) < 5e-4 ? 0 : bal, 3);
+    const terms = model.sv.map(i => `${model.alpha[i].toFixed(2)}·(${Y[i] > 0 ? '+1' : '−1'})·(${X[i][0].toFixed(1)}, ${X[i][1].toFixed(1)})`);
+    $('d2w').innerHTML = `<b>w</b> = ${terms.join(' + ')}<br>&nbsp;&nbsp;&nbsp;= (${w[0].toFixed(2)}, ${w[1].toFixed(2)}).&nbsp; The other ${X.length - model.sv.length} points have α = 0 and add nothing.`;
+    $('d2msg').innerHTML = lastMsg || 'Delete a point that is <b>not</b> ringed first, then delete a ringed one.';
+  }
+  P.svg.addEventListener('click', e => {
+    const t = e.target; if (t.dataset.p === undefined) return;
+    const i = +t.dataset.p, wasSV = model.alpha[i] > 1e-6;
+    const cnt = { pos: Y.filter(v => v > 0).length, neg: Y.filter(v => v < 0).length };
+    if ((Y[i] > 0 ? cnt.pos : cnt.neg) <= 1) { lastMsg = 'Each side needs at least one point, so this one stays.'; draw(); return; }
+    const w = linW(X, Y, model); prev = { w, w0: model.w0 };
+    X.splice(i, 1); Y.splice(i, 1); fit();
+    const w2 = linW(X, Y, model), moved = Math.hypot(w2[0] - w[0], w2[1] - w[1]) + Math.abs(model.w0 - prev.w0) > 1e-3;
+    lastMsg = wasSV
+      ? (moved ? `<span class="warn">You removed a support vector, and the road moved</span> (the dashed line is where it was). With that point gone, the road widened until it touched a different point. Support vectors are the points that hold the road in place.`
+               : `You removed a support vector, but another point was on the same curb and kept the road in place.`)
+      : `<span class="okc">You removed a point with α = 0, and nothing changed.</span> The road is identical (the dashed line is hidden underneath it). Like the barn far back from the fence, this point never pushed on the road.`;
+    draw();
+  });
+  $('d2reset').addEventListener('click', () => { reset(); lastMsg = ''; draw(); });
+  REPAINT.push(draw);
+  reset(); draw();
+})();
+
+// ============================================================
+// Demo 3: soft margin
+// ============================================================
+(function demo3() {
+  const P = makePlot($('p3')), F = P.F;
+  const r = mulberry32(6), BX = [], BY = [];
+  for (let k = 0; k < 16; k++) { BX.push([clamp(6.6 + 1.2 * randn(r), 0.3, 9.7), clamp(5.2 + 1.0 * randn(r), 0.3, 7.7)]); BY.push(1); }
+  for (let k = 0; k < 16; k++) { BX.push([clamp(3.2 + 1.2 * randn(r), 0.3, 9.7), clamp(2.6 + 1.0 * randn(r), 0.3, 7.7)]); BY.push(-1); }
+  const AUNT = [8.9, 7.0];
+  let C = 1, aunt = true, model, X, Y;
+  function fit() {
+    X = BX.slice(); Y = BY.slice();
+    if (aunt) { X.push(AUNT); Y.push(-1); }
+    model = trainSVM(X, Y, C, linK);
+  }
+  function status(i) {
+    const a = model.alpha[i], m = Y[i] * model.fTrain[i], xi = Math.max(0, 1 - m), tol = 1e-4 * Math.max(1, C);
+    if (a <= 1e-7) return { k: 'safe', a, xi: 0 };
+    if (a < C - tol) return { k: 'curb', a, xi: 0 };
+    return { k: xi > 1 ? 'wrong' : (xi > 1e-3 ? 'road' : 'curb'), a, xi };
+  }
+  function draw() {
+    const w = linW(X, Y, model), wn = Math.hypot(w[0], w[1]);
+    const g = shade(P, (x, yv) => w[0] * x + w[1] * yv + model.w0);
+    let s = clipRect('c3', F) + axesSVG(F, { xt: [0, 2, 4, 6, 8, 10], yt: [0, 2, 4, 6, 8], xf: v => v * 3, yf: v => v * 2, xlabel: 'Number of links in the email', ylabel: 'ALL-CAPS words' });
+    s += `<g clip-path="url(#c3)"><path d="${contour(F, g, 0)}" stroke="var(--ink)" stroke-width="2.4" fill="none"/>`;
+    s += `<path d="${contour(F, g, 1)}" stroke="var(--ink)" stroke-width="1" opacity=".55" fill="none"/>`;
+    s += `<path d="${contour(F, g, -1)}" stroke="var(--ink)" stroke-width="1" opacity=".55" fill="none"/></g>`;
+    let nsv = 0, nin = 0, nerr = 0;
+    X.forEach((p, i) => {
+      const st = status(i), cx = F.X(p[0]), cy = F.Y(p[1]);
+      if (st.k !== 'safe') nsv++;
+      if (st.k === 'road' || st.k === 'wrong') nin++;
+      if (model.fTrain[i] * Y[i] <= 0) nerr++;
+      if (st.k === 'curb') s += `<circle cx="${cx}" cy="${cy}" r="10" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
+      if (st.k === 'road' || st.k === 'wrong') s += `<circle cx="${cx}" cy="${cy}" r="10" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="3 2.5"/>`;
+      s += `<circle data-p="${i}" cx="${cx}" cy="${cy}" r="6.5" fill="${CLS(Y[i])}" stroke="var(--panel)" stroke-width="1.5"/>`;
+      if (st.k === 'wrong') s += `<path d="M${cx - 4},${cy - 4}L${cx + 4},${cy + 4}M${cx + 4},${cy - 4}L${cx - 4},${cy + 4}" stroke="var(--panel)" stroke-width="2.2" pointer-events="none"/>`;
+      if (aunt && i === X.length - 1) s += `<text class="halo" x="${cx - 12}" y="${cy + 4}" text-anchor="end" font-size="11.5" font-weight="700">Aunt Linda</text>`;
+    });
+    P.svg.innerHTML = s;
+    $('d3w').textContent = fmt(2 / wn, 2);
+    $('d3s').textContent = nsv;
+    $('d3in').textContent = nin;
+    $('d3err').textContent = nerr;
+    let msg;
+    if (C < 0.1) msg = `<b>Lenient.</b> Crossing is cheap, so the SVM makes a very wide road and lets lots of emails onto it. Almost every point pushes a little, so there are many support vectors. The line is steady but may be sloppy (underfitting).`;
+    else if (C > 20) msg = `<b>Strict.</b> Crossing is expensive, so the SVM tries hard to keep every email off the road.` + (aunt
+      ? ` No straight line can put Aunt Linda on the correct side, so she stays misclassified (×) with her push stuck at the cap, α = C. She still tugs on the line, though: compare with her turned off, and notice that several other emails are pushed onto the road to reduce her large slack. A moderate C, which cares less about one oddball, is usually the better choice, and it's picked by cross-validation.`
+      : ` Without the outlier, the data can be separated, so a strict C gives the same answer as the hard-margin SVM from 17.3.1: no email on the road and zero mistakes.`);
+    else msg = `<b>Balanced.</b> A reasonably wide road, with a few emails allowed onto it.` + (aunt ? ` Aunt Linda's email is accepted as a mistake (×). Her push is capped at α = C, which limits how far she can move the line.` : '');
+    $('d3msg').innerHTML = msg;
+  }
+  P.svg.addEventListener('pointermove', e => {
+    const t = e.target; if (t.dataset.p === undefined) { hideTip(); return; }
+    const i = +t.dataset.p, st = status(i);
+    const where = { safe: 'safe: beyond the curb, doesn\'t push', curb: 'exactly on the curb (support vector)', road: 'on the road, correct side', wrong: 'wrong side: misclassified' }[st.k];
+    showTip(e, `<b>${Y[i] > 0 ? 'spam' : 'real email'}</b>${aunt && i === X.length - 1 ? ' (Aunt Linda)' : ''}<br>α = ${st.a.toFixed(3)} &nbsp;(cap C = ${C.toFixed(2)})<br>ξ = ${st.xi.toFixed(2)}<br>${where}`);
+  });
+  P.svg.addEventListener('pointerleave', hideTip);
+  const setC = logRange('d3c', 0.01, 1000, 1, v => { C = v; fit(); draw(); }, 'd3cv');
+  document.querySelectorAll('[data-d3c]').forEach(b => b.addEventListener('click', () => { C = +b.dataset.d3c; setC(C); fit(); draw(); }));
+  toggle('d3aunt', v => { aunt = v; fit(); draw(); });
+  REPAINT.push(draw);
+  fit(); draw();
+})();
+
+// ============================================================
+// Demo 4a: thermostat lift
+// ============================================================
+(function demo4a() {
+  const W = 900, H = 300, m = { l: 50, r: 20, t: 16, b: 40 };
+  const F = Frame(W, H, m, [48, 94], [-30, 560]);
+  const host = $('p4a'); host.classList.add('plot');
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}"></svg>`;
+  const svg = host.querySelector('svg');
+  const temps = [50, 53, 56, 58, 61, 63, 66, 67.5, 69, 70, 72, 73.5, 75, 76.5, 79, 81, 83, 86, 88, 91];
+  const lab = temps.map(t => (t >= 65.5 && t <= 77.5 ? 1 : -1));
+  const CUT = 47;   // (T−71)² below this ⇒ comfortable
+  let lift = 0;
+  function draw() {
+    let s = axesSVG(F, { xt: [50, 55, 60, 65, 70, 75, 80, 85, 90], xf: v => v + '°', xlabel: 'Room temperature (°F)' });
+    if (lift > 0.02) {
+      s += `<text class="muted" x="${F.x0 + 4}" y="${F.y1 + 10}" font-size="11.5" opacity="${lift}">↑ new feature: (temperature − 71)²</text>`;
+    }
+    // separating line in lifted space
+    if (lift > 0.98) {
+      const yC = F.Y(CUT), lo = 71 - Math.sqrt(CUT), hi = 71 + Math.sqrt(CUT);
+      s += `<line x1="${F.x0}" x2="${F.x1}" y1="${yC}" y2="${yC}" stroke="var(--ink)" stroke-width="2"/>`;
+      s += `<text class="halo" x="${F.x1 - 4}" y="${yC - 6}" text-anchor="end" font-size="12" font-weight="700">a straight line now works</text>`;
+      [lo, hi].forEach(t => { s += `<line x1="${F.X(t)}" x2="${F.X(t)}" y1="${F.y0}" y2="${yC}" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="4 4" opacity=".6"/>`; });
+    }
+    // parabola guide
+    if (lift > 0.02) {
+      let d = ''; for (let t = 48; t <= 94; t += 0.5) { const yy = lift * (t - 71) ** 2; if (yy > 560) continue; d += (d ? 'L' : 'M') + F.X(t).toFixed(1) + ',' + F.Y(yy).toFixed(1); }
+      s += `<path d="${d}" stroke="var(--muted)" stroke-width="1" fill="none" opacity="${0.5 * lift}"/>`;
+    }
+    temps.forEach((t, i) => {
+      s += `<circle cx="${F.X(t)}" cy="${F.Y(lift * (t - 71) ** 2)}" r="7" fill="${CLS(lab[i])}" stroke="var(--panel)" stroke-width="1.5"/>`;
+    });
+    svg.innerHTML = s;
+    $('d4lv').textContent = Math.round(lift * 100) + '%';
+    $('d4amsg').innerHTML = lift < 0.02
+      ? `Blue = comfortable, orange = not. On the temperature line alone, <b>no single cutoff</b> separates the colors, because the comfortable range is in the middle. Slide to add the second feature.`
+      : lift < 0.98 ? `Each point rises by (temperature − 71)². The farther from 71&deg;, the higher it goes. Keep sliding&hellip;`
+      : `Now the comfortable points sit low and the uncomfortable ones sit high, so a <b>flat straight line</b> separates them. Map that line back to the temperature axis and it becomes <b>two cutoffs</b> (dashed), about ${(71 - Math.sqrt(CUT)).toFixed(1)}&deg; and ${(71 + Math.sqrt(CUT)).toFixed(1)}&deg;. A straight boundary in the lifted space is a non-straight one in the original space. That is the whole idea behind kernels.`;
+  }
+  $('d4l').addEventListener('input', e => { lift = +e.target.value / 100; draw(); });
+  REPAINT.push(draw);
+  draw();
+})();
+
+// ============================================================
+// Demo 4b: kernel SVM, pizza delivery zone
+// ============================================================
+(function demo4b() {
+  const P = makePlot($('p4b')), F = P.F;
+  const SHOP = [5, 4], RAD = 2.4;
+  const truth = p => (Math.hypot(p[0] - SHOP[0], p[1] - SHOP[1]) < RAD ? 1 : -1);
+  function houses(seed, n, jitter) {
+    const r = mulberry32(seed), X = [], Y = [];
+    while (X.length < n) {
+      const p = [0.3 + 9.4 * r(), 0.3 + 7.4 * r()];
+      const dd = Math.hypot(p[0] - SHOP[0], p[1] - SHOP[1]);
+      if (Math.abs(dd - RAD) < jitter) continue;
+      X.push(p); Y.push(truth(p));
+    }
+    return { X, Y };
+  }
+  const base = houses(99, 46, 0.25), TEST = houses(5150, 400, 0);
+  let X, Y, kind = 'rbf', gamma = 1, C = 10, addCls = 1, model;
+  // kernels act on centred, scaled coordinates so all three are on a similar footing
+  const sc = p => [(p[0] - 5) / 2.5, (p[1] - 4) / 2.5];
+  const KERN = {
+    lin: (a, b) => { const u = sc(a), v = sc(b); return u[0] * v[0] + u[1] * v[1]; },
+    poly: (a, b) => { const u = sc(a), v = sc(b); const d = 1 + u[0] * v[0] + u[1] * v[1]; return d * d; },
+    rbf: (a, b) => { const u = sc(a), v = sc(b); return Math.exp(-gamma * ((u[0] - v[0]) ** 2 + (u[1] - v[1]) ** 2)); },
+  };
+  const reset = () => { X = base.X.map(p => p.slice()); Y = base.Y.slice(); };
+  function fit() { model = trainSVM(X, Y, C, KERN[kind]); }
+  function draw() {
+    const g = shade(P, (x, yv) => model.f([x, yv]), v => sideRGB(v, false), 111, 87);
+    let s = clipRect('c4', F) + axesSVG(F, { xt: [0, 2, 4, 6, 8, 10], yt: [0, 2, 4, 6, 8], xlabel: 'miles east', ylabel: 'miles north' });
+    s += `<circle cx="${F.X(SHOP[0])}" cy="${F.Y(SHOP[1])}" r="${(F.X(RAD) - F.X(0)).toFixed(1)}" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 4"/>`;
+    s += `<g clip-path="url(#c4)"><path d="${contour(F, g, 0)}" stroke="var(--ink)" stroke-width="2.4" fill="none"/>`;
+    s += `<path d="${contour(F, g, 1)}" stroke="var(--ink)" stroke-width="0.9" opacity=".45" fill="none"/>`;
+    s += `<path d="${contour(F, g, -1)}" stroke="var(--ink)" stroke-width="0.9" opacity=".45" fill="none"/></g>`;
+    s += `<rect x="${F.X(SHOP[0]) - 6}" y="${F.Y(SHOP[1]) - 6}" width="12" height="12" rx="2" fill="var(--ink)"/><text class="halo" x="${F.X(SHOP[0])}" y="${F.Y(SHOP[1]) + 21}" text-anchor="middle" font-size="11.5" font-weight="700">pizza shop</text>`;
+    X.forEach((p, i) => {
+      const cx = F.X(p[0]), cy = F.Y(p[1]);
+      if (model.alpha[i] > 1e-6) s += `<circle cx="${cx}" cy="${cy}" r="9.5" fill="none" stroke="var(--ink)" stroke-width="1.5"/>`;
+      s += `<circle style="cursor:pointer" data-p="${i}" cx="${cx}" cy="${cy}" r="6" fill="${CLS(Y[i])}" stroke="var(--panel)" stroke-width="1.5"/>`;
+    });
+    P.svg.innerHTML = s;
+    const acc = X.filter((_, i) => model.fTrain[i] * Y[i] > 0).length / X.length;
+    const tacc = TEST.X.filter((p, i) => model.f(p) * TEST.Y[i] > 0).length / TEST.X.length;
+    $('d4acc').textContent = Math.round(acc * 100) + '%';
+    $('d4s').textContent = `${model.sv.length} / ${X.length}`;
+    $('d4test').textContent = Math.round(tacc * 100) + '%';
+    let msg;
+    if (kind === 'lin') msg = `<b>Linear kernel.</b> This is the plain SVM from 17.3.1&ndash;17.3.3, and its boundary must be a straight line. A circle can't be drawn with one straight line, so the SVM gives up and calls almost everything "doesn't deliver."`;
+    else if (kind === 'poly') msg = `<b>Quadratic kernel.</b> This behaves like an SVM on the features $(1, x_1, x_2, x_1^2, x_2^2, x_1x_2)$, just as the thermostat added a squared feature. Straight lines in that space are ellipses, parabolas and hyperbolas here, which is enough for a circle. But the six features are never actually built.`;
+    else if (gamma > 15) msg = `<b>RBF with a very short reach.</b> Each support vector only influences a tiny bubble around itself, so the boundary breaks into islands. Almost every training point becomes a support vector. It fits the training houses but does worse on new ones: that's <b>overfitting</b>.`;
+    else if (gamma < 0.12) msg = `<b>RBF with a very long reach.</b> Every support vector influences the whole map, so the kernel acts almost like a linear one and the boundary is too stiff to curve around the shop. That's <b>underfitting</b>.`;
+    else msg = `<b>RBF kernel.</b> Each new house is compared with the ringed support vectors: "how close am I to you?" The nearby ones count most. The result is a smooth closed curve close to the true delivery zone (dotted circle), even though this kernel corresponds to <em>infinitely</em> many features.`;
+    $('d4msg').innerHTML = msg; typeset($('d4msg'));
+    $('d4gwrap').hidden = kind !== 'rbf';
+  }
+  const refit = rafThrottle(() => { fit(); draw(); });
+  P.svg.addEventListener('click', e => {
+    const t = e.target;
+    if (t.dataset.p !== undefined) {
+      const i = +t.dataset.p;
+      if (Y.filter(v => v === Y[i]).length <= 1) return;
+      X.splice(i, 1); Y.splice(i, 1);
+    } else {
+      const q = svgPt(P.svg, e), x = F.ix(q.x), yv = F.iy(q.y);
+      if (x < F.xd[0] || x > F.xd[1] || yv < F.yd[0] || yv > F.yd[1]) return;
+      X.push([x, yv]); Y.push(addCls);
+    }
+    refit();
+  });
+  pillGroup('d4k', v => { kind = v; refit(); });
+  pillGroup('d4add', v => { addCls = +v; });
+  logRange('d4g', 0.03, 60, gamma, v => { gamma = v; refit(); }, 'd4gv');
+  logRange('d4c', 0.1, 1000, C, v => { C = v; refit(); }, 'd4cv', 1);
+  $('d4reset').addEventListener('click', () => { reset(); refit(); });
+  REPAINT.push(draw);
+  reset(); fit(); draw();
+})();
+
+// ============================================================
+// Quiz
+// ============================================================
+(function quiz() {
+  const Q = [
+    { q: 'Many lines separate the training data perfectly. Why does the SVM pick the one with the widest margin?',
+      a: ['It is the fastest to compute', 'A wide buffer leaves room for new points that are a little different from the training points, so it tends to generalize better', 'It always has zero training error, unlike the others'], c: 1,
+      e: 'Every separating line has zero training error. The wide road is about the <em>future</em>: new data wobbles, and a wide buffer absorbs the wobble (Demo 1\'s "new applicants" button).' },
+    { q: 'After fixing the scale so the closest points have y·f(x) = 1, the margin equals 1/‖w‖. So "maximize the margin" becomes…',
+      a: ['maximize ‖w‖²', 'minimize ½‖w‖²', 'minimize w₀'], c: 1,
+      e: 'Bigger 1/‖w‖ means smaller ‖w‖. Squaring it and adding ½ doesn\'t change the answer and makes the calculus cleaner. w₀ isn\'t penalized, because sliding the road sideways doesn\'t change its width.' },
+    { q: 'A training point ends up with α = 0. You delete it and retrain. What happens?',
+      a: ['Nothing: the boundary stays exactly the same', 'The road gets wider', 'The road moves toward where the point was'], c: 0,
+      e: 'α = 0 means the point never pushed on the road. Like a barn far back from the fence, removing it changes nothing (Demo 2).' },
+    { q: 'Complementary slackness says α<sub>n</sub>(y<sub>n</sub>f(x<sub>n</sub>) − 1) = 0. What does it tell you?',
+      a: ['All α values are equal', 'Either a point doesn\'t push (α = 0), or it sits exactly on a curb', 'Every point is a support vector'], c: 1,
+      e: 'A product is zero only if a factor is zero. So only points touching the curb (y·f = 1) can have α > 0. Those are the support vectors.' },
+    { q: 'What does the constraint Σ α<sub>n</sub>y<sub>n</sub> = 0 mean physically?',
+      a: ['The total push from the +1 side equals the total push from the −1 side', 'There are equal numbers of + and − points', 'w has length zero'], c: 0,
+      e: 'It\'s a force balance. Otherwise the road would slide toward the weaker side. It comes from setting the derivative with respect to w₀ to zero.' },
+    { q: 'In the soft-margin SVM, you increase C a lot. What happens?',
+      a: ['The road gets wider and more points sit on it', 'The road gets narrower and fewer points are allowed to cross (stricter, closer to the hard margin)', 'Nothing, since C only affects speed'], c: 1,
+      e: 'C is the fine per unit of crossing. A huge fine means the SVM squeezes the road to keep points off it. That risks overfitting to outliers.' },
+    { q: 'A point has slack ξ = 1.4. Where is it?',
+      a: ['On its own side, outside the road', 'On the road but still on the correct side', 'Past the center line: misclassified'], c: 2,
+      e: 'ξ = 0: fine. 0 < ξ ≤ 1: on the road, still on the correct side. ξ > 1: crossed the center line, so it\'s misclassified.' },
+    { q: 'In the soft-margin dual, the constraint is 0 ≤ α<sub>n</sub> ≤ C. Why does the cap help?',
+      a: ['It makes the optimizer converge faster', 'No single point (like an outlier) can push arbitrarily hard, so it can\'t drag the whole boundary around', 'It guarantees zero training error'], c: 1,
+      e: 'With a hard margin, an outlier could need an enormous α. Capping it at C means the SVM eventually gives up on that point and lets it be a mistake (Aunt Linda in Demo 3).' },
+    { q: 'Why can the kernel trick be applied to the SVM in the first place?',
+      a: ['Because the SVM uses gradient descent', 'Because in the dual, the training data only appear through dot products x<sub>n</sub>ᵀx<sub>m</sub>, which can be swapped for 𝒦(x<sub>n</sub>, x<sub>m</sub>)', 'Because the RBF kernel is Gaussian'], c: 1,
+      e: 'Training and prediction never use the coordinates directly, only similarities between pairs of points. Replace each dot product with a kernel and you are working in feature space without building it.' },
+    { q: 'For x = (1, 2) and x′ = (3, 1), what is the kernel (xᵀx′)²?',
+      a: ['10', '25', '16'], c: 1,
+      e: 'xᵀx′ = 1·3 + 2·1 = 5, and 5² = 25. That equals φ(x)ᵀφ(x′) with φ(x) = (x₁², √2x₁x₂, x₂²), without building φ.' },
+    { q: 'An RBF-kernel SVM has 98% training accuracy, almost every training point is a support vector, and the boundary looks like many small islands. What is most likely going on?',
+      a: ['γ is too large: each point\'s reach is tiny, so it overfits', 'γ is too small: it is underfitting', 'C is too small'], c: 0,
+      e: 'Large γ means the similarity drops off almost immediately, so each support vector only covers a small bubble. Lower γ (and/or C) for a smoother boundary.' },
+  ];
+  const box = $('quizbox'); let score = 0, done = 0;
+  Q.forEach((it, qi) => {
+    const d = document.createElement('div'); d.className = 'quiz-q';
+    d.innerHTML = `<div class="sc"><b>${qi + 1}.</b> ${it.q}</div><div class="row">${it.a.map((a, i) => `<button class="pill" data-i="${i}">${a}</button>`).join('')}</div><div class="fb"></div>`;
+    d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      if (d.classList.contains('done')) return;
+      const i = +b.dataset.i, ok = i === it.c;
+      d.classList.add('done'); done++; if (ok) score++;
+      b.classList.add(ok ? 'right' : 'wrong');
+      if (!ok) d.querySelector(`button[data-i="${it.c}"]`).classList.add('right');
+      d.querySelector('.fb').innerHTML = `<span class="verdict ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'}</span> ${it.e}`;
+      $('quizscore').textContent = `Score: ${score} / ${done}` + (done === Q.length ? ` (all ${Q.length} answered)` : '');
+    }));
+    box.appendChild(d);
+  });
+})();
+
+// ============================================================
+// KaTeX
+// ============================================================
+function boot() { typeset(document.body); }
+if (window.renderMathInElement) boot(); else window.addEventListener('load', boot);
+</script>
+</body>
+</html>
