@@ -1,0 +1,1817 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sparse Vector Machines</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --soft: #fafaf9;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #e2e1de;
+    --gridline: #ecebe8;
+    --k0: #2a78d6; --k1: #eb6834; --k2: #1baf7a; --k3: #6250d6; --k4: #e87ba4; --k5: #c9a227;
+    /* heatmaps: positive / negative similarity */
+    --pos: #2a78d6; --neg: #e34948;
+    --good: #138a6a;
+    --bad: #e34948;
+    --band: #2a78d6;
+    --accent: #6a4bc4;
+    --callout-bg: #fbf3e8;
+    --callout-border: #ecd9b8;
+    --code-bg: #f1f0ed;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+      --border: #34342f; --gridline: #2a2a27;
+      --k0: #3987e5; --k1: #d95926; --k2: #199e70; --k3: #9085e9; --k4: #d55181; --k5: #d4b13f;
+      --pos: #4a92ea; --neg: #e66767;
+      --good: #2fb88e; --bad: #e66767; --band: #3987e5; --accent: #9a8ae6;
+      --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211; --panel: #1a1a19; --soft: #222220; --ink: #f2f2f0; --muted: #a9a89f;
+    --border: #34342f; --gridline: #2a2a27;
+    --k0: #3987e5; --k1: #d95926; --k2: #199e70; --k3: #9085e9; --k4: #d55181; --k5: #d4b13f;
+    --pos: #4a92ea; --neg: #e66767;
+    --good: #2fb88e; --bad: #e66767; --band: #3987e5; --accent: #9a8ae6;
+    --callout-bg: #2a2318; --callout-border: #4a3d26; --code-bg: #2a2a27;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 30px 16px 70px; }
+  header h1 { font-size: 1.75rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .subtitle { color: var(--muted); font-size: 0.95rem; }
+  nav.toc { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a {
+    font-size: 0.78rem; text-decoration: none; color: var(--ink);
+    border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 3px 10px;
+  }
+  nav.toc a:hover { border-color: var(--ink); }
+  section.block {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px 24px 26px; margin-top: 26px; overflow-x: clip; position: relative;
+  }
+  section.block.hl { border-top: 4px solid var(--accent); }
+  @media (max-width: 560px) { section.block { padding: 18px 14px 20px; } }
+  section.block h2 { font-size: 1.22rem; margin: 0 0 4px; }
+  section.block h2 .num { color: var(--muted); font-weight: 600; font-size: 0.9rem; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .part { margin: 40px 0 -8px; }
+  .part h2 { font-size: 1.4rem; margin: 0 0 4px; }
+  .part p { color: var(--muted); margin: 0; font-size: 0.95rem; }
+  .kicker { color: var(--muted); font-size: 0.86rem; margin-bottom: 12px; font-style: italic; }
+  h3 { font-size: 0.98rem; margin: 20px 0 6px; }
+  p { margin: 0 0 12px; font-size: 0.95rem; }
+  ol, ul { font-size: 0.95rem; margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  .eqbox {
+    background: var(--soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 18px; margin: 14px 0; overflow-x: auto;
+  }
+  .eqbox .label { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .callout {
+    margin: 16px 0 0; padding: 10px 14px; border-radius: 8px;
+    background: var(--callout-bg); border: 1px solid var(--callout-border); font-size: 0.9rem;
+  }
+  details { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); }
+  details summary { cursor: pointer; padding: 8px 14px; font-size: 0.88rem; font-weight: 600; }
+  details > div { padding: 0 14px 12px; overflow-x: auto; font-size: 0.9rem; }
+  code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; font-size: 0.88em; }
+  .demo { border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 14px; }
+  .demo-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .two > * { min-width: 0; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+  .panel-h { font-size: 0.84rem; font-weight: 700; margin: 0 0 4px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .row .lbl { font-size: 0.76rem; color: var(--muted); font-weight: 600; margin-right: 2px; }
+  button.pill {
+    font-size: 0.8rem; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink); font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  button.pill:hover { border-color: var(--ink); }
+  button.pill.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button.pill.primary { border-color: var(--accent); font-weight: 600; }
+  button.pill.fake { border-style: dashed; }
+  button.pill .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  select {
+    font: inherit; font-size: 0.82rem; padding: 4px 8px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink);
+  }
+  input[type=text] {
+    font: inherit; font-size: 0.9rem; padding: 5px 9px; border-radius: 8px; width: 100%;
+    border: 1px solid var(--border); background: var(--soft); color: var(--ink);
+  }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 6px 0 10px; }
+  .ctrl { display: flex; flex-direction: column; gap: 2px; min-width: 180px; flex: 1; }
+  .ctrl[hidden] { display: none; }
+  .ctrl label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .ctrl label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .tiles.three { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px) { .tiles, .tiles.three { grid-template-columns: 1fr 1fr; } }
+  .tile { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; min-width: 0; }
+  .tile .k { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+  .tile .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .tile .s { font-size: 0.72rem; color: var(--muted); }
+  .tile.good .v { color: var(--good); }
+  .tile.bad .v { color: var(--bad); }
+  svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  svg text { fill: var(--ink); font-family: inherit; font-size: 12px; }
+  svg .muted { fill: var(--muted); }
+  svg .axis { stroke: var(--border); }
+  svg .grid { stroke: var(--gridline); }
+  svg text.halo { paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  .plot { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; position: relative; }
+  .plot canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 8px; }
+  .plot svg { position: relative; }
+  .touchnone { touch-action: none; }
+  .grab { cursor: grab; }
+  .readout { font-size: 0.86rem; background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-variant-numeric: tabular-nums; margin-top: 8px; min-height: 2.6em; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+  .legend > span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw.line { height: 3px; border-radius: 2px; width: 18px; }
+  .sw.dash { height: 0; width: 18px; border-top: 2px dashed; border-radius: 0; background: none !important; }
+  .sw.round { border-radius: 50%; width: 10px; height: 10px; }
+  .sw.band { width: 18px; height: 10px; opacity: .25; }
+  table.cheat { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+  table.cheat th { text-align: left; font-size: 0.74rem; color: var(--muted); border-bottom: 2px solid var(--border); padding: 6px 8px; }
+  table.cheat td { border-bottom: 1px solid var(--border); padding: 8px 8px; vertical-align: top; }
+  table.cheat td:first-child { font-weight: 700; white-space: nowrap; }
+  .scroll-x { overflow-x: auto; }
+  .steps { list-style: none; padding: 0; margin: 8px 0; }
+  .steps li { border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; margin-bottom: 6px; font-size: 0.88rem; background: var(--soft); opacity: .6; overflow-x: auto; }
+  .steps li.on { opacity: 1; border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+  .steps li .rule { color: var(--muted); font-size: 0.8rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .chip { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8rem; border: 1px solid var(--border); background: var(--soft); border-radius: 6px; padding: 1px 6px; white-space: pre; }
+  .chip b { color: var(--k0); }
+  .quiz-q { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 10px 0; background: var(--soft); }
+  .quiz-q .sc { font-size: 0.92rem; margin-bottom: 8px; }
+  .quiz-q .fb { font-size: 0.86rem; margin-top: 8px; display: none; padding: 8px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); }
+  .quiz-q.done .fb { display: block; }
+  .quiz-q button.pill { text-align: left; }
+  .quiz-q button.pill.right { background: var(--good); border-color: var(--good); color: #fff; }
+  .quiz-q button.pill.wrong { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .verdict { font-weight: 700; }
+  .verdict.ok { color: var(--good); } .verdict.no { color: var(--bad); }
+  .score { font-size: 0.9rem; font-weight: 600; }
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; display: none; max-width: 300px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 10px; font-size: 0.8rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); font-variant-numeric: tabular-nums;
+  }
+  .foot { margin-top: 30px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 14px; }
+  a { color: var(--k0); }
+  .plain { background: var(--soft); border-left: 4px solid var(--k2); border-radius: 6px; padding: 10px 14px; margin: 14px 0; font-size: 0.93rem; }
+  .plain .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--k2); font-weight: 700; margin-bottom: 2px; }
+  .story { background: var(--callout-bg); border: 1px solid var(--callout-border); border-radius: 8px; padding: 10px 14px; margin: 14px 0; font-size: 0.93rem; }
+  .story .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+  .tldr { font-size: 1rem; font-weight: 600; margin: 4px 0 14px; }
+  .takeaways { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px 4px; margin-top: 16px; }
+  .takeaways h3 { margin-top: 0; }
+  .warn { color: var(--bad); font-weight: 600; }
+  .okc { color: var(--good); font-weight: 600; }
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0 4px; }
+  @media (max-width: 720px) { .flow { grid-template-columns: 1fr 1fr; } }
+  .flow > div { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.86rem; }
+  .flow b { display: block; font-size: 0.78rem; color: var(--muted); }
+  .flow .big { font-size: 0.95rem; font-weight: 700; margin: 2px 0 4px; }
+  [hidden] { display: none !important; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid2 > * { min-width: 0; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<div class="wrap">
+  <header>
+    <h1>Sparse Vector Machines</h1>
+    <div class="subtitle">A plain-language companion to &sect;17.3.5&ndash;17.4 of Murphy's <em>Probabilistic Machine Learning: An Introduction</em>. It finishes the SVM story (probabilities, logistic regression, many classes, choosing $C$, regression) and then shows how sparse vector machines keep the SVM's "remember only a few points" trick while adding real probabilities. Each part has a real-world example, the key equation in plain English, and a live demo. Built for CS 473 self-study.</div>
+    <nav class="toc">
+      <a href="#intro">The big picture</a>
+      <a href="#s5">17.3.5 Probabilities</a>
+      <a href="#s6">17.3.6 vs. logistic regression</a>
+      <a href="#s7">17.3.7 Many classes</a>
+      <a href="#s8">17.3.8 Choosing C</a>
+      <a href="#s9">17.3.9 Kernel ridge</a>
+      <a href="#s10">17.3.10 SVM regression</a>
+      <a href="#s41">17.4 Sparse vector machines</a>
+      <a href="#s42">17.4.2 Side-by-side</a>
+      <a href="#quiz">Quiz &amp; cheat sheet</a>
+    </nav>
+  </header>
+
+  <!-- ============================== INTRO ============================== -->
+  <section class="block" id="intro">
+    <h2><span class="num">17.3&ndash;17.4</span>The big picture</h2>
+    <p class="tldr">Kernel methods predict by comparing a new point to remembered training points. The question in these sections is <em>how many points you have to remember</em>, and <em>whether you get honest probabilities</em> in return.</p>
+    <p>In 17.3.1&ndash;17.3.4 the SVM drew the widest road between two groups. Only a few training points, the <b>support vectors</b>, ended up mattering. That is a nice property: to classify something new you only compare it to those few points. But the plain SVM has four gaps, and the rest of 17.3 patches them one at a time:</p>
+    <div class="flow">
+      <div><b>17.3.5</b><div class="big">No probabilities</div>An SVM outputs a score like 1.7, not "83% chance". Platt scaling converts one to the other.</div>
+      <div><b>17.3.6</b><div class="big">Why it's sparse</div>The SVM is logistic regression with a different loss. That loss is the source of the sparsity.</div>
+      <div><b>17.3.7</b><div class="big">Only two classes</div>Combine several two-class SVMs to sort things into many groups.</div>
+      <div><b>17.3.8</b><div class="big">Who picks C?</div>The SVM can't learn its own settings. Use cross-validation.</div>
+    </div>
+    <div class="flow">
+      <div><b>17.3.9</b><div class="big">Kernel ridge</div>Regression with kernels. Accurate, but every training point gets a weight.</div>
+      <div><b>17.3.10</b><div class="big">SVM regression</div>Ignore small errors and most weights become exactly zero again.</div>
+      <div><b>17.4</b><div class="big">Sparse vector machines</div>Ask for sparsity directly with a prior (L1VM, RVM) and keep the probabilities too.</div>
+      <div><b>17.4.2</b><div class="big">Side-by-side</div>All of them on the same data: accuracy, memory, error bars.</div>
+    </div>
+
+    <h3>Who does each method need to remember?</h3>
+    <p>Here is the main idea of the chapter in one picture. Every method below was fit to the <b>same 40 days of bike-rental data</b> (the running example from 17.3.9 onward). Each dot is one training day, ordered from coldest to hottest. A <b>filled purple</b> dot is a day the method must keep around to make predictions. A hollow dot is a day it can throw away.</p>
+    <div id="lineup" class="plot" style="padding:4px 0"></div>
+    <div class="legend">
+      <span><i class="sw round" style="background:var(--k3)"></i>kept (needed for every prediction)</span>
+      <span><i class="sw round" style="background:none;border:1.5px solid var(--muted)"></i>not needed</span>
+    </div>
+    <div class="plain"><div class="label">What to notice</div>Methods from earlier sections (nearest neighbors, Gaussian processes) and kernel ridge regression keep <b>all 40 days</b>. The SVM-style method keeps fewer. The sparse vector machines of 17.4 keep only a handful, and the RVM also gives error bars like a Gaussian process. Fewer remembered points means faster predictions and a model that fits on a phone.</div>
+  </section>
+
+  <!-- ============================== 17.3.5 ============================== -->
+  <section class="block hl" id="s5">
+    <h2><span class="num">17.3.5</span>Converting SVM outputs into probabilities</h2>
+    <p class="tldr">An SVM gives you a score $f(\mathbf{x})$, not a probability. Platt scaling passes the score through an S-shaped curve whose shape is fitted on held-out data.</p>
+
+    <div class="story"><div class="label">Real-world example: a credit-card fraud alarm</div>
+      A bank scores every transaction by <b>amount</b> and <b>distance from the cardholder's home</b>. The bank has three possible actions: freeze the card (annoying, so only if fraud is very likely), text the customer (cheap, fine at moderate risk), or do nothing. To choose, the bank needs "there is a <b>72% chance</b> this is fraud." An SVM score of $f = 0.8$ doesn't say that. It only says which side of the road the transaction is on and how far from the center line.
+    </div>
+
+    <h3>The fix: squash the score with a sigmoid</h3>
+    <div class="eqbox"><div class="label">Platt scaling</div>$$p(y = 1 \mid \mathbf{x}) \approx \sigma\big(a\,f(\mathbf{x}) + b\big), \qquad \sigma(z) = \frac{1}{1+e^{-z}}$$</div>
+    <div class="plain"><div class="label">In plain English</div>"Take the SVM's score, stretch it by $a$, shift it by $b$, and squash it into the range 0 to 1." The two numbers $a$ and $b$ are found by ordinary 1D logistic regression: on a separate <b>validation set</b>, choose the $a, b$ that make the observed fraud labels most likely.</div>
+    <p><b>Why a separate validation set?</b> On the training set the SVM has pushed points to sit at or beyond its curbs on purpose, so their scores look more confident than they deserve. Fresh data gives an honest picture of how often a score of 0.8 actually turns out to be fraud.</p>
+    <p><b>The catch (the book is candid about this):</b> nothing in SVM training makes $f(\mathbf{x})$ behave like a log-odds, so the probabilities can be poorly calibrated. Logistic regression (Chapter 10) gives probabilities directly. Platt scaling is a patch added afterward.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 1 &middot; Turn fraud scores into fraud probabilities</div>
+      <div class="two">
+        <div>
+          <div class="panel-h">Transactions: the map</div>
+          <div id="p5a"></div>
+          <div class="legend">
+            <span><i class="sw round" style="background:var(--k0)"></i>fraud ($+1$)</span>
+            <span><i class="sw round" style="background:var(--k1)"></i>legitimate ($-1$)</span>
+            <span><i class="sw line" style="background:var(--ink)"></i>SVM boundary $f=0$</span>
+            <span><i class="sw dash" style="border-color:var(--ink)"></i>10%, 50%, 90% lines</span>
+          </div>
+          <div class="row"><span class="lbl">Shade the map by</span>
+            <button class="pill" data-d5m="score">SVM score</button>
+            <button class="pill on" data-d5m="platt">Platt probability</button>
+            <button class="pill" data-d5m="true">True probability (normally unknown)</button>
+          </div>
+        </div>
+        <div>
+          <div class="panel-h">Validation set: score &rarr; probability</div>
+          <div id="p5b"></div>
+          <div class="legend">
+            <span><i class="sw line" style="background:var(--k3)"></i>Platt curve $\sigma(af+b)$</span>
+            <span><i class="sw" style="background:var(--k2)"></i>actual fraud rate in each score bin</span>
+          </div>
+          <div class="ctrls">
+            <div class="ctrl"><label><span>Stretch $a$</span> <b id="d5av">1.00</b></label><input type="range" id="d5a" min="0" max="5" step="0.01" value="1"></div>
+            <div class="ctrl"><label><span>Shift $b$</span> <b id="d5bv">0.00</b></label><input type="range" id="d5b" min="-3" max="3" step="0.01" value="0"></div>
+          </div>
+          <div class="row"><button class="pill primary" id="d5fit">Fit $a, b$ by maximum likelihood</button></div>
+          <div class="tiles three">
+            <div class="tile"><div class="k">Validation log loss (lower is better)</div><div class="v" id="d5ll">–</div></div>
+            <div class="tile"><div class="k">Score $f = 0$ means</div><div class="v" id="d5p0">–</div></div>
+            <div class="tile"><div class="k">Score $f = 1$ means</div><div class="v" id="d5p1">–</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="readout" id="d5msg">Hover over the map to read off one transaction's score and probability.</div>
+      <p class="hint">Start with $a = 1, b = 0$ and drag the sliders until the purple curve runs through the green squares, then press <b>Fit</b> to see the best possible curve. Compare the "Platt probability" map with the "True probability" map. They are close but not identical: that is the calibration catch.</p>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.3.5</h3><ul>
+      <li>An SVM score says which side and how far, not how likely.</li>
+      <li>Platt scaling: $p \approx \sigma(a f(\mathbf{x}) + b)$, with $a, b$ fitted by logistic regression on a <b>validation</b> set.</li>
+      <li>It works fine in practice but has no deep justification. If you need probabilities from the start, use a probabilistic model.</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== 17.3.6 ============================== -->
+  <section class="block hl" id="s6">
+    <h2><span class="num">17.3.6</span>Connection with logistic regression</h2>
+    <p class="tldr">An SVM and L2-regularized logistic regression solve the same kind of problem. Both minimize "penalty on $\mathbf{w}$ + loss on each point". Only the loss is different, and that difference makes the SVM sparse.</p>
+
+    <div class="story"><div class="label">Real-world example: two teachers grading</div>
+      Students are graded on how far they are past the passing line. <b>Teacher Hinge</b> says: "Clear the bar by a comfortable margin and I stop caring. No extra credit." <b>Teacher Logistic</b> says: "You passed, but I'd like you a little more confident. Every bit helps." Students far above the bar take none of Teacher Hinge's attention. Teacher Logistic gives every student a little.
+    </div>
+
+    <h3>The SVM, rewritten without constraints</h3>
+    <p>The soft-margin SVM from 17.3.3 can be written as one formula with no constraints. Compare it with logistic regression. Both use the margin $m_n = y_n f(\mathbf{x}_n)$ from before (positive = correct, bigger = safer):</p>
+    <div class="eqbox"><div class="label">SVM vs. logistic regression</div>$$\text{SVM:}\ \ \min_{\mathbf{w}}\ \tfrac12\lVert\mathbf{w}\rVert^2 + C\sum_n \underbrace{\max(0,\ 1 - m_n)}_{\text{hinge loss}} \qquad\quad \text{LR:}\ \ \min_{\mathbf{w}}\ \tfrac12\lVert\mathbf{w}\rVert^2 + C\sum_n \underbrace{\log\big(1 + e^{-m_n}\big)}_{\text{log loss}}$$</div>
+    <div class="plain"><div class="label">In plain English</div>Both say: "keep the weights small, and charge each point for not being confidently correct." The <b>hinge loss</b> charges nothing once a point is past the curb ($m_n \ge 1$). The <b>log loss</b> never quite reaches zero, so it always charges a little.</div>
+    <p>Both losses are <b>convex upper bounds</b> on the 0-1 loss, the one we actually care about ("1 if wrong, 0 if right"), which is too jagged to optimize directly. They are smooth stand-ins for it. (The book plots the log loss in base 2 so all three curves pass through the same point at $m = 0$. The demo does the same.)</p>
+    <h3>Why the flat part matters</h3>
+    <p>A point's "pull" on the boundary is the slope of its loss. Where the hinge loss is flat, the slope is zero, so the point exerts no pull: that is exactly $\alpha_n = 0$ from 17.3.2. With log loss the slope is never zero, so <b>every</b> point pulls a little. That is why logistic regression gives probabilities but keeps every point, while the SVM keeps few points but gives no probabilities.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 2 &middot; Same data, two losses: who pulls on the boundary?</div>
+      <div class="two">
+        <div>
+          <div class="panel-h">The three losses, as a function of the margin $m = y\,f(\mathbf{x})$</div>
+          <div id="p6a"></div>
+          <div class="legend">
+            <span><i class="sw line" style="background:var(--muted)"></i>0-1 loss (the goal)</span>
+            <span><i class="sw line" style="background:var(--ink)"></i>hinge (SVM)</span>
+            <span><i class="sw line" style="background:var(--k3)"></i>log loss (LR)</span>
+          </div>
+          <div class="ctrls"><div class="ctrl"><label><span>A point's margin $m$</span> <b id="d6mv">0.50</b></label><input type="range" id="d6m" min="-2.5" max="3.5" step="0.01" value="0.5"></div></div>
+          <div class="readout" id="d6lossmsg"></div>
+        </div>
+        <div>
+          <div class="panel-h">Exam results: hours studied vs. hours slept</div>
+          <div id="p6b"></div>
+          <div class="legend">
+            <span><i class="sw round" style="background:var(--k0)"></i>passed</span>
+            <span><i class="sw round" style="background:var(--k1)"></i>failed</span>
+            <span><i class="sw line" style="background:var(--ink)"></i>SVM</span>
+            <span><i class="sw dash" style="border-color:var(--k3)"></i>logistic regression</span>
+          </div>
+          <div class="row"><span class="lbl">Dot size = pull under</span>
+            <button class="pill on" data-d6w="svm">Hinge (SVM)</button>
+            <button class="pill" data-d6w="lr">Log loss (LR)</button>
+          </div>
+          <div class="ctrls"><div class="ctrl"><label><span>Fine $C$ (same for both)</span> <b id="d6cv">1.00</b></label><input type="range" id="d6c"></div></div>
+          <div class="tiles three" style="grid-template-columns:1fr 1fr">
+            <div class="tile"><div class="k">Students with any pull, SVM</div><div class="v" id="d6nsvm">–</div></div>
+            <div class="tile"><div class="k">Students with any pull, LR</div><div class="v" id="d6nlr">–</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="readout" id="d6msg">Hover over a student to see their margin and pull.</div>
+      <p class="hint">Slide $m$ past 1 on the left and watch the hinge pull drop to exactly zero while the log loss pull only fades. On the right, switch the dot sizes between the two losses: under the hinge, most dots shrink to specks.</p>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.3.6</h3><ul>
+      <li>SVM = linear model + <b>hinge loss</b> + L2 penalty. Logistic regression = linear model + <b>log loss</b> + L2 penalty.</li>
+      <li>The hinge is <b>exactly zero</b> for $m \ge 1$, so confidently correct points have no pull. This is where the SVM's sparsity comes from.</li>
+      <li>Log loss is never zero, so logistic regression uses every point, but its output is a real probability.</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== 17.3.7 ============================== -->
+  <section class="block hl" id="s7">
+    <h2><span class="num">17.3.7</span>Multi-class classification with SVMs</h2>
+    <p class="tldr">An SVM can only answer yes-or-no questions. To sort into $K$ classes, ask several yes-or-no questions and combine the answers. Both standard ways of combining them leave some regions where the answer is unclear.</p>
+
+    <div class="story"><div class="label">Real-world example: a recycling sorter</div>
+      A conveyor belt carries <b>plastic</b>, <b>glass</b> and <b>metal</b>. A sensor measures each item's weight and how shiny it is. One SVM can only say "this side or that side," so the sorter has to be built from several SVMs.
+    </div>
+
+    <h3>Two ways to combine yes-or-no SVMs</h3>
+    <ul>
+      <li><b>One-vs-rest</b> (OvR, also called one-vs-all): train $K$ SVMs, each asking "is it class $k$, or anything else?" Predict the class that says yes. <span class="warn">Problem:</span> sometimes nobody says yes, and sometimes two do. Picking the highest score fixes that, but scores from separately trained SVMs aren't on a common scale. Also, each SVM sees one small class against a big pile of the others, which is lopsided.</li>
+      <li><b>One-vs-one</b> (OvO): train one SVM for every <em>pair</em> of classes, $K(K-1)/2$ of them, and let them vote. <span class="warn">Problem:</span> votes can tie. It also takes many classifiers: 45 for the ten digits 0&ndash;9.</li>
+    </ul>
+    <div class="eqbox"><div class="label">One-vs-rest, taking the largest score</div>$$\hat{y}(\mathbf{x}) = \arg\max_{k}\ f_k(\mathbf{x})$$</div>
+    <div class="plain"><div class="label">In plain English</div>"Ask each class's SVM how strongly it claims the item, and go with the loudest." It always gives an answer, but there's no guarantee the answers are fair across classes. Compare softmax (multinomial) logistic regression, which handles $K$ classes in a single model with probabilities that add up to 1.</div>
+
+    <div class="demo">
+      <div class="demo-title">Demo 3 &middot; Build a three-way sorter out of two-way SVMs</div>
+      <div class="two">
+        <div>
+          <div id="p7"></div>
+          <div class="legend">
+            <span><i class="sw round" style="background:var(--k0)"></i>plastic</span>
+            <span><i class="sw round" style="background:var(--k1)"></i>glass</span>
+            <span><i class="sw round" style="background:var(--k2)"></i>metal</span>
+            <span><i class="sw" style="background:var(--muted);opacity:.25"></i>nobody / tie</span>
+            <span><i class="sw" style="background:var(--muted);opacity:.6"></i>conflict</span>
+          </div>
+        </div>
+        <div>
+          <div class="row"><span class="lbl">Rule</span></div>
+          <div class="row">
+            <button class="pill on" data-d7m="yes">One-vs-rest: who says yes?</button>
+            <button class="pill" data-d7m="max">One-vs-rest: highest score wins</button>
+            <button class="pill" data-d7m="ovo">One-vs-one: majority vote</button>
+          </div>
+          <div class="row"><span class="lbl">Clicks add</span>
+            <button class="pill on" data-d7add="0"><i class="dot" style="background:var(--k0)"></i>plastic</button>
+            <button class="pill" data-d7add="1"><i class="dot" style="background:var(--k1)"></i>glass</button>
+            <button class="pill" data-d7add="2"><i class="dot" style="background:var(--k2)"></i>metal</button>
+            <button class="pill" id="d7reset">Reset</button>
+          </div>
+          <div class="tiles three">
+            <div class="tile"><div class="k">SVMs trained</div><div class="v" id="d7n">–</div></div>
+            <div class="tile"><div class="k">Map area with no clear answer</div><div class="v" id="d7amb">–</div></div>
+            <div class="tile"><div class="k">Training accuracy</div><div class="v" id="d7acc">–</div></div>
+          </div>
+          <div class="readout" id="d7msg"></div>
+        </div>
+      </div>
+      <p class="hint">Thin colored lines are the individual SVMs' boundaries. In "who says yes?", the gray triangle in the middle is where every SVM says "not mine". Switch to "highest score wins" and it disappears, because something always has the highest score. Try clicking a few metal items into the plastic area and watch the boundaries move.</p>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.3.7</h3><ul>
+      <li>SVMs are naturally two-class. Multi-class SVMs are built from several binary ones.</li>
+      <li><b>One-vs-rest:</b> $K$ classifiers, can leave "nobody" or "conflict" regions; argmax fixes it but compares scores that aren't on a common scale.</li>
+      <li><b>One-vs-one:</b> $K(K-1)/2$ classifiers and voting, which can tie.</li>
+      <li>Probabilistic models (softmax regression, and the RVM in 17.4) handle many classes directly.</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== 17.3.8 ============================== -->
+  <section class="block hl" id="s8">
+    <h2><span class="num">17.3.8</span>How to choose the regularizer $C$</h2>
+    <p class="tldr">The SVM doesn't choose its own $C$ (or the RBF kernel's $\gamma$). Try a grid of values spaced on a log scale and keep the pair that does best in cross-validation.</p>
+
+    <div class="story"><div class="label">Real-world example: a vineyard deciding when to pick</div>
+      A vineyard labels past grape samples "ready" or "not ready" by sugar level and acidity. The boundary is curvy, and some labels are just wrong (a tired taster). The vineyard wants an RBF SVM, but it needs two settings: how strict to be about mistakes ($C$), and how short each support vector's reach is ($\gamma$). Grading the model on the same samples it trained on would always favor the most wiggly model, so they hold samples out to test on.
+    </div>
+
+    <h3>The recipe</h3>
+    <ol>
+      <li><b>Standardize</b> each feature (subtract the mean, divide by the standard deviation), so that $\gamma$ means the same thing in every direction.</li>
+      <li>Pick values on a <b>log scale</b>, such as $C \in \{0.1, 0.3, 1, 3, \dots\}$ and $\gamma \in \{0.01, 0.03, 0.1, \dots\}$. Doubling $C$ matters about as much at $C = 1$ as at $C = 100$, which is why the spacing is multiplicative.</li>
+      <li>For each pair, run <b>5-fold cross-validation</b>: train on four-fifths of the data, test on the remaining fifth, rotate, and average.</li>
+      <li>Keep the best pair and retrain on all the data.</li>
+    </ol>
+    <div class="plain"><div class="label">Why both at once?</div>$C$ and $\gamma$ interact. A large $\gamma$ (short reach) can be partly offset by a small $C$ (lenient), so good settings often form a <b>diagonal ridge</b> in the grid instead of a single spot. Tuning them one at a time can miss that ridge.</div>
+    <p><b>Compared to earlier sections:</b> a Gaussian process (17.2) tunes its kernel by maximizing the marginal likelihood, with no held-out data needed. The SVM has no likelihood, so it has to use cross-validation, which means hundreds of training runs. (The book also mentions <em>regularization path</em> algorithms that compute the solution for every $C$ in a single sweep.) The RVM in 17.4 gets back to the GP's approach.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 4 &middot; A cross-validation grid search, computed live (49 settings &times; 5 folds)</div>
+      <div class="two">
+        <div>
+          <div class="panel-h">Accuracy for each $(C, \gamma)$. Click a cell.</div>
+          <div id="p8a"></div>
+          <div class="row"><span class="lbl">Show</span>
+            <button class="pill on" data-d8m="cv">5-fold CV accuracy (what you can measure)</button>
+            <button class="pill" data-d8m="test">Accuracy on 1,000 new samples (the truth)</button>
+          </div>
+        </div>
+        <div>
+          <div class="panel-h" id="d8title">The selected SVM</div>
+          <div id="p8b"></div>
+          <div class="legend">
+            <span><i class="sw round" style="background:var(--k0)"></i>ready</span>
+            <span><i class="sw round" style="background:var(--k1)"></i>not ready</span>
+            <span><i class="sw dash" style="border-color:var(--muted)"></i>true boundary</span>
+          </div>
+          <div class="tiles three">
+            <div class="tile"><div class="k">CV accuracy</div><div class="v" id="d8cv">–</div></div>
+            <div class="tile"><div class="k">Accuracy on new samples</div><div class="v" id="d8test">–</div></div>
+            <div class="tile"><div class="k">Support vectors</div><div class="v" id="d8sv">–</div></div>
+          </div>
+          <div class="readout" id="d8msg">Computing&hellip;</div>
+        </div>
+      </div>
+      <p class="hint">The ★ marks the best CV cell. Click the corners: top-right (big $C$, big $\gamma$) draws little islands around individual grapes (overfitting), and bottom-left is too smooth to follow the curve (underfitting). Then switch to "the truth" view: the CV grid's best region roughly matches the truth's best region, which is why cross-validation works.</p>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.3.8</h3><ul>
+      <li>$C$ and $\gamma$ are picked from outside the SVM, usually by cross-validation on a log-spaced grid.</li>
+      <li>Standardize features first, and search $C$ and $\gamma$ together, since they trade off against each other.</li>
+      <li>This costs many training runs. Probabilistic models can instead tune hyperparameters by maximizing the marginal likelihood (GP, RVM).</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== 17.3.9 ============================== -->
+  <section class="block hl" id="s9">
+    <h2><span class="num">17.3.9</span>Kernel ridge regression</h2>
+    <p class="tldr">Ridge regression plus the kernel trick gives smooth curves for predicting numbers. The catch: every training point gets a nonzero weight, so you have to keep all of them.</p>
+
+    <div class="story"><div class="label">Real-world example: a bike-rental shop</div>
+      A shop owner wants to predict how many bikes they'll rent from the day's <b>temperature</b>. Cold days are slow, pleasant days are busy, and on scorching days people stay inside. That isn't a straight line, so they use a kernel. The owner keeps a notebook of past days. Kernel ridge regression predicts today by comparing it with <b>every</b> page of that notebook.
+    </div>
+
+    <h3>From ridge regression to kernel ridge regression</h3>
+    <p>Ridge regression fits $f(\mathbf{x}) = \mathbf{w}^\top\boldsymbol\phi(\mathbf{x})$ with a penalty $\lambda\lVert\mathbf{w}\rVert^2$. As with the SVM dual, the solution can be rewritten so the features only appear through dot products, and those can be swapped for a kernel:</p>
+    <div class="eqbox"><div class="label">Kernel ridge regression</div>$$f(\mathbf{x}) = \sum_{n=1}^N \alpha_n\,\mathcal{K}(\mathbf{x}, \mathbf{x}_n), \qquad \boldsymbol\alpha = (\mathbf{K} + \lambda\mathbf{I})^{-1}\mathbf{y}$$</div>
+    <div class="plain"><div class="label">In plain English</div>"The prediction for a new day is a weighted sum of similarities to every past day." $\mathbf{K}$ is the $N\times N$ table of similarities between training days, and $\lambda$ controls smoothness (bigger = smoother). Solving that linear system gives every past day a weight $\alpha_n$, and in general <b>none of them is exactly zero</b>.</div>
+    <p><b>Compared to earlier sections:</b> this is exactly the <b>posterior mean of a Gaussian process</b> (17.2) with noise variance $\lambda$. The GP also gives error bars, which kernel ridge regression doesn't. It is also related to kernel regression (Nadaraya-Watson, 16.3), but here the weights are <em>solved for</em> instead of just being normalized similarities.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 5 &middot; Kernel ridge regression: a smooth fit with 40 nonzero weights</div>
+      <div id="p9a"></div>
+      <div id="p9b"></div>
+      <div class="legend">
+        <span><i class="sw round" style="background:var(--k0)"></i>past days</span>
+        <span><i class="sw line" style="background:var(--ink)"></i>KRR prediction</span>
+        <span><i class="sw dash" style="border-color:var(--muted)"></i>true trend (normally unknown)</span>
+        <span><i class="sw line" style="background:var(--k3)"></i>weight $\alpha_n$ (bottom strip)</span>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl"><label><span>Smoothness $\lambda$</span> <b id="d9lv">0.30</b></label><input type="range" id="d9l"></div>
+        <div class="ctrl"><label><span>Kernel width $\ell$ (°C)</span> <b id="d9ev">4.0</b></label><input type="range" id="d9e" min="1.5" max="10" step="0.1" value="4"></div>
+      </div>
+      <div class="row">
+        <button class="pill" id="d9bumps">Show each day's bump $\alpha_n\mathcal{K}(x, x_n)$</button>
+        <button class="pill" id="d9new">New data</button>
+      </div>
+      <div class="tiles three">
+        <div class="tile bad"><div class="k">Nonzero weights (days to remember)</div><div class="v" id="d9nz">–</div></div>
+        <div class="tile"><div class="k">Error vs. true trend (RMSE)</div><div class="v" id="d9rmse">–</div></div>
+        <div class="tile"><div class="k">Smallest |weight|</div><div class="v" id="d9min">–</div></div>
+      </div>
+      <p class="hint">The bottom strip draws one stem per training day: its weight $\alpha_n$. Whatever you do with the sliders, all 40 stems stay. Turn on the bumps to see that the black curve is literally the sum of 40 small hills, one per day.</p>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.3.9</h3><ul>
+      <li>$\boldsymbol\alpha = (\mathbf{K} + \lambda\mathbf{I})^{-1}\mathbf{y}$ and $f(\mathbf{x}) = \sum_n \alpha_n\mathcal{K}(\mathbf{x},\mathbf{x}_n)$.</li>
+      <li>The fit is good, but the model is <b>dense</b>: all $N$ training points are needed at prediction time, and training means solving an $N\times N$ system.</li>
+      <li>Same predictions as a GP's posterior mean, without the error bars.</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== 17.3.10 ============================== -->
+  <section class="block hl" id="s10">
+    <h2><span class="num">17.3.10</span>SVMs for regression</h2>
+    <p class="tldr">Swap the squared error for a loss that ignores small mistakes. Every point that lands inside a tube of width $\pm\epsilon$ around the curve gets weight exactly zero, so the model becomes sparse again.</p>
+
+    <div class="story"><div class="label">Real-world example: staffing the bike shop</div>
+      The owner uses the prediction to decide how many staff to schedule. Being off by 30 bikes doesn't change the schedule, but being off by 200 does. So errors smaller than some tolerance $\epsilon$ (here 50 bikes) are <b>free</b>. Only bigger misses cost anything.
+    </div>
+
+    <h3>The epsilon-insensitive loss</h3>
+    <div class="eqbox"><div class="label">Epsilon-insensitive loss, and the SVR objective</div>$$L_\epsilon(y, \hat y) = \max\big(0,\ |y - \hat y| - \epsilon\big) \qquad\quad \min_{\mathbf{w}}\ \tfrac12\lVert\mathbf{w}\rVert^2 + C\sum_n L_\epsilon\big(y_n, f(\mathbf{x}_n)\big)$$</div>
+    <div class="plain"><div class="label">In plain English</div>"Draw a tube of half-width $\epsilon$ around the curve. Points inside the tube cost nothing. Points outside pay by how far they stick out. Keep the curve as flat as possible." This is the same pattern as the hinge loss in 17.3.6: a <b>flat region with zero cost</b>, which gives <b>zero pull</b>.</div>
+    <p>Going to the dual gives the same structure as before:</p>
+    <div class="eqbox"><div class="label">SVR prediction</div>$$f(\mathbf{x}) = \sum_{n} (\alpha_n - \alpha_n^*)\,\mathcal{K}(\mathbf{x}, \mathbf{x}_n) + w_0$$</div>
+    <p>There are two multipliers per point, $\alpha_n$ for sticking out above the tube and $\alpha_n^*$ for sticking out below, and each is capped at $C$. Points strictly inside the tube have $\alpha_n = \alpha_n^* = 0$. The <b>support vectors</b> are the points on or outside the tube wall.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 6 &middot; Widen the tube and watch the support vectors disappear</div>
+      <div class="two">
+        <div>
+          <div id="p10a"></div>
+          <div id="p10b"></div>
+          <div class="legend">
+            <span><i class="sw round" style="background:var(--k0)"></i>support vector</span>
+            <span><i class="sw round" style="background:none;border:1.5px solid var(--k0)"></i>inside tube (weight 0)</span>
+            <span><i class="sw band" style="background:var(--k0)"></i>tube $f \pm \epsilon$</span>
+          </div>
+        </div>
+        <div>
+          <div class="panel-h">The loss each point pays, by how far it misses</div>
+          <div id="p10c"></div>
+          <div class="legend">
+            <span><i class="sw line" style="background:var(--muted)"></i>squared (kernel ridge)</span>
+            <span><i class="sw line" style="background:var(--ink)"></i>$\epsilon$-insensitive (SVR)</span>
+          </div>
+          <div class="ctrls">
+            <div class="ctrl"><label><span>Tube half-width $\epsilon$ (bikes)</span> <b id="d10ev">0.50</b></label><input type="range" id="d10e" min="0.02" max="1.6" step="0.01" value="0.5"></div>
+            <div class="ctrl"><label><span>Fine $C$</span> <b id="d10cv">10.0</b></label><input type="range" id="d10c"></div>
+          </div>
+          <div class="tiles three">
+            <div class="tile good"><div class="k">Support vectors (days to remember)</div><div class="v" id="d10sv">–</div></div>
+            <div class="tile"><div class="k">Error vs. true trend (RMSE)</div><div class="v" id="d10rmse">–</div></div>
+            <div class="tile"><div class="k">Days inside the tube</div><div class="v" id="d10in">–</div></div>
+          </div>
+          <div class="readout" id="d10msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.3.10</h3><ul>
+      <li>$\epsilon$-insensitive loss: misses smaller than $\epsilon$ are free. This gives regression a "road" (a tube).</li>
+      <li>Points inside the tube get <b>zero weight</b>, so the model is sparse. Bigger $\epsilon$ gives fewer support vectors and a rougher fit.</li>
+      <li>Like the classification SVM, there are no error bars, and $\epsilon$, $C$ and the kernel width must be chosen by cross-validation.</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== 17.4 ============================== -->
+  <section class="block hl" id="s41">
+    <h2><span class="num">17.4</span>Sparse vector machines: L1VM and RVM</h2>
+    <p class="tldr">The SVM gets sparsity as a side effect of its loss. Sparse vector machines ask for sparsity directly: treat "similarity to each training point" as a feature, then fit an ordinary probabilistic model with a prior that pushes most weights to exactly zero.</p>
+
+    <div class="story"><div class="label">Real-world example: a realtor's "comps"</div>
+      To price a house, a realtor doesn't average every sale in the city. They pick a <b>few comparable houses</b> ("comps") and reason from those. Kernel ridge regression is the agent who checks every sale. A sparse vector machine is the realtor who learns <em>which few sales</em> are worth checking, and, in the RVM's case, also says how sure they are ("450 thousand, give or take 20 thousand").
+    </div>
+
+    <h3>Step 1: turn the kernel into features</h3>
+    <p>Give each training point $\mathbf{x}_n$ its own feature: "how similar is the new input to $\mathbf{x}_n$?" Stack them into one feature vector:</p>
+    <div class="eqbox"><div class="label">Kernel features</div>$$\boldsymbol\phi(\mathbf{x}) = \big[\mathcal{K}(\mathbf{x},\mathbf{x}_1),\ \mathcal{K}(\mathbf{x},\mathbf{x}_2),\ \dots,\ \mathcal{K}(\mathbf{x},\mathbf{x}_N)\big], \qquad f(\mathbf{x}) = \mathbf{w}^\top\boldsymbol\phi(\mathbf{x}) = \sum_n w_n\,\mathcal{K}(\mathbf{x},\mathbf{x}_n)$$</div>
+    <div class="plain"><div class="label">In plain English</div>"Put a little bump on every training point, and predict with a weighted sum of bumps." It looks just like kernel ridge regression, but now $\mathbf{w}$ is the parameter vector of an ordinary <b>generalized linear model</b>. You can attach any likelihood (Gaussian for regression, Bernoulli or softmax for classification) and any prior you like.</div>
+    <p>A useful bonus: because $\mathcal{K}$ is only being used to build features, it doesn't have to be a valid Mercer kernel (17.1). Any similarity score works. An SVM or a GP can't do that.</p>
+
+    <h3>Step 2: choose a prior on the weights</h3>
+    <div class="scroll-x">
+    <table class="cheat">
+      <tr><th>Name</th><th>Prior on each $w_n$</th><th>Same as</th><th>Sparse?</th></tr>
+      <tr><td>L2VM</td><td>Gaussian $\mathcal{N}(0, 1/\lambda)$</td><td>ridge regression on $\boldsymbol\phi$ (close to kernel ridge)</td><td class="warn">No</td></tr>
+      <tr><td>L1VM</td><td>Laplace (pointy at 0)</td><td>lasso on $\boldsymbol\phi$ (&sect;11.4)</td><td class="okc">Yes</td></tr>
+      <tr><td>RVM</td><td>$\mathcal{N}(0, 1/\alpha_n)$, a separate precision $\alpha_n$ per weight, learned from data</td><td>ARD / sparse Bayesian learning</td><td class="okc">Yes, very</td></tr>
+    </table>
+    </div>
+
+    <h3>17.4.1 Relevance vector machines: how the pruning works</h3>
+    <p>The RVM gives each weight its own "leash" $\alpha_n$: the prior says $w_n \sim \mathcal{N}(0, 1/\alpha_n)$. Instead of picking the $\alpha_n$ by cross-validation, it learns them by <b>maximizing the marginal likelihood</b> (empirical Bayes, the same idea used to tune a GP). Each round alternates two steps:</p>
+    <div class="eqbox"><div class="label">One RVM update (regression)</div>$$\boldsymbol\Sigma = \big(\beta\,\boldsymbol\Phi^\top\boldsymbol\Phi + \mathrm{diag}(\boldsymbol\alpha)\big)^{-1},\quad \boldsymbol\mu = \beta\,\boldsymbol\Sigma\boldsymbol\Phi^\top\mathbf{y} \qquad\Longrightarrow\qquad \alpha_n \leftarrow \frac{1 - \alpha_n\Sigma_{nn}}{\mu_n^2}$$</div>
+    <div class="plain"><div class="label">In plain English</div>"Given the current leashes, find the best weights $\boldsymbol\mu$ and how unsure we are about them, $\boldsymbol\Sigma$. Then tighten the leash on any weight that isn't earning its keep." If a bump is redundant (its neighbors already explain the data), its $\mu_n$ gets small, its $\alpha_n$ shoots to infinity, and the weight is pinned at exactly 0. That training point is <b>pruned</b>. The survivors are called <b>relevance vectors</b>. The noise precision $\beta$ is learned the same way, so the RVM picks its own noise level.</div>
+    <p>Unlike the SVM, the RVM is fully probabilistic. It gives error bars for regression and real probabilities for classification, and it handles many classes directly with a softmax likelihood. The price: the objective isn't convex, so you can get different answers from different starting points, and a naive implementation costs $O(N^3)$ per round. The L1VM, by contrast, is convex but needs $\lambda$ chosen by cross-validation.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 7 &middot; Pick the "comps": L1VM with a slider, RVM learning its own</div>
+      <div class="row"><span class="lbl">Method</span>
+        <button class="pill" data-d41m="l1">L1VM (lasso on kernel features)</button>
+        <button class="pill on" data-d41m="rvm">RVM (learned sparsity)</button>
+      </div>
+      <div id="p41a"></div>
+      <div id="p41b"></div>
+      <div class="legend">
+        <span><i class="sw round" style="background:var(--k3)"></i>kept day (relevance vector)</span>
+        <span><i class="sw round" style="background:none;border:1.5px solid var(--k0)"></i>pruned day</span>
+        <span><i class="sw line" style="background:var(--k3);opacity:.5"></i>its bump $w_n\mathcal{K}(x,x_n)$</span>
+        <span><i class="sw line" style="background:var(--ink)"></i>prediction</span>
+        <span id="d41bandlg"><i class="sw band" style="background:var(--k0)"></i>RVM &plusmn;2 std. dev.</span>
+      </div>
+      <div class="ctrls" id="d41l1ctrl" hidden>
+        <div class="ctrl"><label><span>Sparsity strength $\lambda$</span> <b id="d41lv">0.50</b></label><input type="range" id="d41l"></div>
+      </div>
+      <div class="row" id="d41rvmctrl">
+        <button class="pill primary" id="d41play">&#9654; Play</button>
+        <button class="pill" id="d41step">One round</button>
+        <button class="pill" id="d41end">Jump to the end</button>
+        <button class="pill" id="d41restart">Restart (all 40 kept)</button>
+      </div>
+      <div class="tiles">
+        <div class="tile good"><div class="k">Days kept</div><div class="v" id="d41k">–</div></div>
+        <div class="tile"><div class="k">Error vs. true trend (RMSE)</div><div class="v" id="d41rmse">–</div></div>
+        <div class="tile"><div class="k" id="d41k3">RVM round</div><div class="v" id="d41it">–</div></div>
+        <div class="tile"><div class="k" id="d41k4">Learned noise level (true: 45 bikes)</div><div class="v" id="d41noise">–</div></div>
+      </div>
+      <div class="readout" id="d41msg"></div>
+      <p class="hint">Press <b>Play</b> and watch the bottom strip: all 40 weights start out nonzero, and round by round the RVM pins most of them to zero until only a few "comps" remain. Then look at the shaded band near the far left and right edges, past the data: it gets <em>narrower</em>. That is a known weakness of the RVM. Its bumps sit only on training points, so far from the data it has nothing left to be unsure about. A GP's band would widen there.</p>
+    </div>
+
+    <div class="takeaways"><h3>Takeaways for 17.4&ndash;17.4.1</h3><ul>
+      <li>Use the kernel as features, $\phi_n(\mathbf{x}) = \mathcal{K}(\mathbf{x},\mathbf{x}_n)$, and fit a GLM. Sparsity comes from the <b>prior</b>, not the loss.</li>
+      <li><b>L1VM</b> = lasso on kernel features: convex, sparse, $\lambda$ chosen by CV.</li>
+      <li><b>RVM</b> = one learned precision per weight (ARD). Redundant weights get $\alpha_n \to \infty$ and are pruned. It's very sparse, sets its own hyperparameters, and gives probabilities.</li>
+      <li>The kernel doesn't need to be Mercer, and classification with many classes works naturally.</li>
+    </ul></div>
+  </section>
+
+  <!-- ============================== 17.4.2 ============================== -->
+  <section class="block hl" id="s42">
+    <h2><span class="num">17.4.2</span>Comparison of sparse and dense kernel methods</h2>
+    <p class="tldr">On the same data, all four methods fit about equally well. What differs is how many training points they keep, whether they give probabilities, and how you set their knobs.</p>
+    <p>Like the book's comparison figure, this fits four methods with the same RBF kernel to the same noisy data. The L2VM, L1VM and SVR use fixed, sensible settings (in practice you'd tune them by CV). The RVM sets its own. Change the number of training days and watch the "kept" counts: the SVR's support vectors tend to grow along with $N$, while the RVM stays small.</p>
+
+    <div class="demo">
+      <div class="demo-title">Demo 8 &middot; Four kernel regressors, same data</div>
+      <div class="row"><span class="lbl">Training days $N$</span>
+        <button class="pill" data-d42n="20">20</button>
+        <button class="pill on" data-d42n="40">40</button>
+        <button class="pill" data-d42n="80">80</button>
+        <button class="pill" data-d42n="120">120</button>
+        <button class="pill" id="d42new">New data</button>
+      </div>
+      <div class="grid2">
+        <div><div class="panel-h" id="d42t0"></div><div id="p42_0"></div></div>
+        <div><div class="panel-h" id="d42t1"></div><div id="p42_1"></div></div>
+        <div><div class="panel-h" id="d42t2"></div><div id="p42_2"></div></div>
+        <div><div class="panel-h" id="d42t3"></div><div id="p42_3"></div></div>
+      </div>
+      <div class="legend">
+        <span><i class="sw round" style="background:var(--k3)"></i>kept day</span>
+        <span><i class="sw round" style="background:none;border:1.5px solid var(--k0)"></i>discarded day</span>
+        <span><i class="sw line" style="background:var(--ink)"></i>prediction</span>
+        <span><i class="sw dash" style="border-color:var(--muted)"></i>true trend</span>
+      </div>
+      <div class="panel-h" style="margin-top:14px">Days kept vs. error</div>
+      <div id="p42bar"></div>
+    </div>
+
+    <h3>The scorecard</h3>
+    <p>This follows the comparison table at the end of 17.4, with the GP from 17.2 included for reference:</p>
+    <div class="scroll-x">
+    <table class="cheat">
+      <tr><th>Method</th><th>Fitting the weights</th><th>Kernel settings chosen by</th><th>Sparse?</th><th>Probabilities?</th><th>Multi-class</th><th>Non-Mercer kernels?</th></tr>
+      <tr><td>L2VM</td><td>convex</td><td>marginal likelihood</td><td class="warn">no</td><td class="okc">yes</td><td class="okc">yes</td><td class="okc">yes</td></tr>
+      <tr><td>L1VM</td><td>convex</td><td>cross-validation</td><td class="okc">yes</td><td class="okc">yes</td><td class="okc">yes</td><td class="okc">yes</td></tr>
+      <tr><td>RVM</td><td>not convex</td><td>marginal likelihood</td><td class="okc">yes</td><td class="okc">yes</td><td class="okc">yes</td><td class="okc">yes</td></tr>
+      <tr><td>SVM</td><td>convex</td><td>cross-validation</td><td class="okc">yes</td><td class="warn">no</td><td>indirectly (17.3.7)</td><td class="warn">no</td></tr>
+      <tr><td>GP</td><td>n/a (no weights to fit)</td><td>marginal likelihood</td><td class="warn">no</td><td class="okc">yes</td><td class="okc">yes</td><td class="warn">no</td></tr>
+    </table>
+    </div>
+    <div class="callout"><b>So which should I use?</b> If you need fast predictions from a small model <em>and</em> probabilities, a sparse vector machine (especially the RVM) gives both. If you need trustworthy error bars far from the data, a GP is safer. If you just want a strong, well-understood classifier with mature software, the SVM is still a great default.</div>
+  </section>
+
+  <!-- ============================== QUIZ ============================== -->
+  <section class="block" id="quiz">
+    <h2><span class="num">Check</span>Quiz &amp; cheat sheet</h2>
+    <div class="kicker">Click an answer to see the reasoning.</div>
+    <div id="quizbox"></div>
+    <div class="score" id="quizscore"></div>
+
+    <h3>Cheat sheet</h3>
+    <div class="scroll-x">
+    <table class="cheat">
+      <tr><th>Idea</th><th>Formula</th><th>Plain English</th></tr>
+      <tr><td>Platt scaling</td><td>$p(y=1\mid\mathbf{x}) \approx \sigma(a f(\mathbf{x}) + b)$</td><td>Squash the SVM score into a probability. Fit $a, b$ on validation data.</td></tr>
+      <tr><td>Hinge loss</td><td>$\max(0, 1 - y f(\mathbf{x}))$</td><td>Zero once a point is past the curb, so it has no pull, which makes the SVM sparse.</td></tr>
+      <tr><td>Log loss</td><td>$\log(1 + e^{-y f(\mathbf{x})})$</td><td>Never exactly zero: every point pulls, and the output is a real probability.</td></tr>
+      <tr><td>One-vs-rest</td><td>$K$ SVMs, $\hat y = \arg\max_k f_k(\mathbf{x})$</td><td>"Class $k$ or not?" Can leave gaps and conflicts, and the scores aren't on a common scale.</td></tr>
+      <tr><td>One-vs-one</td><td>$K(K-1)/2$ SVMs, majority vote</td><td>Every pair gets a referee. Ties are possible.</td></tr>
+      <tr><td>Choosing $C, \gamma$</td><td>log-spaced grid + 5-fold CV</td><td>Standardize first, then search both together.</td></tr>
+      <tr><td>Kernel ridge</td><td>$\boldsymbol\alpha = (\mathbf{K} + \lambda\mathbf{I})^{-1}\mathbf{y}$</td><td>Smooth fit, all $N$ weights nonzero. Equals the GP posterior mean.</td></tr>
+      <tr><td>$\epsilon$-insensitive loss</td><td>$\max(0, |y - \hat y| - \epsilon)$</td><td>Small misses are free. Points inside the tube get weight 0.</td></tr>
+      <tr><td>Kernel features</td><td>$\phi_n(\mathbf{x}) = \mathcal{K}(\mathbf{x}, \mathbf{x}_n)$</td><td>One bump per training point, used as an ordinary feature in a GLM.</td></tr>
+      <tr><td>L1VM</td><td>$\min \tfrac12\lVert\mathbf{y} - \boldsymbol\Phi\mathbf{w}\rVert^2 + \lambda\lVert\mathbf{w}\rVert_1$</td><td>Lasso on kernel features. Convex and sparse.</td></tr>
+      <tr><td>RVM</td><td>$w_n \sim \mathcal{N}(0, 1/\alpha_n)$, $\alpha_n$ by marginal likelihood</td><td>Each weight has its own leash. Useless weights get $\alpha_n \to \infty$ and are pruned. Gives error bars.</td></tr>
+    </table>
+    </div>
+    <div class="callout"><b>One-paragraph summary.</b> An SVM's score can be turned into a probability with Platt scaling, a sigmoid fitted on held-out data (17.3.5). The SVM is just L2-regularized logistic regression with the log loss swapped for the hinge loss, and the hinge's flat zero region is what makes most training points irrelevant (17.3.6). Several binary SVMs can be combined into a multi-class classifier, at the cost of ambiguous regions (17.3.7), and $C$ and the kernel width must be picked by cross-validation (17.3.8). For regression, kernel ridge regression is accurate but keeps every point (17.3.9). The $\epsilon$-insensitive loss restores sparsity (17.3.10). Sparse vector machines get sparsity from a prior instead: use kernels as features and fit a GLM with an L1 penalty (L1VM) or a learned per-weight precision (RVM), which gives a small model with probabilities (17.4).</div>
+  </section>
+
+  <div class="foot">Companion to K. P. Murphy, <em>Probabilistic Machine Learning: An Introduction</em> (MIT Press, 2022), &sect;17.3.5&ndash;17.4. All data are simulated from fixed seeds. Every model is trained live in your browser in plain JavaScript: SVMs by SMO (the algorithm LIBSVM uses), SVR and L1VM by coordinate descent, kernel ridge and L2VM by Cholesky solves, and the RVM by Tipping's re-estimation updates. This page is a study aid, not a substitute for the text.</div>
+</div>
+<script>
+// ============================================================
+// Shared helpers
+// ============================================================
+const $ = id => document.getElementById(id);
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : '–');
+function svgPt(svg, evt) {
+  const p = svg.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+const tip = $('tip');
+function showTip(evt, html) {
+  tip.innerHTML = html; tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = evt.clientX + 14, y = evt.clientY + 14;
+  if (x + w > window.innerWidth - 8) x = evt.clientX - w - 14;
+  if (y + h > window.innerHeight - 8) y = evt.clientY - h - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+function hexRGB(h) {
+  h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function pillGroup(attr, onSel) {
+  const btns = document.querySelectorAll(`[data-${attr}]`);
+  const key = attr.replace(/-./g, m => m[1].toUpperCase());
+  btns.forEach(b => b.addEventListener('click', () => {
+    btns.forEach(x => x.classList.remove('on')); b.classList.add('on'); onSel(b.dataset[key]);
+  }));
+  return v => btns.forEach(x => x.classList.toggle('on', x.dataset[key] === v));
+}
+function toggle(id, onChange) {
+  const b = $(id); b.addEventListener('click', () => { b.classList.toggle('on'); onChange(b.classList.contains('on')); });
+  return () => b.classList.contains('on');
+}
+// log-scaled range input; returns a setter
+function logRange(id, lo, hi, init, onInput, labelId, d = 2) {
+  const el = $(id); el.min = 0; el.max = 1000; el.step = 1;
+  const to = v => lo * Math.pow(hi / lo, v / 1000);
+  const from = x => Math.round(1000 * Math.log(x / lo) / Math.log(hi / lo));
+  el.value = from(init); if (labelId) $(labelId).textContent = init.toFixed(d);
+  el.addEventListener('input', () => { const x = to(+el.value); if (labelId) $(labelId).textContent = x.toFixed(d); onInput(x); });
+  return x => { el.value = from(x); if (labelId) $(labelId).textContent = x.toFixed(d); };
+}
+function rafThrottle(fn) { let q = false; return () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; fn(); }); }; }
+const KX = { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }], throwOnError: false };
+function typeset(el) { if (window.renderMathInElement) renderMathInElement(el, KX); }
+const REPAINT = [];
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => REPAINT.forEach(f => f()));
+
+// ---------- plotting frame ----------
+function Frame(W, H, m, xd, yd) {
+  const X = v => m.l + (v - xd[0]) / (xd[1] - xd[0]) * (W - m.l - m.r);
+  const Y = v => H - m.b - (v - yd[0]) / (yd[1] - yd[0]) * (H - m.t - m.b);
+  const ix = px => xd[0] + (px - m.l) / (W - m.l - m.r) * (xd[1] - xd[0]);
+  const iy = py => yd[0] + (H - m.b - py) / (H - m.t - m.b) * (yd[1] - yd[0]);
+  return { W, H, m, xd, yd, X, Y, ix, iy, x0: m.l, x1: W - m.r, y0: H - m.b, y1: m.t };
+}
+function axesSVG(F, { xt = [], yt = [], xf = v => v, yf = v => v, xlabel = '', ylabel = '' }) {
+  let s = '';
+  yt.forEach(v => { const y = F.Y(v); s += `<line class="grid" x1="${F.x0}" x2="${F.x1}" y1="${y}" y2="${y}"/><text class="muted" x="${F.x0 - 6}" y="${y + 4}" text-anchor="end" font-size="11">${yf(v)}</text>`; });
+  s += `<line class="axis" x1="${F.x0}" x2="${F.x1}" y1="${F.y0}" y2="${F.y0}"/>`;
+  xt.forEach(v => { const x = F.X(v); s += `<line class="axis" x1="${x}" x2="${x}" y1="${F.y0}" y2="${F.y0 + 4}"/><text class="muted" x="${x}" y="${F.y0 + 17}" text-anchor="middle" font-size="11">${xf(v)}</text>`; });
+  if (xlabel) s += `<text class="muted" x="${(F.x0 + F.x1) / 2}" y="${F.H - 4}" text-anchor="middle" font-size="11">${xlabel}</text>`;
+  if (ylabel) s += `<text class="muted halo" x="${F.x0 + 6}" y="${F.y1 + 14}" text-anchor="start" font-size="11">${ylabel}</text>`;
+  return s;
+}
+const clipRect = (id, F) => `<defs><clipPath id="${id}"><rect x="${F.x0}" y="${F.y1}" width="${F.x1 - F.x0}" height="${F.y0 - F.y1}"/></clipPath></defs>`;
+const CLS = y => (y > 0 ? 'var(--k0)' : 'var(--k1)');
+
+// A 2D plot: canvas (shaded regions) under an SVG (axes, contours, points). Equal aspect: 10 × 8 data units.
+function makePlot(host, opts = {}) {
+  const W = 556, H = 446, m = { l: 40, r: 16, t: 12, b: 34 };
+  const F = Frame(W, H, m, opts.xd || [0, 10], opts.yd || [0, 8]);
+  host.classList.add('plot');
+  host.innerHTML = `<canvas></canvas><svg viewBox="0 0 ${W} ${H}"${opts.drag ? ' class="touchnone"' : ''}></svg>`;
+  return { F, cv: host.querySelector('canvas'), svg: host.querySelector('svg') };
+}
+let PAL = null;
+function readPal() {
+  PAL = { panel: hexRGB(cssv('--panel')), pos: hexRGB(cssv('--k0')), neg: hexRGB(cssv('--k1')), road: hexRGB(cssv('--muted')) };
+}
+readPal(); REPAINT.unshift(readPal);
+const mix = (b, c, a) => [b[0] + (c[0] - b[0]) * a, b[1] + (c[1] - b[1]) * a, b[2] + (c[2] - b[2]) * a];
+// tint by side; the road (|f| < 1) is a pale neutral strip
+function sideRGB(v, road = true) {
+  if (road && Math.abs(v) < 1) return mix(PAL.panel, PAL.road, 0.13);
+  return mix(PAL.panel, v > 0 ? PAL.pos : PAL.neg, 0.16);
+}
+// evaluate f on a grid, paint it, and return the grid for contouring
+function shade(P, f, colorFn = sideRGB, nx = 139, ny = 108) {
+  const { F, cv } = P, dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(F.W * dpr); cv.height = Math.round(F.H * dpr);
+  const off = document.createElement('canvas'); off.width = nx; off.height = ny;
+  const ox = off.getContext('2d'), img = ox.createImageData(nx, ny), vals = new Float64Array(nx * ny);
+  for (let r = 0; r < ny; r++) {
+    const yv = F.yd[1] - (r + 0.5) / ny * (F.yd[1] - F.yd[0]);
+    for (let c = 0; c < nx; c++) {
+      const xv = F.xd[0] + (c + 0.5) / nx * (F.xd[1] - F.xd[0]);
+      const v = f(xv, yv); vals[r * nx + c] = v;
+      const col = colorFn(v), k = 4 * (r * nx + c);
+      img.data[k] = col[0]; img.data[k + 1] = col[1]; img.data[k + 2] = col[2]; img.data[k + 3] = 255;
+    }
+  }
+  ox.putImageData(img, 0, 0);
+  const ctx = cv.getContext('2d'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, F.x0 * dpr, F.y1 * dpr, (F.x1 - F.x0) * dpr, (F.y0 - F.y1) * dpr);
+  return { nx, ny, vals };
+}
+// marching squares → SVG path for the level set f = lev
+function contour(F, g, lev) {
+  const { nx, ny, vals } = g; let d = '';
+  const px = c => (F.x0 + (c + 0.5) / nx * (F.x1 - F.x0)).toFixed(1);
+  const py = r => (F.y1 + (r + 0.5) / ny * (F.y0 - F.y1)).toFixed(1);
+  for (let r = 0; r < ny - 1; r++) for (let c = 0; c < nx - 1; c++) {
+    const a = vals[r * nx + c] - lev, b = vals[r * nx + c + 1] - lev, e = vals[(r + 1) * nx + c + 1] - lev, h = vals[(r + 1) * nx + c] - lev;
+    const p = [];
+    if ((a > 0) !== (b > 0)) p.push([px(c + a / (a - b)), py(r)]);
+    if ((b > 0) !== (e > 0)) p.push([px(c + 1), py(r + b / (b - e))]);
+    if ((e > 0) !== (h > 0)) p.push([px(c + 1 - e / (e - h)), py(r + 1)]);
+    if ((h > 0) !== (a > 0)) p.push([px(c), py(r + 1 - h / (h - a))]);
+    if (p.length >= 2) d += `M${p[0][0]},${p[0][1]}L${p[1][0]},${p[1][1]}`;
+    if (p.length === 4) d += `M${p[2][0]},${p[2][1]}L${p[3][0]},${p[3][1]}`;
+  }
+  return d;
+}
+// clip the infinite line {p : n·p = c} to the frame's data box; returns [[x,y],[x,y]] or null
+function clipLine(F, nvec, c) {
+  const [a, b] = nvec, pts = [], [x0, x1] = F.xd, [y0, y1] = F.yd, eps = 1e-9;
+  if (Math.abs(b) > eps) { [x0, x1].forEach(x => { const y = (c - a * x) / b; if (y >= y0 - eps && y <= y1 + eps) pts.push([x, y]); }); }
+  if (Math.abs(a) > eps) { [y0, y1].forEach(y => { const x = (c - b * y) / a; if (x >= x0 - eps && x <= x1 + eps) pts.push([x, y]); }); }
+  if (pts.length < 2) return null;
+  let best = null, bd = -1;
+  for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+    const dd = (pts[i][0] - pts[j][0]) ** 2 + (pts[i][1] - pts[j][1]) ** 2; if (dd > bd) { bd = dd; best = [pts[i], pts[j]]; }
+  }
+  return best;
+}
+function lineSVG(F, nvec, c, attrs) {
+  const s = clipLine(F, nvec, c); if (!s) return '';
+  return `<line x1="${F.X(s[0][0])}" y1="${F.Y(s[0][1])}" x2="${F.X(s[1][0])}" y2="${F.Y(s[1][1])}" ${attrs}/>`;
+}
+
+// ============================================================
+// Shared numerics
+// ============================================================
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function randn(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+const sigm = z => 1 / (1 + Math.exp(-z));
+const softT = (g, t) => (g > t ? g - t : g < -t ? g + t : 0);
+const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+
+// ---------- small dense linear algebra (symmetric positive definite) ----------
+function cholesky(A) {
+  const n = A.length, L = Array.from({ length: n }, () => new Float64Array(n));
+  for (let i = 0; i < n; i++) for (let j = 0; j <= i; j++) {
+    let s = A[i][j];
+    for (let k = 0; k < j; k++) s -= L[i][k] * L[j][k];
+    if (i === j) L[i][i] = Math.sqrt(Math.max(s, 1e-12)); else L[i][j] = s / L[j][j];
+  }
+  return L;
+}
+function cholSolve(L, b) {
+  const n = L.length, z = new Float64Array(n), x = new Float64Array(n);
+  for (let i = 0; i < n; i++) { let s = b[i]; for (let k = 0; k < i; k++) s -= L[i][k] * z[k]; z[i] = s / L[i][i]; }
+  for (let i = n - 1; i >= 0; i--) { let s = z[i]; for (let k = i + 1; k < n; k++) s -= L[k][i] * x[k]; x[i] = s / L[i][i]; }
+  return x;
+}
+function spdInv(A) {
+  const n = A.length, L = cholesky(A), inv = [];
+  for (let j = 0; j < n; j++) { const e = new Float64Array(n); e[j] = 1; inv.push(cholSolve(L, e)); }
+  return inv; // symmetric, so columns = rows
+}
+
+// ============================================================
+// SVM classifier: SMO with maximal-violating-pair selection (as in LIBSVM)
+// dual:  min ½ αᵀQα − 1ᵀα,  Q_ij = y_i y_j K_ij,  0 ≤ α ≤ C,  yᵀα = 0
+// ============================================================
+function trainSVM(X, y, C, kern, maxIter = 200000) {
+  const n = X.length;
+  const K = X.map(a => X.map(b => kern(a, b)));
+  const a = new Float64Array(n), G = new Float64Array(n).fill(-1);
+  const Q = (i, j) => y[i] * y[j] * K[i][j];
+  const TAU = 1e-12;
+  for (let it = 0; it < maxIter; it++) {
+    let i = -1, j = -1, gmax = -Infinity, gmin = Infinity;
+    for (let t = 0; t < n; t++) {
+      const v = -y[t] * G[t];
+      if (((y[t] > 0 && a[t] < C) || (y[t] < 0 && a[t] > 0)) && v > gmax) { gmax = v; i = t; }
+      if (((y[t] < 0 && a[t] < C) || (y[t] > 0 && a[t] > 0)) && v < gmin) { gmin = v; j = t; }
+    }
+    if (i < 0 || j < 0 || gmax - gmin < 1e-4) break;
+    const ai = a[i], aj = a[j];
+    if (y[i] !== y[j]) {
+      let quad = Q(i, i) + Q(j, j) + 2 * Q(i, j); if (quad <= 0) quad = TAU;
+      const delta = (-G[i] - G[j]) / quad, diff = a[i] - a[j];
+      a[i] += delta; a[j] += delta;
+      if (diff > 0) { if (a[j] < 0) { a[j] = 0; a[i] = diff; } } else { if (a[i] < 0) { a[i] = 0; a[j] = -diff; } }
+      if (diff > 0) { if (a[i] > C) { a[i] = C; a[j] = C - diff; } } else { if (a[j] > C) { a[j] = C; a[i] = C + diff; } }
+    } else {
+      let quad = Q(i, i) + Q(j, j) - 2 * Q(i, j); if (quad <= 0) quad = TAU;
+      const delta = (G[i] - G[j]) / quad, sum = a[i] + a[j];
+      a[i] -= delta; a[j] += delta;
+      if (sum > C) { if (a[i] > C) { a[i] = C; a[j] = sum - C; } } else { if (a[j] < 0) { a[j] = 0; a[i] = sum; } }
+      if (sum > C) { if (a[j] > C) { a[j] = C; a[i] = sum - C; } } else { if (a[i] < 0) { a[i] = 0; a[j] = sum; } }
+    }
+    const di = a[i] - ai, dj = a[j] - aj;
+    for (let t = 0; t < n; t++) G[t] += Q(t, i) * di + Q(t, j) * dj;
+  }
+  // offset w0 (= −ρ in LIBSVM): average over free SVs, else midpoint of the feasible interval
+  let ub = Infinity, lb = -Infinity, sum = 0, nf = 0;
+  const tol = 1e-8 * Math.max(1, C);
+  for (let t = 0; t < n; t++) {
+    const yG = y[t] * G[t];
+    if (a[t] >= C - tol) { if (y[t] < 0) ub = Math.min(ub, yG); else lb = Math.max(lb, yG); }
+    else if (a[t] <= tol) { if (y[t] > 0) ub = Math.min(ub, yG); else lb = Math.max(lb, yG); }
+    else { sum += yG; nf++; }
+  }
+  const rho = nf > 0 ? sum / nf : (Number.isFinite(ub) && Number.isFinite(lb) ? (ub + lb) / 2 : (Number.isFinite(ub) ? ub : lb));
+  const w0 = -rho;
+  const sv = []; for (let t = 0; t < n; t++) if (a[t] > 1e-6) sv.push(t);
+  const f = p => { let s = w0; for (const t of sv) s += a[t] * y[t] * kern(X[t], p); return s; };
+  const fTrain = X.map((_, t) => { let s = w0; for (const u of sv) s += a[u] * y[u] * K[u][t]; return s; });
+  return { alpha: a, w0, sv, f, fTrain, C };
+}
+const linK = (a, b) => a[0] * b[0] + a[1] * b[1];
+const rbfK = g => (a, b) => Math.exp(-g * ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2));
+function linW(X, y, m) { const w = [0, 0]; m.sv.forEach(t => { w[0] += m.alpha[t] * y[t] * X[t][0]; w[1] += m.alpha[t] * y[t] * X[t][1]; }); return w; }
+
+// L2-regularized logistic regression, 2D + bias, by Newton's method.
+// minimize ½‖w‖² + C Σ log(1 + exp(−yₙ f(xₙ)))  (same scaling as the soft-margin SVM)
+function trainLogReg(X, y, C) {
+  let th = [0, 0, 0];
+  for (let it = 0; it < 50; it++) {
+    const g = [th[0], th[1], 0], H = [[1, 0, 0], [0, 1, 0], [0, 0, 1e-6]];
+    X.forEach((p, n) => {
+      const z = [p[0], p[1], 1], m = y[n] * (th[0] * p[0] + th[1] * p[1] + th[2]);
+      const s = sigm(-m), w = s * (1 - s);
+      for (let a = 0; a < 3; a++) { g[a] -= C * s * y[n] * z[a]; for (let b = 0; b < 3; b++) H[a][b] += C * w * z[a] * z[b]; }
+    });
+    const d = cholSolve(cholesky(H), g);
+    th = th.map((v, k) => v - d[k]);
+    if (Math.hypot(d[0], d[1], d[2]) < 1e-9) break;
+  }
+  const f = p => th[0] * p[0] + th[1] * p[1] + th[2];
+  return { th, f, fTrain: X.map(f) };
+}
+
+// Platt scaling: fit p = σ(a·s + b) to (score, 0/1 label) pairs by Newton's method
+function fitPlatt(s, t) {
+  let a = 1, b = 0;
+  for (let it = 0; it < 100; it++) {
+    let ga = 0, gb = 0, haa = 1e-6, hab = 0, hbb = 1e-6;
+    s.forEach((v, n) => { const p = sigm(a * v + b), e = p - t[n], w = p * (1 - p); ga += e * v; gb += e; haa += w * v * v; hab += w * v; hbb += w; });
+    const det = haa * hbb - hab * hab, da = (hbb * ga - hab * gb) / det, db = (haa * gb - hab * ga) / det;
+    a -= da; b -= db;
+    if (Math.abs(da) + Math.abs(db) < 1e-10) break;
+  }
+  return { a, b };
+}
+function logLoss(s, t, a, b) {
+  return mean(s.map((v, n) => { const p = Math.min(1 - 1e-12, Math.max(1e-12, sigm(a * v + b))); return -(t[n] * Math.log(p) + (1 - t[n]) * Math.log(1 - p)); }));
+}
+
+// ============================================================
+// 1D kernel regression family. All use the RBF kernel k(x,x') = exp(−(x−x')²/(2ℓ²))
+// and work on centered targets (the mean is added back at prediction time).
+// Each returns { w, keep, f } where f(x) = ȳ + Σₙ wₙ k(x, xₙ).
+// ============================================================
+const k1 = ell => (a, b) => Math.exp(-((a - b) ** 2) / (2 * ell * ell));
+function gram1(X, k) { return X.map(a => X.map(b => k(a, b))); }
+function predictor(X, ybar, w, k) {
+  const idx = []; w.forEach((v, n) => { if (Math.abs(v) > 1e-6) idx.push(n); });
+  return { w, keep: idx, f: x => { let s = ybar; for (const n of idx) s += w[n] * k(x, X[n]); return s; } };
+}
+// Kernel ridge regression (17.3.9): w = (K + λI)⁻¹ y
+function fitKRR(X, Y, ell, lam) {
+  const k = k1(ell), K = gram1(X, k), ybar = mean(Y), yc = Y.map(v => v - ybar);
+  const A = K.map((r, i) => r.map((v, j) => v + (i === j ? lam : 0)));
+  return predictor(X, ybar, Array.from(cholSolve(cholesky(A), yc)), k);
+}
+// L2VM (17.4): ridge regression on the kernel features φ(x) = [k(x,x₁) … k(x,x_N)]
+function fitL2VM(X, Y, ell, lam) {
+  const k = k1(ell), K = gram1(X, k), n = X.length, ybar = mean(Y), yc = Y.map(v => v - ybar);
+  const A = K.map((_, i) => K.map((_, j) => { let s = 0; for (let t = 0; t < n; t++) s += K[t][i] * K[t][j]; return s + (i === j ? lam : 0); }));
+  const b = K.map((_, i) => { let s = 0; for (let t = 0; t < n; t++) s += K[t][i] * yc[t]; return s; });
+  return predictor(X, ybar, Array.from(cholSolve(cholesky(A), b)), k);
+}
+// SVM regression (17.3.10), dual in β = α − α*:
+//   min ½ βᵀKβ − yᵀβ + ε‖β‖₁   s.t. −C ≤ βₙ ≤ C,   solved by coordinate descent
+function fitSVR(X, Y, ell, eps, C, warm) {
+  const k = k1(ell), K = gram1(X, k), n = X.length, ybar = mean(Y), yc = Y.map(v => v - ybar);
+  const b = warm && warm.length === n ? warm.slice() : new Array(n).fill(0);
+  const Kb = K.map(r => r.reduce((s, v, j) => s + v * b[j], 0));
+  for (let sweep = 0; sweep < 4000; sweep++) {
+    let maxd = 0;
+    for (let i = 0; i < n; i++) {
+      const g = Kb[i] - K[i][i] * b[i] - yc[i];
+      const nb = Math.max(-C, Math.min(C, -softT(g, eps) / K[i][i])), d = nb - b[i];
+      if (d !== 0) { for (let j = 0; j < n; j++) Kb[j] += K[j][i] * d; b[i] = nb; maxd = Math.max(maxd, Math.abs(d)); }
+    }
+    if (maxd < 1e-7) break;
+  }
+  return predictor(X, ybar, b, k);
+}
+// L1VM (17.4): lasso on the kernel features,  min ½‖y − Kw‖² + λ‖w‖₁,  coordinate descent
+function fitL1VM(X, Y, ell, lam, warm) {
+  const k = k1(ell), K = gram1(X, k), n = X.length, ybar = mean(Y), yc = Y.map(v => v - ybar);
+  const w = warm && warm.length === n ? warm.slice() : new Array(n).fill(0);
+  const cs = K.map((_, j) => K.reduce((s, r) => s + r[j] * r[j], 0));
+  const r = yc.map((v, i) => v - K[i].reduce((s, kv, j) => s + kv * w[j], 0));
+  for (let sweep = 0; sweep < 5000; sweep++) {
+    let maxd = 0;
+    for (let j = 0; j < n; j++) {
+      let rho = cs[j] * w[j]; for (let i = 0; i < n; i++) rho += K[i][j] * r[i];
+      const nw = softT(rho, lam) / cs[j], d = nw - w[j];
+      if (d !== 0) { for (let i = 0; i < n; i++) r[i] -= K[i][j] * d; w[j] = nw; maxd = Math.max(maxd, Math.abs(d)); }
+    }
+    if (maxd < 1e-7) break;
+  }
+  return predictor(X, ybar, w, k);
+}
+// RVM (17.4.1): sparse Bayesian learning with one precision αₙ per weight (Tipping 2001).
+// Each step:  Σ = (βΦᵀΦ + diag α)⁻¹,  μ = βΣΦᵀy,  γₙ = 1 − αₙΣₙₙ,  αₙ ← γₙ/μₙ²,  β ← (N − Σγ)/‖y − Φμ‖².
+// A basis function whose αₙ explodes has its weight pinned at 0 and is pruned.
+function rvmInit(X, Y, ell) {
+  const k = k1(ell), K = gram1(X, k), n = X.length, ybar = mean(Y), yc = Y.map(v => v - ybar);
+  const G = K.map((_, i) => K.map((_, j) => { let s = 0; for (let t = 0; t < n; t++) s += K[t][i] * K[t][j]; return s; }));
+  const Ky = K.map((_, i) => { let s = 0; for (let t = 0; t < n; t++) s += K[t][i] * yc[t]; return s; });
+  const vy = mean(yc.map(v => v * v));
+  return { X, k, K, G, Ky, yc, ybar, n, alpha: new Array(n).fill(1), beta: 10 / vy, alive: [...Array(n).keys()], it: 0, done: false, mu: null, Sigma: null, idx: null };
+}
+function rvmStep(S) {
+  if (S.done) return S;
+  const idx = S.alive.slice(), m = idx.length;
+  const H = idx.map((i, a) => idx.map((j, b) => S.beta * S.G[i][j] + (a === b ? S.alpha[i] : 0)));
+  const Sigma = spdInv(H);
+  const mu = idx.map((_, a) => S.beta * idx.reduce((s, j, b) => s + Sigma[a][b] * S.Ky[j], 0));
+  let gsum = 0, maxChange = 0, rss = 0;
+  for (let t = 0; t < S.n; t++) { let p = 0; idx.forEach((j, b) => { p += S.K[t][j] * mu[b]; }); rss += (S.yc[t] - p) ** 2; }
+  idx.forEach((i, a) => {
+    const g = 1 - S.alpha[i] * Sigma[a][a]; gsum += g;
+    const na = g / Math.max(mu[a] * mu[a], 1e-300);
+    maxChange = Math.max(maxChange, Math.abs(Math.log(na / S.alpha[i])));
+    S.alpha[i] = na;
+  });
+  S.beta = Math.max(S.n - gsum, 1e-6) / Math.max(rss, 1e-12);
+  S.mu = mu; S.Sigma = Sigma; S.idx = idx; S.it++;
+  const keep = S.alive.filter(i => S.alpha[i] < 1e6);
+  S.alive = keep.length ? keep : [S.alive.reduce((b, i) => (S.alpha[i] < S.alpha[b] ? i : b))];
+  if ((maxChange < 1e-4 && S.alive.length === m) || S.it >= 3000) S.done = true;
+  return S;
+}
+function rvmRun(S) { while (!S.done) rvmStep(S); return S; }
+function rvmPredict(S) {
+  const w = new Array(S.n).fill(0); S.idx.forEach((i, a) => { w[i] = S.mu[a]; });
+  const P = predictor(S.X, S.ybar, w, S.k);
+  P.keep = S.idx.slice();
+  P.sd = x => {
+    const ph = S.idx.map(i => S.k(x, S.X[i]));
+    let v = 1 / S.beta; ph.forEach((p, a) => ph.forEach((q, b) => { v += p * S.Sigma[a][b] * q; }));
+    return Math.sqrt(v);
+  };
+  P.noise = 1 / Math.sqrt(S.beta);
+  return P;
+}
+
+// ---------- the bike-rental data used from 17.3.9 onward ----------
+// rentals (hundreds) vs temperature (°C): low in the cold, a plateau when it is pleasant, a dip in extreme heat
+const bikeTrue = t => 1 + 5 / (1 + Math.exp(-(t - 10) / 3)) - 3.5 * Math.exp(-(((t - 34) / 4) ** 2));
+function bikeData(seed, n, noise = 0.45) {
+  const r = mulberry32(seed), pts = [];
+  for (let i = 0; i < n; i++) { const t = -4 + 41 * r(); pts.push([t, bikeTrue(t) + noise * randn(r)]); }
+  pts.sort((a, b) => a[0] - b[0]);
+  return { X: pts.map(p => p[0]), Y: pts.map(p => p[1]) };
+}
+const BIKE_TEST = (() => { const xs = []; for (let i = 0; i < 200; i++) xs.push(-4 + 41 * (i + 0.5) / 200); return xs; })();
+const rmseTrue = f => Math.sqrt(mean(BIKE_TEST.map(t => (f(t) - bikeTrue(t)) ** 2)));
+
+// ============================================================
+// Extra plotting helpers for this page
+// ============================================================
+function readPal2() { PAL.k2 = hexRGB(cssv('--k2')); PAL.k3 = hexRGB(cssv('--k3')); PAL.muted = hexRGB(cssv('--muted')); }
+readPal2(); REPAINT.splice(1, 0, readPal2);
+// evaluate f on the same grid that shade() uses, without painting
+function evalGrid(F, f, nx = 139, ny = 108) {
+  const vals = new Float64Array(nx * ny);
+  for (let r = 0; r < ny; r++) {
+    const yv = F.yd[1] - (r + 0.5) / ny * (F.yd[1] - F.yd[0]);
+    for (let c = 0; c < nx; c++) vals[r * nx + c] = f(F.xd[0] + (c + 0.5) / nx * (F.xd[1] - F.xd[0]), yv);
+  }
+  return { nx, ny, vals };
+}
+const mapGrid = (g, fn) => ({ nx: g.nx, ny: g.ny, vals: Float64Array.from(g.vals, fn) });
+function paint(P, g, colorFn) {
+  const { F, cv } = P, dpr = window.devicePixelRatio || 1, { nx, ny, vals } = g;
+  cv.width = Math.round(F.W * dpr); cv.height = Math.round(F.H * dpr);
+  const off = document.createElement('canvas'); off.width = nx; off.height = ny;
+  const ox = off.getContext('2d'), img = ox.createImageData(nx, ny);
+  for (let i = 0; i < nx * ny; i++) {
+    const col = colorFn(vals[i]);
+    img.data[4 * i] = col[0]; img.data[4 * i + 1] = col[1]; img.data[4 * i + 2] = col[2]; img.data[4 * i + 3] = 255;
+  }
+  ox.putImageData(img, 0, 0);
+  const ctx = cv.getContext('2d'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, F.x0 * dpr, F.y1 * dpr, (F.x1 - F.x0) * dpr, (F.y0 - F.y1) * dpr);
+}
+function makePlot1D(host, xd, yd, H = 280, m = { l: 44, r: 14, t: 12, b: 34 }, W = 556) {
+  const F = Frame(W, H, m, xd, yd);
+  host.classList.add('plot');
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}"></svg>`;
+  return { F, svg: host.querySelector('svg') };
+}
+function curveD(F, f, n = 220, lo = F.xd[0], hi = F.xd[1]) {
+  let d = '';
+  for (let i = 0; i <= n; i++) { const x = lo + (hi - lo) * i / n; d += (i ? 'L' : 'M') + F.X(x).toFixed(1) + ',' + F.Y(f(x)).toFixed(1); }
+  return d;
+}
+function bandD(F, lo, hi, n = 160) {
+  let d = '';
+  for (let i = 0; i <= n; i++) { const x = F.xd[0] + (F.xd[1] - F.xd[0]) * i / n; d += (i ? 'L' : 'M') + F.X(x).toFixed(1) + ',' + F.Y(hi(x)).toFixed(1); }
+  for (let i = n; i >= 0; i--) { const x = F.xd[0] + (F.xd[1] - F.xd[0]) * i / n; d += 'L' + F.X(x).toFixed(1) + ',' + F.Y(lo(x)).toFixed(1); }
+  return d + 'Z';
+}
+const pct = v => (100 * v).toFixed(0) + '%';
+const bikes = v => Math.round(100 * v) + ' bikes';
+
+// ---------- bike-rental plots (17.3.9 onward) ----------
+const BX = [-8, 41], BY = [-0.5, 8], WIDE = 860;
+const STEM_M = { l: 44, r: 14, t: 6, b: 6 }, PLOT_M = { l: 44, r: 14, t: 12, b: 34 };
+// the true trend, drawn only over the range the data cover
+const trueD = (F, n = 160) => curveD(F, bikeTrue, n, -4, 37);
+function bikeAxes(F, small = false) {
+  return axesSVG(F, {
+    xt: small ? [0, 10, 20, 30, 40] : [-5, 0, 5, 10, 15, 20, 25, 30, 35, 40], yt: [0, 2, 4, 6, 8],
+    xf: v => v + '°', yf: v => v * 100, xlabel: small ? '' : 'Temperature (°C)', ylabel: 'Bikes rented per day',
+  });
+}
+// one stem per training point: its weight. Zero weights are small gray dots on the axis.
+function drawStems(P, X, w, color = 'var(--k3)') {
+  const F = P.F, mx = Math.max(1e-9, ...w.map(Math.abs));
+  let s = `<line class="axis" x1="${F.x0}" x2="${F.x1}" y1="${F.Y(0)}" y2="${F.Y(0)}"/>`;
+  s += `<text class="muted" x="${F.x0 - 6}" y="${F.Y(0) + 4}" text-anchor="end" font-size="11">weight</text>`;
+  X.forEach((x, n) => {
+    const px = F.X(x);
+    if (Math.abs(w[n]) > 1e-6) {
+      const py = F.Y(0.92 * w[n] / mx);
+      s += `<line x1="${px}" x2="${px}" y1="${F.Y(0)}" y2="${py}" stroke="${color}" stroke-width="2"/><circle cx="${px}" cy="${py}" r="2.8" fill="${color}"/>`;
+    } else s += `<circle cx="${px}" cy="${F.Y(0)}" r="1.8" fill="var(--muted)"/>`;
+  });
+  P.svg.innerHTML = s;
+}
+
+// ============================================================
+// Intro: who does each method remember?
+// ============================================================
+(function lineup() {
+  const D = bikeData(11, 40), ell = 4, n = D.X.length, all = D.X.map((_, i) => i);
+  const kept = {
+    all,
+    svr: fitSVR(D.X, D.Y, ell, 0.5, 10).keep,
+    l1: fitL1VM(D.X, D.Y, ell, 0.5).keep,
+    rvm: rvmPredict(rvmRun(rvmInit(D.X, D.Y, ell))).keep,
+  };
+  const rows = [
+    ['k-NN & kernel regression', '§16.1–16.3', 'all', 'no error bars'],
+    ['Gaussian process', '§17.2', 'all', 'error bars'],
+    ['Kernel ridge regression', '§17.3.9', 'all', 'no error bars'],
+    ['SVM regression (SVR)', '§17.3.10', 'svr', 'no error bars'],
+    ['L1VM', '§17.4', 'l1', 'probabilistic'],
+    ['RVM', '§17.4.1', 'rvm', 'error bars'],
+  ];
+  const W = 820, rh = 42, top = 6, H = top + rows.length * rh + 22, x0 = 230, x1 = 650;
+  const PX = i => x0 + i / (n - 1) * (x1 - x0); // evenly spaced, in temperature order
+  let s = '';
+  rows.forEach(([name, sec, key, note], k) => {
+    const y = top + k * rh + rh / 2, K = new Set(kept[key]), sparse = key !== 'all';
+    if (k) s += `<line class="grid" x1="6" x2="${W - 6}" y1="${y - rh / 2}" y2="${y - rh / 2}"/>`;
+    s += `<text x="8" y="${y - 3}" font-weight="700" font-size="12.5">${name}</text><text class="muted" x="8" y="${y + 12}" font-size="11">${sec}</text>`;
+    s += `<line class="axis" x1="${x0 - 4}" x2="${x1 + 4}" y1="${y}" y2="${y}"/>`;
+    D.X.forEach((t, i) => {
+      s += K.has(i)
+        ? `<circle cx="${PX(i)}" cy="${y}" r="4.4" fill="var(--k3)"/>`
+        : `<circle cx="${PX(i)}" cy="${y}" r="3.2" fill="var(--panel)" stroke="var(--muted)" stroke-width="1.2"/>`;
+    });
+    s += `<text x="${x1 + 14}" y="${y - 3}" font-weight="700" font-size="12.5" fill="${sparse ? 'var(--good)' : 'var(--bad)'}" style="fill:${sparse ? 'var(--good)' : 'var(--bad)'}">${K.size} / ${n} kept</text>`;
+    s += `<text class="muted" x="${x1 + 14}" y="${y + 12}" font-size="11">${note}</text>`;
+  });
+  const yb = top + rows.length * rh + 12;
+  s += `<text class="muted" x="${x0}" y="${yb}" font-size="11" text-anchor="middle">−4°C</text><text class="muted" x="${(x0 + x1) / 2}" y="${yb}" font-size="11" text-anchor="middle">← 40 training days, coldest to hottest →</text><text class="muted" x="${x1}" y="${yb}" font-size="11" text-anchor="middle">37°C</text>`;
+  $('lineup').innerHTML = `<svg viewBox="0 0 ${W} ${H}">${s}</svg>`;
+})();
+
+// ============================================================
+// Demo 1 (17.3.5): Platt scaling
+// ============================================================
+(function demo5() {
+  const trueLogit = (x, y) => 1.6 * (0.55 * x + 0.6 * y - 0.05 * (x - 5) ** 2 - 4.6);
+  function gen(seed, n) {
+    const r = mulberry32(seed), X = [], Y = [];
+    for (let i = 0; i < n; i++) { const p = [0.3 + 9.4 * r(), 0.3 + 7.4 * r()]; X.push(p); Y.push(r() < sigm(trueLogit(p[0], p[1])) ? 1 : -1); }
+    return { X, Y };
+  }
+  const tr = gen(5, 80), va = gen(6, 160);
+  const model = trainSVM(tr.X, tr.Y, 1, rbfK(0.15));
+  const vs = va.X.map(model.f), vt = va.Y.map(v => (v > 0 ? 1 : 0));
+  const best = fitPlatt(vs, vt);
+  const jr = mulberry32(99), jit = vs.map(() => 0.012 + 0.04 * jr());
+  let a = 1, b = 0, mode = 'platt';
+
+  const PA = makePlot($('p5a')), FA = PA.F;
+  const sGrid = evalGrid(FA, (x, y) => model.f([x, y]), 110, 88);
+  const tGrid = evalGrid(FA, (x, y) => sigm(trueLogit(x, y)), 110, 88);
+  const probRGB = p => (p >= 0.5 ? mix(PAL.panel, PAL.pos, (p - 0.5) * 2 * 0.45) : mix(PAL.panel, PAL.neg, (0.5 - p) * 2 * 0.45));
+  function drawMap() {
+    let pg = null;
+    if (mode === 'score') paint(PA, sGrid, v => sideRGB(v, true));
+    else { pg = mode === 'platt' ? mapGrid(sGrid, s => sigm(a * s + b)) : tGrid; paint(PA, pg, probRGB); }
+    let s = clipRect('c5', FA) + axesSVG(FA, { xt: [0, 2, 4, 6, 8, 10], yt: [0, 2, 4, 6, 8], xf: v => '$' + v * 100, yf: v => v * 100, xlabel: 'Transaction amount', ylabel: 'Distance from home (km)' });
+    s += `<g clip-path="url(#c5)">`;
+    if (pg) [0.1, 0.5, 0.9].forEach(l => { s += `<path d="${contour(FA, pg, l)}" stroke="var(--ink)" stroke-width="${l === 0.5 ? 1.6 : 1}" stroke-dasharray="5 4" opacity=".7" fill="none"/>`; });
+    else [-1, 1].forEach(l => { s += `<path d="${contour(FA, sGrid, l)}" stroke="var(--ink)" stroke-width="1" opacity=".5" fill="none"/>`; });
+    s += `<path d="${contour(FA, sGrid, 0)}" stroke="var(--ink)" stroke-width="2.2" fill="none"/></g>`;
+    tr.X.forEach((p, i) => { s += `<circle cx="${FA.X(p[0])}" cy="${FA.Y(p[1])}" r="5" fill="${CLS(tr.Y[i])}" stroke="var(--panel)" stroke-width="1.3"/>`; });
+    PA.svg.innerHTML = s;
+  }
+  PA.svg.addEventListener('pointermove', e => {
+    const q = svgPt(PA.svg, e), x = FA.ix(q.x), y = FA.iy(q.y);
+    if (x < 0 || x > 10 || y < 0 || y > 8) return;
+    const f = model.f([x, y]);
+    $('d5msg').innerHTML = `A <b>$${Math.round(x * 100)}</b> purchase <b>${Math.round(y * 100)} km</b> from home: SVM score <i>f</i> = <b>${fmt(f)}</b> &rarr; Platt says <b>${pct(sigm(a * f + b))}</b> fraud. True chance: ${pct(sigm(trueLogit(x, y)))}.`;
+  });
+
+  // score → probability panel, with the observed fraud rate in score bins
+  const PB = makePlot1D($('p5b'), [-3, 3], [-0.06, 1.06], 320), FB = PB.F;
+  const edges = [-Infinity, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, Infinity];
+  const bins = [];
+  for (let k = 0; k < edges.length - 1; k++) {
+    const idx = vs.map((v, i) => i).filter(i => vs[i] >= edges[k] && vs[i] < edges[k + 1]);
+    if (idx.length >= 4) bins.push({ x: mean(idx.map(i => vs[i])), r: mean(idx.map(i => vt[i])), n: idx.length });
+  }
+  function drawScore() {
+    let s = clipRect('c5b', FB) + axesSVG(FB, { xt: [-3, -2, -1, 0, 1, 2, 3], yt: [0, 0.25, 0.5, 0.75, 1], yf: v => pct(v), xlabel: 'SVM score f(x) on the validation transactions', ylabel: 'P(fraud)' });
+    s += `<g clip-path="url(#c5b)">`;
+    s += `<path d="M${FB.X(-3)},${FB.Y(0)}L${FB.X(0)},${FB.Y(0)}L${FB.X(0)},${FB.Y(1)}L${FB.X(3)},${FB.Y(1)}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" fill="none"/>`;
+    vs.forEach((v, i) => { s += `<circle cx="${FB.X(clamp(v, -2.95, 2.95))}" cy="${FB.Y(vt[i] ? 1 - jit[i] : jit[i])}" r="2.6" fill="${CLS(va.Y[i])}" opacity=".55"/>`; });
+    bins.forEach(bn => { const r = 3 + Math.sqrt(bn.n); s += `<rect x="${FB.X(bn.x) - r}" y="${FB.Y(bn.r) - r}" width="${2 * r}" height="${2 * r}" rx="2" fill="var(--k2)" stroke="var(--panel)" stroke-width="1.2"><title>${bn.n} transactions, ${pct(bn.r)} fraud</title></rect>`; });
+    s += `<path d="${curveD(FB, x => sigm(a * x + b))}" stroke="var(--k3)" stroke-width="2.6" fill="none"/></g>`;
+    s += `<text class="muted halo" x="${FB.X(-2.9)}" y="${FB.Y(0.08)}" font-size="11">legitimate</text><text class="muted halo" x="${FB.X(2.9)}" y="${FB.Y(0.93)}" text-anchor="end" font-size="11">fraud</text>`;
+    PB.svg.innerHTML = s;
+    const ll = logLoss(vs, vt, a, b), llBest = logLoss(vs, vt, best.a, best.b);
+    $('d5ll').textContent = ll.toFixed(3);
+    $('d5ll').parentElement.className = 'tile ' + (ll - llBest < 0.005 ? 'good' : '');
+    $('d5p0').textContent = pct(sigm(b)) + ' fraud';
+    $('d5p1').textContent = pct(sigm(a + b)) + ' fraud';
+  }
+  const draw = () => { drawMap(); drawScore(); };
+  const sync = () => { $('d5a').value = a; $('d5b').value = b; $('d5av').textContent = a.toFixed(2); $('d5bv').textContent = b.toFixed(2); };
+  const redraw = rafThrottle(draw);
+  $('d5a').addEventListener('input', () => { a = +$('d5a').value; sync(); redraw(); });
+  $('d5b').addEventListener('input', () => { b = +$('d5b').value; sync(); redraw(); });
+  $('d5fit').addEventListener('click', () => {
+    a = +best.a.toFixed(2); b = +best.b.toFixed(2); sync(); draw();
+    $('d5msg').innerHTML = `Best fit: $a$ = ${fmt(best.a)}, $b$ = ${fmt(best.b)}. A score of exactly 0 (on the SVM's boundary) means <b>${pct(sigm(best.b))}</b> fraud, not 50%, and a score of 1 (on the curb) means <b>${pct(sigm(best.a + best.b))}</b>, not 100%. Hover over the map to check individual transactions.`;
+    typeset($('d5msg'));
+  });
+  pillGroup('d5m', v => { mode = v; drawMap(); });
+  REPAINT.push(draw);
+  sync(); draw();
+})();
+
+// ============================================================
+// Demo 2 (17.3.6): hinge loss vs. log loss
+// ============================================================
+(function demo6() {
+  const hinge = m => Math.max(0, 1 - m), logl = m => Math.log2(1 + Math.exp(-m));
+  const PL = makePlot1D($('p6a'), [-2.5, 3.5], [0, 3.6], 320), FL = PL.F;
+  let mv = 0.5;
+  function drawLoss() {
+    let s = clipRect('c6a', FL) + axesSVG(FL, { xt: [-2, -1, 0, 1, 2, 3], yt: [0, 1, 2, 3], xlabel: 'margin m = y·f(x)   (wrong side ← 0 → right side)', ylabel: 'loss' });
+    s += `<g clip-path="url(#c6a)">`;
+    s += `<rect x="${FL.X(1)}" y="${FL.y1}" width="${FL.x1 - FL.X(1)}" height="${FL.y0 - FL.y1}" fill="var(--k2)" opacity=".08"/>`;
+    s += `<text class="halo" x="${FL.X(2.25)}" y="${FL.Y(3.2)}" text-anchor="middle" font-size="11" style="fill:var(--good)">hinge = 0 here:</text><text class="halo" x="${FL.X(2.25)}" y="${FL.Y(3.2) + 14}" text-anchor="middle" font-size="11" style="fill:var(--good)">no pull at all</text>`;
+    s += `<path d="M${FL.X(-2.5)},${FL.Y(1)}L${FL.X(0)},${FL.Y(1)}M${FL.X(0)},${FL.Y(0)}L${FL.X(3.5)},${FL.Y(0)}" stroke="var(--muted)" stroke-width="2.2" fill="none"/>`;
+    s += `<path d="${curveD(FL, hinge)}" stroke="var(--ink)" stroke-width="2.6" fill="none"/>`;
+    s += `<path d="${curveD(FL, logl)}" stroke="var(--k3)" stroke-width="2.6" fill="none"/>`;
+    s += `<line x1="${FL.X(mv)}" x2="${FL.X(mv)}" y1="${FL.y0}" y2="${FL.y1}" stroke="var(--ink)" stroke-dasharray="4 4" opacity=".5"/>`;
+    s += `<circle cx="${FL.X(mv)}" cy="${FL.Y(hinge(mv))}" r="5.5" fill="var(--ink)" stroke="var(--panel)" stroke-width="1.5"/>`;
+    s += `<circle cx="${FL.X(mv)}" cy="${FL.Y(logl(mv))}" r="5.5" fill="var(--k3)" stroke="var(--panel)" stroke-width="1.5"/></g>`;
+    PL.svg.innerHTML = s;
+    const hp = mv < 1 ? 1 : 0, lp = sigm(-mv);
+    const where = mv < 0 ? 'on the <b>wrong side</b>' : mv < 1 ? 'right side, but <b>on the road</b>' : '<b>past the curb</b>, confidently right';
+    $('d6lossmsg').innerHTML = `m = ${mv.toFixed(2)}: ${where}.<br>Hinge loss <b>${hinge(mv).toFixed(2)}</b>, pull <b>${hp.toFixed(2)}</b> &nbsp;|&nbsp; Log loss <b>${logl(mv).toFixed(2)}</b>, pull <b>${lp.toFixed(2)}</b>` + (mv >= 1 ? ` <span class="okc">&larr; hinge pull is exactly 0</span>` : '');
+  }
+  $('d6m').addEventListener('input', () => { mv = +$('d6m').value; $('d6mv').textContent = mv.toFixed(2); drawLoss(); });
+
+  // exam data: pass (+1) if studying and sleep add up, with some noise
+  const r = mulberry32(4), X = [], Y = [];
+  while (X.length < 36) {
+    const p = [0.4 + 9.2 * r(), 0.4 + 7.2 * r()], g = 0.75 * p[0] + 0.85 * p[1] - 8.2 + 1.3 * randn(r);
+    X.push(p); Y.push(g > 0 ? 1 : -1);
+  }
+  const P = makePlot($('p6b')), F = P.F;
+  let C = 1, which = 'svm', svm, lr, svmW;
+  function fit() { svm = trainSVM(X, Y, C, linK); svmW = linW(X, Y, svm); lr = trainLogReg(X, Y, C); }
+  const pullSVM = i => svm.alpha[i] / C, pullLR = i => sigm(-Y[i] * lr.fTrain[i]);
+  function draw() {
+    const f = which === 'svm' ? (x, y) => svmW[0] * x + svmW[1] * y + svm.w0 : (x, y) => lr.f([x, y]);
+    shade(P, f, v => sideRGB(v, false), 90, 72);
+    let s = clipRect('c6b', F) + axesSVG(F, { xt: [0, 2, 4, 6, 8, 10], yt: [0, 2, 4, 6, 8], xlabel: 'Hours studied', ylabel: 'Hours slept' });
+    s += `<g clip-path="url(#c6b)">`;
+    s += lineSVG(F, svmW, -svm.w0 + 1, 'stroke="var(--ink)" stroke-width="1" opacity=".45"');
+    s += lineSVG(F, svmW, -svm.w0 - 1, 'stroke="var(--ink)" stroke-width="1" opacity=".45"');
+    s += lineSVG(F, svmW, -svm.w0, 'stroke="var(--ink)" stroke-width="2.4"');
+    s += lineSVG(F, [lr.th[0], lr.th[1]], -lr.th[2], 'stroke="var(--k3)" stroke-width="2.4" stroke-dasharray="7 5"');
+    s += `</g>`;
+    X.forEach((p, i) => {
+      const pull = which === 'svm' ? pullSVM(i) : pullLR(i), rad = 2.2 + 10 * Math.sqrt(pull);
+      s += `<circle data-i="${i}" cx="${F.X(p[0])}" cy="${F.Y(p[1])}" r="${rad.toFixed(1)}" fill="${CLS(Y[i])}" fill-opacity=".85" stroke="var(--panel)" stroke-width="1.2"/>`;
+    });
+    P.svg.innerHTML = s;
+    const nS = X.filter((_, i) => svm.alpha[i] > 1e-6).length, nL = X.filter((_, i) => pullLR(i) > 1e-4).length;
+    $('d6nsvm').textContent = `${nS} of ${X.length}`; $('d6nlr').textContent = `${nL} of ${X.length}`;
+  }
+  P.svg.addEventListener('pointermove', e => {
+    const t = e.target; if (t.dataset.i === undefined) return;
+    const i = +t.dataset.i, mS = Y[i] * (svmW[0] * X[i][0] + svmW[1] * X[i][1] + svm.w0), mL = Y[i] * lr.fTrain[i];
+    $('d6msg').innerHTML = `This student <b>${Y[i] > 0 ? 'passed' : 'failed'}</b> (${X[i][0].toFixed(1)} h studying, ${X[i][1].toFixed(1)} h sleep). `
+      + `SVM margin ${fmt(mS)} &rarr; pull <b>${fmt(pullSVM(i))}</b>${pullSVM(i) < 1e-6 ? ' (ignored)' : ''}. `
+      + `Logistic margin ${fmt(mL)} &rarr; pull <b>${fmt(pullLR(i), 3)}</b>.`;
+  });
+  logRange('d6c', 0.02, 50, 1, v => { C = v; fit(); draw(); }, 'd6cv');
+  pillGroup('d6w', v => { which = v; draw(); });
+  REPAINT.push(draw, drawLoss);
+  fit(); draw(); drawLoss();
+})();
+
+// ============================================================
+// Demo 3 (17.3.7): multi-class from binary SVMs
+// ============================================================
+(function demo7() {
+  const P = makePlot($('p7')), F = P.F;
+  const centers = [[2.6, 2.3], [7.4, 2.5], [5, 6.1]], NAMES = ['plastic', 'glass', 'metal'], COL = ['var(--k0)', 'var(--k1)', 'var(--k2)'];
+  function base() {
+    const r = mulberry32(42), out = [];
+    centers.forEach((c, k) => { for (let i = 0; i < 14; i++) out.push({ p: [clamp(c[0] + 1.05 * randn(r), 0.2, 9.8), clamp(c[1] + 0.95 * randn(r), 0.2, 7.8)], k }); });
+    return out;
+  }
+  let pts = base(), mode = 'yes', addK = 0, ovr, ovo;
+  function fit() {
+    const X = pts.map(q => q.p);
+    ovr = [0, 1, 2].map(k => { const y = pts.map(q => (q.k === k ? 1 : -1)), m = trainSVM(X, y, 1, linK); m.w = linW(X, y, m); return m; });
+    ovo = [[0, 1], [0, 2], [1, 2]].map(([i, j]) => {
+      const sub = pts.filter(q => q.k === i || q.k === j), Xs = sub.map(q => q.p), ys = sub.map(q => (q.k === i ? 1 : -1));
+      const m = trainSVM(Xs, ys, 1, linK); m.w = linW(Xs, ys, m); m.pair = [i, j]; return m;
+    });
+  }
+  const sc = (m, x, y) => m.w[0] * x + m.w[1] * y + m.w0;
+  // 0–2 = a class, 3 = nobody / tie, 4 = conflict
+  function classify(x, y) {
+    if (mode === 'yes') { const yes = [0, 1, 2].filter(k => sc(ovr[k], x, y) > 0); return yes.length === 1 ? yes[0] : yes.length === 0 ? 3 : 4; }
+    if (mode === 'max') { const s = ovr.map(m => sc(m, x, y)); return s.indexOf(Math.max(...s)); }
+    const v = [0, 0, 0]; ovo.forEach(m => { v[sc(m, x, y) > 0 ? m.pair[0] : m.pair[1]]++; });
+    const w = v.indexOf(2); return w >= 0 ? w : 3;
+  }
+  const codeRGB = c => (c < 3 ? mix(PAL.panel, [PAL.pos, PAL.neg, PAL.k2][c], 0.24) : mix(PAL.panel, PAL.muted, c === 3 ? 0.12 : 0.4));
+  function draw() {
+    const g = shade(P, classify, codeRGB);
+    const amb = g.vals.reduce((s, v) => s + (v >= 3 ? 1 : 0), 0) / g.vals.length;
+    let s = clipRect('c7', F) + axesSVG(F, { xt: [0, 2, 4, 6, 8, 10], yt: [0, 2, 4, 6, 8], xf: v => v * 20, xlabel: 'Weight (g)', ylabel: 'Shininess' });
+    s += `<g clip-path="url(#c7)">`;
+    if (mode === 'ovo') ovo.forEach(m => { s += lineSVG(F, m.w, -m.w0, `stroke="var(--ink)" stroke-width="1.4" stroke-dasharray="6 4" opacity=".6"`); });
+    else ovr.forEach((m, k) => { s += lineSVG(F, m.w, -m.w0, `stroke="${COL[k]}" stroke-width="2"`); });
+    s += `</g>`;
+    pts.forEach(q => { s += `<circle cx="${F.X(q.p[0])}" cy="${F.Y(q.p[1])}" r="5.5" fill="${COL[q.k]}" stroke="var(--panel)" stroke-width="1.4"/>`; });
+    P.svg.innerHTML = s;
+    const acc = pts.filter(q => classify(q.p[0], q.p[1]) === q.k).length / pts.length;
+    $('d7n').innerHTML = `3 <span style="font-size:.7rem;font-weight:400;color:var(--muted)">(10 classes: ${mode === 'ovo' ? 45 : 10})</span>`;
+    $('d7amb').textContent = pct(amb);
+    $('d7acc').textContent = pct(acc);
+    $('d7msg').innerHTML = {
+      yes: `Three SVMs each ask "is it mine?" The light-gray middle is claimed by <b>nobody</b>, and the darker gray is where <b>two</b> SVMs both say yes. An item landing there gets no clear answer.`,
+      max: `Every point goes to whichever SVM gives the largest score, so no gaps are left. But each SVM was trained separately, so a score of 0.5 from the "glass" SVM doesn't necessarily mean the same thing as 0.5 from the "metal" SVM.`,
+      ovo: `One SVM per pair (plastic vs. glass, plastic vs. metal, glass vs. metal), and each casts a vote. A class needs 2 of the 3 votes to win. Where each class wins exactly one vote, it's a three-way tie (gray).`,
+    }[mode];
+  }
+  P.svg.addEventListener('click', e => {
+    const q = svgPt(P.svg, e), x = F.ix(q.x), y = F.iy(q.y);
+    if (x < 0 || x > 10 || y < 0 || y > 8) return;
+    pts.push({ p: [x, y], k: addK }); fit(); draw();
+  });
+  pillGroup('d7m', v => { mode = v; draw(); });
+  pillGroup('d7add', v => { addK = +v; });
+  $('d7reset').addEventListener('click', () => { pts = base(); fit(); draw(); });
+  REPAINT.push(draw);
+  fit(); draw();
+})();
+
+// ============================================================
+// Demo 4 (17.3.8): cross-validation grid over (C, γ)
+// ============================================================
+(function demo8() {
+  const wave = x => 4 + 1.5 * Math.sin(0.9 * x - 1);
+  function gen(seed, n, flip) {
+    const r = mulberry32(seed), X = [], Y = [];
+    for (let i = 0; i < n; i++) { const p = [0.2 + 9.6 * r(), 0.2 + 7.6 * r()]; let y = p[1] > wave(p[0]) ? 1 : -1; if (r() < flip) y = -y; X.push(p); Y.push(y); }
+    return { X, Y };
+  }
+  const tr = gen(41, 120, 0.07), te = gen(42, 1000, 0.07);
+  const Cs = [0.1, 0.3, 1, 3, 10, 30, 100], Gs = [0.01, 0.03, 0.1, 0.3, 1, 3, 10];
+  const cv = Gs.map(() => Cs.map(() => null)), tst = Gs.map(() => Cs.map(() => null));
+  let metric = 'cv', sel = [3, 2], userPicked = false, bestCell = null, nDone = 0;
+  const acc = (m, D) => D.X.filter((p, i) => m.f(p) * D.Y[i] > 0).length / D.X.length;
+  function computeCell(gi, ci) {
+    const kern = rbfK(Gs[gi]), C = Cs[ci]; let a = 0;
+    for (let fold = 0; fold < 5; fold++) {
+      const trI = [], vaI = []; tr.X.forEach((_, i) => (i % 5 === fold ? vaI : trI).push(i));
+      const m = trainSVM(trI.map(i => tr.X[i]), trI.map(i => tr.Y[i]), C, kern, 20000);
+      a += vaI.filter(i => m.f(tr.X[i]) * tr.Y[i] > 0).length / vaI.length;
+    }
+    cv[gi][ci] = a / 5;
+    tst[gi][ci] = acc(trainSVM(tr.X, tr.Y, C, kern, 20000), te);
+  }
+  // heatmap
+  const W = 556, H = 440, ml = 62, mb = 50, mt = 8, mr = 8, cw = (W - ml - mr) / Cs.length, ch = (H - mt - mb) / Gs.length;
+  $('p8a').classList.add('plot');
+  $('p8a').innerHTML = `<svg viewBox="0 0 ${W} ${H}"></svg>`;
+  const HS = $('p8a').querySelector('svg');
+  function drawHeat() {
+    const T = metric === 'cv' ? cv : tst, vals = T.flat().filter(v => v !== null);
+    const lo = vals.length ? Math.min(...vals) : 0, hi = vals.length ? Math.max(...vals) : 1;
+    let s = '';
+    Gs.forEach((g, gi) => Cs.forEach((C, ci) => {
+      const x = ml + ci * cw, y = H - mb - (gi + 1) * ch, v = T[gi][ci];
+      if (v === null) { s += `<rect x="${x + 1}" y="${y + 1}" width="${cw - 2}" height="${ch - 2}" rx="4" fill="var(--soft)" stroke="var(--border)"/>`; return; }
+      const t = hi > lo ? (v - lo) / (hi - lo) : 1, col = mix(PAL.panel, PAL.pos, 0.06 + 0.88 * t);
+      const isBest = bestCell && bestCell[0] === gi && bestCell[1] === ci;
+      s += `<rect data-g="${gi}" data-c="${ci}" style="cursor:pointer" x="${x + 1}" y="${y + 1}" width="${cw - 2}" height="${ch - 2}" rx="4" fill="rgb(${col.map(Math.round).join(',')})"/>`;
+      s += `<text x="${x + cw / 2}" y="${y + ch / 2 + 4}" text-anchor="middle" font-size="12" font-weight="${isBest ? 700 : 400}" style="pointer-events:none;fill:${t > 0.55 ? '#fff' : 'var(--ink)'}">${(100 * v).toFixed(0)}${isBest ? '★' : ''}</text>`;
+    }));
+    const [sg, sc] = sel;
+    s += `<rect x="${ml + sc * cw + 1}" y="${H - mb - (sg + 1) * ch + 1}" width="${cw - 2}" height="${ch - 2}" rx="4" fill="none" stroke="var(--ink)" stroke-width="2.6" style="pointer-events:none"/>`;
+    Cs.forEach((C, ci) => { s += `<text class="muted" x="${ml + (ci + 0.5) * cw}" y="${H - mb + 16}" text-anchor="middle" font-size="11">${C}</text>`; });
+    Gs.forEach((g, gi) => { s += `<text class="muted" x="${ml - 6}" y="${H - mb - (gi + 0.5) * ch + 4}" text-anchor="end" font-size="11">${g}</text>`; });
+    s += `<text class="muted" x="${ml + (W - ml - mr) / 2}" y="${H - 10}" text-anchor="middle" font-size="11">C: the fine for mistakes (lenient → strict)</text>`;
+    s += `<text class="muted" transform="translate(13 ${mt + (H - mt - mb) / 2}) rotate(-90)" text-anchor="middle" font-size="11">γ: reach (long → short)</text>`;
+    HS.innerHTML = s;
+  }
+  HS.addEventListener('click', e => {
+    const t = e.target; if (t.dataset.g === undefined) return;
+    sel = [+t.dataset.g, +t.dataset.c]; userPicked = true; drawHeat(); drawSel();
+  });
+  // selected model
+  const P = makePlot($('p8b')), F = P.F;
+  function drawSel() {
+    const [gi, ci] = sel, m = trainSVM(tr.X, tr.Y, Cs[ci], rbfK(Gs[gi]), 20000);
+    const g = shade(P, (x, y) => m.f([x, y]), v => sideRGB(v, false), 100, 80);
+    let s = clipRect('c8', F) + axesSVG(F, { xt: [0, 2, 4, 6, 8, 10], yt: [0, 2, 4, 6, 8], xlabel: 'Sugar level', ylabel: 'Acidity' });
+    s += `<g clip-path="url(#c8)"><path d="${curveD(F, wave)}" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="6 4" fill="none"/>`;
+    s += `<path d="${contour(F, g, 0)}" stroke="var(--ink)" stroke-width="2.2" fill="none"/></g>`;
+    tr.X.forEach((p, i) => { s += `<circle cx="${F.X(p[0])}" cy="${F.Y(p[1])}" r="4.6" fill="${CLS(tr.Y[i])}" stroke="var(--panel)" stroke-width="1.2"/>`; });
+    P.svg.innerHTML = s;
+    $('d8title').textContent = `The selected SVM: C = ${Cs[ci]}, γ = ${Gs[gi]}`;
+    $('d8cv').textContent = cv[gi][ci] === null ? '…' : pct(cv[gi][ci]);
+    $('d8test').textContent = tst[gi][ci] === null ? '…' : pct(tst[gi][ci]);
+    $('d8sv').textContent = `${m.sv.length} / ${tr.X.length}`;
+    const tag = gi >= 5 && ci >= 4 ? 'Short reach and a strict fine: the boundary bends around individual grapes, including mislabeled ones. That is overfitting.'
+      : gi <= 1 && ci <= 2 ? 'Long reach and a lenient fine: the boundary is almost a straight line and can\'t follow the wave. That is underfitting.'
+      : bestCell && bestCell[0] === gi && bestCell[1] === ci ? 'This is the cross-validation winner. Its boundary follows the true wave (dashed) without chasing the noise.' : '';
+    $('d8msg').innerHTML = nDone < 49 ? `Computing the grid: ${nDone} of 49 settings done (${nDone * 5} SVMs trained)&hellip; ${tag}` : tag || 'Click any cell to see its boundary.';
+  }
+  // compute one cell per tick so the page stays responsive
+  const queue = []; Gs.forEach((_, gi) => Cs.forEach((_, ci) => queue.push([gi, ci])));
+  function tick() {
+    const cell = queue.shift(); if (!cell) return;
+    computeCell(cell[0], cell[1]); nDone++;
+    let bv = -1; cv.forEach((row, gi) => row.forEach((v, ci) => { if (v !== null && v > bv + 1e-9) { bv = v; bestCell = [gi, ci]; } }));
+    if (!queue.length && !userPicked) sel = bestCell.slice();
+    drawHeat();
+    if (!queue.length || (cell[0] === sel[0] && cell[1] === sel[1])) drawSel(); else if (nDone % 7 === 0) $('d8msg').innerHTML = `Computing the grid: ${nDone} of 49 settings done (${nDone * 5} SVMs trained)&hellip;`;
+    setTimeout(tick, 0);
+  }
+  pillGroup('d8m', v => { metric = v; drawHeat(); });
+  REPAINT.push(drawHeat, drawSel);
+  drawHeat(); drawSel();
+  // start once the section is near the screen
+  const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); setTimeout(tick, 50); } }, { rootMargin: '400px' });
+  io.observe($('s8'));
+})();
+
+// ============================================================
+// Demo 5 (17.3.9): kernel ridge regression
+// ============================================================
+(function demo9() {
+  let seed = 11, D = bikeData(seed, 40), lam = 0.3, ell = 4, bumps = false, M;
+  const PA = makePlot1D($('p9a'), BX, BY, 320, PLOT_M, WIDE), PB = makePlot1D($('p9b'), BX, [-1.05, 1.05], 90, STEM_M, WIDE), F = PA.F;
+  function fit() { M = fitKRR(D.X, D.Y, ell, lam); }
+  function draw() {
+    const k = k1(ell), ybar = M.f(1e9);
+    let s = clipRect('c9', F) + bikeAxes(F) + `<g clip-path="url(#c9)">`;
+    s += `<path d="${trueD(F)}" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="6 4" fill="none"/>`;
+    if (bumps) {
+      s += `<line x1="${F.x0}" x2="${F.x1}" y1="${F.Y(ybar)}" y2="${F.Y(ybar)}" stroke="var(--muted)" stroke-width="1"/><text class="muted halo" x="${F.x1 - 4}" y="${F.Y(ybar) - 5}" text-anchor="end" font-size="11">average day</text>`;
+      D.X.forEach((xn, n) => { s += `<path d="${curveD(F, x => ybar + M.w[n] * k(x, xn), 120)}" stroke="var(--k3)" stroke-width="1" opacity=".55" fill="none"/>`; });
+    }
+    s += `<path d="${curveD(F, M.f)}" stroke="var(--ink)" stroke-width="2.6" fill="none"/></g>`;
+    D.X.forEach((x, i) => { s += `<circle cx="${F.X(x)}" cy="${F.Y(D.Y[i])}" r="4.3" fill="var(--k0)" stroke="var(--panel)" stroke-width="1.2"/>`; });
+    PA.svg.innerHTML = s;
+    drawStems(PB, D.X, M.w);
+    $('d9nz').textContent = `${M.keep.length} / ${D.X.length}`;
+    $('d9rmse').textContent = bikes(rmseTrue(M.f));
+    $('d9min').textContent = Math.min(...M.w.map(Math.abs)).toPrecision(2);
+  }
+  const redraw = rafThrottle(() => { fit(); draw(); });
+  logRange('d9l', 0.001, 30, lam, v => { lam = v; redraw(); }, 'd9lv', 3);
+  $('d9e').addEventListener('input', () => { ell = +$('d9e').value; $('d9ev').textContent = ell.toFixed(1); redraw(); });
+  toggle('d9bumps', v => { bumps = v; draw(); });
+  $('d9new').addEventListener('click', () => { seed += 7; D = bikeData(seed, 40); fit(); draw(); });
+  REPAINT.push(draw);
+  fit(); draw();
+})();
+
+// ============================================================
+// Demo 6 (17.3.10): SVM regression
+// ============================================================
+(function demo10() {
+  const D = bikeData(11, 40), ell = 4;
+  let eps = 0.5, C = 10, M, warm = null;
+  const PA = makePlot1D($('p10a'), BX, BY, 300), PB = makePlot1D($('p10b'), BX, [-1.05, 1.05], 84, STEM_M), F = PA.F;
+  const PL = makePlot1D($('p10c'), [-2, 2], [0, 2.2], 220, { l: 44, r: 14, t: 12, b: 34 }), FL = PL.F;
+  function fit() { M = fitSVR(D.X, D.Y, ell, eps, C, warm); warm = M.w; }
+  function draw() {
+    const K = new Set(M.keep);
+    let s = clipRect('c10', F) + bikeAxes(F) + `<g clip-path="url(#c10)">`;
+    s += `<path d="${bandD(F, x => M.f(x) - eps, x => M.f(x) + eps)}" fill="var(--k0)" opacity=".13"/>`;
+    s += `<path d="${curveD(F, x => M.f(x) + eps)}" stroke="var(--k0)" stroke-width="1" opacity=".6" fill="none"/><path d="${curveD(F, x => M.f(x) - eps)}" stroke="var(--k0)" stroke-width="1" opacity=".6" fill="none"/>`;
+    s += `<path d="${curveD(F, M.f)}" stroke="var(--ink)" stroke-width="2.6" fill="none"/></g>`;
+    let inside = 0;
+    D.X.forEach((x, i) => {
+      if (Math.abs(D.Y[i] - M.f(x)) < eps - 1e-6) inside++;
+      s += K.has(i)
+        ? `<circle cx="${F.X(x)}" cy="${F.Y(D.Y[i])}" r="4.8" fill="var(--k0)" stroke="var(--ink)" stroke-width="1.3"/>`
+        : `<circle cx="${F.X(x)}" cy="${F.Y(D.Y[i])}" r="3.8" fill="var(--panel)" stroke="var(--k0)" stroke-width="1.5"/>`;
+    });
+    PA.svg.innerHTML = s;
+    drawStems(PB, D.X, M.w);
+    // loss shapes
+    let t = clipRect('c10l', FL) + axesSVG(FL, { xt: [-2, -1, 0, 1, 2], yt: [0, 1, 2], xf: v => v * 100, xlabel: 'miss: actual − predicted (bikes)', ylabel: 'loss' });
+    t += `<g clip-path="url(#c10l)"><rect x="${FL.X(-eps)}" y="${FL.y1}" width="${FL.X(eps) - FL.X(-eps)}" height="${FL.y0 - FL.y1}" fill="var(--k0)" opacity=".13"/>`;
+    t += `<text class="halo" x="${FL.X(0)}" y="${FL.Y(1.95)}" text-anchor="middle" font-size="11">free zone</text>`;
+    t += `<path d="${curveD(FL, r => r * r)}" stroke="var(--muted)" stroke-width="2" fill="none"/>`;
+    t += `<path d="${curveD(FL, r => Math.max(0, Math.abs(r) - eps))}" stroke="var(--ink)" stroke-width="2.6" fill="none"/></g>`;
+    PL.svg.innerHTML = t;
+    $('d10sv').textContent = `${K.size} / ${D.X.length}`;
+    $('d10rmse').textContent = bikes(rmseTrue(M.f));
+    $('d10in').textContent = `${inside} / ${D.X.length}`;
+    $('d10msg').innerHTML = `With a tolerance of &plusmn;${Math.round(eps * 100)} bikes, <b>${K.size}</b> days sit on or outside the tube wall. Those are the support vectors, the only days needed to predict. The other ${D.X.length - K.size} have weight exactly 0.`
+      + (eps > 1 ? ' <span class="warn">The tube is now so wide that the curve barely has to follow the data.</span>' : eps < 0.12 ? ' <span class="warn">With almost no tolerance, nearly every day becomes a support vector, just like kernel ridge.</span>' : '');
+  }
+  const redraw = rafThrottle(() => { fit(); draw(); });
+  $('d10e').addEventListener('input', () => { eps = +$('d10e').value; $('d10ev').textContent = Math.round(eps * 100); redraw(); });
+  logRange('d10c', 0.1, 100, C, v => { C = v; redraw(); }, 'd10cv', 1);
+  $('d10ev').textContent = Math.round(eps * 100);
+  REPAINT.push(draw);
+  fit(); draw();
+})();
+
+// ============================================================
+// Demo 7 (17.4.1): L1VM and RVM
+// ============================================================
+(function demo41() {
+  const D = bikeData(11, 40), ell = 4, N = D.X.length;
+  let mode = 'rvm', lam = 0.5, l1w = null, S, timer = null;
+  const PA = makePlot1D($('p41a'), BX, BY, 330, PLOT_M, WIDE), PB = makePlot1D($('p41b'), BX, [-1.05, 1.05], 90, STEM_M, WIDE), F = PA.F;
+  function restart() { stop(); S = rvmInit(D.X, D.Y, ell); rvmStep(S); }
+  function model() {
+    if (mode === 'l1') { const M = fitL1VM(D.X, D.Y, ell, lam, l1w); l1w = M.w; return M; }
+    return rvmPredict(S);
+  }
+  function draw() {
+    const M = model(), K = new Set(M.keep), k = k1(ell), ybar = M.f(1e9);
+    let s = clipRect('c41', F) + bikeAxes(F) + `<g clip-path="url(#c41)">`;
+    if (mode === 'rvm') s += `<path d="${bandD(F, x => M.f(x) - 2 * M.sd(x), x => M.f(x) + 2 * M.sd(x), 120)}" fill="var(--k0)" opacity=".14"/>`;
+    s += `<path d="${trueD(F)}" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="6 4" fill="none"/>`;
+    M.keep.forEach(n => { s += `<path d="${curveD(F, x => ybar + M.w[n] * k(x, D.X[n]), 120)}" stroke="var(--k3)" stroke-width="1.3" opacity=".5" fill="none"/>`; });
+    s += `<path d="${curveD(F, M.f)}" stroke="var(--ink)" stroke-width="2.6" fill="none"/></g>`;
+    D.X.forEach((x, i) => {
+      s += K.has(i)
+        ? `<circle cx="${F.X(x)}" cy="${F.Y(D.Y[i])}" r="5.6" fill="var(--k3)" stroke="var(--panel)" stroke-width="1.4"/>`
+        : `<circle cx="${F.X(x)}" cy="${F.Y(D.Y[i])}" r="3.6" fill="var(--panel)" stroke="var(--k0)" stroke-width="1.4"/>`;
+    });
+    PA.svg.innerHTML = s;
+    drawStems(PB, D.X, M.w);
+    $('d41k').textContent = `${K.size} / ${N}`;
+    $('d41rmse').textContent = bikes(rmseTrue(M.f));
+    if (mode === 'rvm') {
+      $('d41k3').textContent = 'RVM round'; $('d41it').textContent = S.it + (S.done ? ' ✓' : '');
+      $('d41k4').textContent = 'Learned noise level (true: 45 bikes)'; $('d41noise').textContent = bikes(M.noise);
+      $('d41msg').innerHTML = S.done
+        ? `Converged after ${S.it} rounds. The RVM kept only <b>${K.size} of ${N}</b> days and chose its own noise level (${bikes(M.noise)}, close to the true 45). There was no slider to tune, because the marginal likelihood did the tuning.`
+        : `Round ${S.it}: <b>${K.size}</b> days still have a nonzero weight. Each round, weights whose bump is redundant get their leash $\\alpha_n$ tightened. Once $\\alpha_n$ passes $10^6$ the weight is pinned at 0 and that day is pruned.`;
+    } else {
+      $('d41k3').textContent = 'Penalty λ'; $('d41it').textContent = lam.toFixed(2);
+      $('d41k4').textContent = 'Noise level'; $('d41noise').textContent = 'not estimated';
+      $('d41msg').innerHTML = `The lasso penalty $\\lambda\\lVert\\mathbf{w}\\rVert_1$ pushed <b>${N - K.size}</b> of ${N} weights to exactly 0. Slide $\\lambda$ left to keep more days (closer to kernel ridge) or right to keep fewer (simpler, eventually too simple). In practice $\\lambda$ is picked by cross-validation.`;
+    }
+    typeset($('d41msg'));
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } $('d41play').innerHTML = '&#9654; Play'; }
+  function play() {
+    if (S.done) restart();
+    $('d41play').innerHTML = '&#10074;&#10074; Pause';
+    timer = setInterval(() => {
+      const steps = S.it < 25 ? 1 : Math.ceil(S.it / 25);
+      for (let i = 0; i < steps && !S.done; i++) rvmStep(S);
+      draw(); if (S.done) stop();
+    }, 90);
+  }
+  $('d41play').addEventListener('click', () => (timer ? stop() : play()));
+  $('d41step').addEventListener('click', () => { stop(); rvmStep(S); draw(); });
+  $('d41end').addEventListener('click', () => { stop(); rvmRun(S); draw(); });
+  $('d41restart').addEventListener('click', () => { restart(); draw(); });
+  const redraw = rafThrottle(draw);
+  logRange('d41l', 0.02, 10, lam, v => { lam = v; redraw(); }, 'd41lv', 2);
+  pillGroup('d41m', v => {
+    mode = v; stop();
+    $('d41l1ctrl').hidden = v !== 'l1'; $('d41rvmctrl').hidden = v !== 'rvm'; $('d41bandlg').style.display = v === 'rvm' ? '' : 'none';
+    draw();
+  });
+  REPAINT.push(draw);
+  restart(); draw();
+})();
+
+// ============================================================
+// Demo 8 (17.4.2): side-by-side comparison
+// ============================================================
+(function demo42() {
+  let N = 40, seed = 11;
+  const methods = [
+    { name: 'L2VM', fit: D => fitL2VM(D.X, D.Y, 4, 0.1) },
+    { name: 'L1VM', fit: D => fitL1VM(D.X, D.Y, 4, 0.5) },
+    { name: 'RVM', fit: D => rvmPredict(rvmRun(rvmInit(D.X, D.Y, 4))) },
+    { name: 'SVR', fit: D => fitSVR(D.X, D.Y, 4, 0.5, 10) },
+  ];
+  const plots = methods.map((_, j) => makePlot1D($('p42_' + j), BX, BY, 240, { l: 40, r: 10, t: 10, b: 24 }));
+  let res = [];
+  function compute() {
+    const D = bikeData(seed, N);
+    res = methods.map(m => ({ D, M: m.fit(D) }));
+  }
+  function draw() {
+    res.forEach(({ D, M }, j) => {
+      const P = plots[j], F = P.F, K = new Set(M.keep);
+      let s = clipRect('c42' + j, F) + bikeAxes(F, true) + `<g clip-path="url(#c42${j})">`;
+      if (M.sd) s += `<path d="${bandD(F, x => M.f(x) - 2 * M.sd(x), x => M.f(x) + 2 * M.sd(x), 100)}" fill="var(--k0)" opacity=".14"/>`;
+      s += `<path d="${trueD(F, 120)}" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="6 4" fill="none"/>`;
+      s += `<path d="${curveD(F, M.f, 160)}" stroke="var(--ink)" stroke-width="2.4" fill="none"/></g>`;
+      D.X.forEach((x, i) => {
+        s += K.has(i)
+          ? `<circle cx="${F.X(x)}" cy="${F.Y(D.Y[i])}" r="${N > 60 ? 3.6 : 4.6}" fill="var(--k3)" stroke="var(--panel)" stroke-width="1"/>`
+          : `<circle cx="${F.X(x)}" cy="${F.Y(D.Y[i])}" r="${N > 60 ? 2.6 : 3.2}" fill="var(--panel)" stroke="var(--k0)" stroke-width="1.2"/>`;
+      });
+      P.svg.innerHTML = s;
+      $('d42t' + j).innerHTML = `${methods[j].name}: keeps <span style="color:${K.size === N ? 'var(--bad)' : 'var(--good)'}">${K.size} of ${N}</span>${M.sd ? ' &middot; with error bars' : ''}`;
+    });
+    // bar chart: kept fraction, with the error as a label
+    const W = 860, rh = 34, H = methods.length * rh + 26, x0 = 70, x1 = 560;
+    let s = '';
+    [0, 0.25, 0.5, 0.75, 1].forEach(t => { const x = x0 + t * (x1 - x0); s += `<line class="grid" x1="${x}" x2="${x}" y1="4" y2="${H - 20}"/><text class="muted" x="${x}" y="${H - 6}" text-anchor="middle" font-size="11">${pct(t)}</text>`; });
+    res.forEach(({ D, M }, j) => {
+      const y = 6 + j * rh, f = M.keep.length / N;
+      s += `<text x="${x0 - 8}" y="${y + rh / 2 + 2}" text-anchor="end" font-weight="700" font-size="12.5">${methods[j].name}</text>`;
+      s += `<rect x="${x0}" y="${y + 4}" width="${Math.max(2, f * (x1 - x0))}" height="${rh - 14}" rx="3" fill="var(--k3)"/>`;
+      s += `<text x="${x1 + 10}" y="${y + rh / 2 + 2}" font-size="12">${M.keep.length} kept &middot; error ${bikes(rmseTrue(M.f))}</text>`;
+    });
+    $('p42bar').classList.add('plot');
+    $('p42bar').innerHTML = `<svg viewBox="0 0 ${W} ${H}">${s}</svg>`;
+  }
+  function update() {
+    methods.forEach((_, j) => { $('d42t' + j).textContent = methods[j].name + ': fitting…'; });
+    setTimeout(() => { compute(); draw(); }, 20);
+  }
+  pillGroup('d42n', v => { N = +v; update(); });
+  $('d42new').addEventListener('click', () => { seed += 13; update(); });
+  REPAINT.push(() => { if (res.length) draw(); });
+  compute(); draw();
+})();
+
+// ============================================================
+// Quiz
+// ============================================================
+(function quiz() {
+  const Q = [
+    { q: 'An SVM gives a transaction the score f(x) = 0.8. What does Platt scaling do with it?',
+      a: ['Reports 80% fraud', 'Computes σ(a·0.8 + b), with a and b fitted by logistic regression on a validation set', 'Retrains the SVM with a log loss'], c: 1,
+      e: 'The score isn\'t a probability. Platt scaling fits a 1D sigmoid that maps scores to observed outcome rates on held-out data.' },
+    { q: 'Why fit Platt\'s a and b on a validation set instead of the training set?',
+      a: ['The training scores are artificially confident, because the SVM pushed training points to the curbs on purpose', 'It is faster', 'The training set has no labels'], c: 0,
+      e: 'Training points were optimized to sit at or beyond |f| = 1, so their scores overstate how well the SVM separates new data.' },
+    { q: 'A training point has margin y·f(x) = 2.5. How hard does it pull on the boundary under the hinge loss, and under the log loss?',
+      a: ['Hinge: zero. Log loss: a little', 'Both zero', 'Hinge: a lot. Log loss: zero'], c: 0,
+      e: 'The hinge loss is flat (exactly 0) for m ≥ 1, so the slope (pull) is 0. The log loss keeps sloping down forever, so the pull is small but not zero (Demo 2).' },
+    { q: 'What is the main reason the SVM is sparse and logistic regression is not?',
+      a: ['The SVM uses a kernel', 'The hinge loss has a flat zero region, so confidently correct points have zero gradient and α = 0', 'Logistic regression has no regularizer'], c: 1,
+      e: 'Both can use kernels and both have an L2 penalty. The difference is the loss: only the hinge has a region with exactly zero slope.' },
+    { q: 'You need to sort images into 5 classes with SVMs. How many binary SVMs do one-vs-rest and one-vs-one train?',
+      a: ['5 and 10', '5 and 25', '10 and 5'], c: 0,
+      e: 'One-vs-rest trains one per class (K = 5). One-vs-one trains one per pair: K(K − 1)/2 = 5·4/2 = 10.' },
+    { q: 'In one-vs-rest with "who says yes?", a new item gets "no" from every SVM. What does that mean?',
+      a: ['It is in a region none of the classifiers claims, so the rule gives no answer', 'It belongs to the largest class', 'The SVMs failed to converge'], c: 0,
+      e: 'That\'s the gray "nobody" region in Demo 3. Taking the argmax of the scores fills it in, but compares scores that were never put on a common scale.' },
+    { q: 'Why search C and γ on a grid like 0.1, 0.3, 1, 3, 10… instead of 1, 2, 3, 4, 5…?',
+      a: ['Their effect is multiplicative: going from 1 to 2 matters about as much as from 50 to 100', 'Odd numbers work better', 'It makes training faster'], c: 0,
+      e: 'Log spacing puts the same number of grid points in each "order of magnitude", which is where the behavior actually changes.' },
+    { q: 'In kernel ridge regression with 500 training points, how many of the α weights are typically nonzero?',
+      a: ['Only the support vectors', 'About 500, essentially all of them', 'Exactly λ·500'], c: 1,
+      e: 'α = (K + λI)⁻¹y is a solution of a linear system. Nothing pushes entries to exactly zero, so the model is dense (Demo 5).' },
+    { q: 'In SVM regression you increase ε (the tube half-width). What happens?',
+      a: ['More points fall inside the tube, so fewer support vectors, and the fit gets rougher', 'More support vectors and a tighter fit', 'Nothing changes'], c: 0,
+      e: 'Inside the tube the loss is 0, so those points get weight 0. A wider tube holds more points and needs fewer support vectors (Demo 6).' },
+    { q: 'Where does the sparsity of the L1VM come from, compared to the SVM?',
+      a: ['From the loss, just like the SVM', 'From the prior/penalty: a Laplace prior (L1 penalty) on the weights of the kernel features', 'From cross-validation'], c: 1,
+      e: 'The SVM gets sparsity from the hinge loss. The L1VM uses an ordinary loss (Gaussian or Bernoulli likelihood) and gets sparsity from the lasso penalty, like §11.4.' },
+    { q: 'During RVM training, one weight\'s precision αₙ grows toward infinity. What does that mean?',
+      a: ['That weight becomes huge', 'The prior N(0, 1/αₙ) squeezes that weight to exactly 0, so training point n is pruned', 'The noise level goes to zero'], c: 1,
+      e: 'A precision of infinity means a prior with zero variance around 0. The weight is pinned at 0 and that basis function drops out (Demo 7).' },
+    { q: 'Why can L1VMs and RVMs use a similarity function that is NOT a valid Mercer kernel, while SVMs and GPs can\'t?',
+      a: ['They use the kernel only to build features φₙ(x) = 𝒦(x, xₙ), so it never has to act as a dot product or a covariance', 'They don\'t use kernels', 'Mercer kernels are too slow'], c: 0,
+      e: 'SVMs need 𝒦 to be a dot product in some feature space, and GPs need it to be a valid covariance. Both require positive semidefiniteness. A GLM on kernel features doesn\'t care.' },
+    { q: 'An RVM is fitted on temperatures from −4°C to 37°C. What happens to its error bars at 45°C?',
+      a: ['They widen a lot, like a GP\'s', 'They shrink toward the noise level, because no basis function reaches that far, which is overconfident', 'The RVM refuses to predict'], c: 1,
+      e: 'All the RVM\'s bumps sit on training points. Far away they are all ≈0, so the model has nothing left to be uncertain about. A GP\'s band would grow back toward the prior.' },
+  ];
+  const box = $('quizbox'); let score = 0, done = 0;
+  Q.forEach((it, qi) => {
+    const d = document.createElement('div'); d.className = 'quiz-q';
+    d.innerHTML = `<div class="sc"><b>${qi + 1}.</b> ${it.q}</div><div class="row">${it.a.map((a, i) => `<button class="pill" data-i="${i}">${a}</button>`).join('')}</div><div class="fb"></div>`;
+    d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      if (d.classList.contains('done')) return;
+      const i = +b.dataset.i, ok = i === it.c;
+      d.classList.add('done'); done++; if (ok) score++;
+      b.classList.add(ok ? 'right' : 'wrong');
+      if (!ok) d.querySelector(`button[data-i="${it.c}"]`).classList.add('right');
+      d.querySelector('.fb').innerHTML = `<span class="verdict ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'}</span> ${it.e}`;
+      $('quizscore').textContent = `Score: ${score} / ${done}` + (done === Q.length ? ` (all ${Q.length} answered)` : '');
+    }));
+    box.appendChild(d);
+  });
+})();
+
+// ============================================================
+// KaTeX
+// ============================================================
+function boot() { typeset(document.body); }
+if (window.renderMathInElement) boot(); else window.addEventListener('load', boot);
+</script>
+</body>
+</html>
