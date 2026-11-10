@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An interactive, visual walkthrough of random forests and boosting (least-squares boosting, AdaBoost, LogitBoost). Companion to Murphy, Probabilistic Machine Learning, sections 18.4–18.5.4.">
+  <title>Crowds and Coaches</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="ml.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the walkthrough</a>
+<header class="topbar wrap">
+  <span class="brand">FIELD NOTES <span class="muted">/ machine learning</span></span>
+  <span class="chapter">MURPHY · §18.4–18.5.4</span>
+</header>
+
+<main id="main">
+<section class="hero wrap">
+  <div>
+    <p class="eyebrow">RANDOM FORESTS &amp; BOOSTING</p>
+    <h1>A crowd,<br>or a coach?</h1>
+    <p class="lede">Both methods build one strong predictor out of many decision trees. They do it in opposite ways.</p>
+    <ul class="hero-list">
+      <li><span class="tag green">Random forest</span> grows lots of <em>deep</em> trees <strong>at the same time</strong>, each on a shuffled view of the data, and lets them vote.</li>
+      <li><span class="tag amber">Boosting</span> grows <em>tiny</em> trees <strong>one after another</strong>. Each new tree focuses on the mistakes the team is still making.</li>
+    </ul>
+    <p class="hero-note">Every chart below is live. The data are synthetic, but each example is modeled on a real use: loan approval, bike-share demand, and spam filtering.</p>
+  </div>
+  <figure class="hero-art" aria-label="Diagram. Left: five trees side by side feed into one vote. Right: a chain of small stumps, each added to the previous one.">
+    <svg viewBox="0 0 460 300" role="img">
+      <text x="110" y="22" class="svg-label" text-anchor="middle">FOREST · PARALLEL</text>
+      <g class="svg-green">
+        <g transform="translate(22,50)"><path d="M18 0 L36 34 H0Z"/><rect x="15" y="34" width="6" height="12"/></g>
+        <g transform="translate(64,50)"><path d="M18 0 L36 34 H0Z"/><rect x="15" y="34" width="6" height="12"/></g>
+        <g transform="translate(106,50)"><path d="M18 0 L36 34 H0Z"/><rect x="15" y="34" width="6" height="12"/></g>
+        <g transform="translate(148,50)"><path d="M18 0 L36 34 H0Z"/><rect x="15" y="34" width="6" height="12"/></g>
+      </g>
+      <g class="svg-line"><path d="M40 104 L110 180"/><path d="M82 104 L110 180"/><path d="M124 104 L110 180"/><path d="M166 104 L110 180"/></g>
+      <circle cx="110" cy="214" r="34" class="svg-node"/>
+      <text x="110" y="219" text-anchor="middle" class="svg-text">vote</text>
+      <text x="110" y="270" text-anchor="middle" class="svg-small">trees trained independently</text>
+
+      <text x="345" y="22" class="svg-label" text-anchor="middle">BOOSTING · SEQUENTIAL</text>
+      <g class="svg-amber">
+        <g transform="translate(268,60)"><rect x="0" y="0" width="34" height="8" rx="2"/><rect x="14" y="8" width="6" height="12"/></g>
+        <g transform="translate(328,110)"><rect x="0" y="0" width="34" height="8" rx="2"/><rect x="14" y="8" width="6" height="12"/></g>
+        <g transform="translate(388,160)"><rect x="0" y="0" width="34" height="8" rx="2"/><rect x="14" y="8" width="6" height="12"/></g>
+      </g>
+      <g class="svg-line"><path d="M304 76 L326 104" marker-end="url(#arr)"/><path d="M364 126 L386 154" marker-end="url(#arr)"/></g>
+      <text x="300" y="112" class="svg-small" text-anchor="end">fix what's left</text>
+      <text x="360" y="162" class="svg-small" text-anchor="end">fix what's left</text>
+      <text x="345" y="226" text-anchor="middle" class="svg-text">f = β₁F₁ + β₂F₂ + β₃F₃ + …</text>
+      <text x="345" y="270" text-anchor="middle" class="svg-small">each tree depends on the last</text>
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" class="svg-arrow"/></marker></defs>
+    </svg>
+  </figure>
+</section>
+
+<nav class="lesson-nav" aria-label="Sections"><div class="wrap">
+  <a href="#forest">01 Grow a forest</a>
+  <a href="#features">02 Random features</a>
+  <a href="#boost">03 The boosting idea</a>
+  <a href="#residuals">04 Fit the residuals</a>
+  <a href="#adaboost">05 AdaBoost</a>
+  <a href="#logitboost">06 LogitBoost</a>
+  <a href="#recap">07 Recap</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- 01 -->
+<section id="forest" class="lesson">
+  <div class="section-head">
+    <p class="eyebrow">01 / §18.3–18.4 · BAGGING → RANDOM FORESTS</p>
+    <h2>One tree memorizes. A forest averages.</h2>
+    <p>A bank wants to predict whether a loan applicant will <span class="c-green">repay</span> or <span class="c-amber">default</span>, using two numbers: <strong>credit score</strong> and <strong>debt-to-income ratio</strong>. We have 220 past applicants.</p>
+    <p>A single deep tree draws a jagged, overconfident map that chases every noisy applicant. Now give each tree a <em>bootstrap sample</em>: draw 220 applicants with replacement, so some show up twice and others are left out. Each tree makes different mistakes, and <strong>averaging their votes cancels much of that noise</strong>.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">FOREST LAB</span><h3>Add trees and watch the map settle down</h3></div>
+      <div class="seg" role="group" aria-label="Forest type">
+        <button data-method="bag" class="on">Bagging</button>
+        <button data-method="rf">Random forest</button>
+      </div>
+    </div>
+    <div class="controls">
+      <label>Number of trees <b id="f-m-out">1</b><input id="f-m" type="range" min="1" max="100" value="1"></label>
+    </div>
+    <div class="forest-grid">
+      <figure class="plot">
+        <canvas id="f-map" height="330" aria-label="Map of the forest's predicted probability of repaying over credit score and debt-to-income ratio."></canvas>
+        <figcaption><span class="sw green"></span>likely to repay <span class="sw amber"></span>likely to default · dots are training applicants · paler color means the trees disagree</figcaption>
+      </figure>
+      <div>
+        <p class="mini-label">THE FIRST FOUR TREES, EACH ON ITS OWN</p>
+        <div class="thumbs" id="f-thumbs"></div>
+        <div class="stats">
+          <div><span>Forest accuracy</span><b id="f-acc">–</b></div>
+          <div><span>Average single tree</span><b id="f-single">–</b></div>
+          <div><span>Trees whose 1st question is credit score</span><b id="f-root">–</b></div>
+        </div>
+        <p class="caption">Accuracy is measured on 2,000 new applicants the trees never saw. No classifier can beat about 90% here, because the labels themselves are noisy. With only two features there is little to decorrelate, so bagging and the random forest score about the same. The payoff shows up with more features (next section).</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">BAGGING · AVERAGE M TREES</span>
+      <div class="math">f(<b>x</b>) = <span class="frac"><span>1</span><span>M</span></span> ∑<sub>m=1</sub><sup>M</sup> f<sub>m</sub>(<b>x</b>)</div>
+      <p>Tree <i>m</i> is fit to its own bootstrap sample of the data. Averaging lowers <strong>variance</strong> without adding much bias, which is why the trees are allowed to grow deep.</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">RANDOM FOREST · ONE EXTRA TWIST</span>
+      <div class="math">at every split, choose only from<br>a random subset of the D features</div>
+      <p>Switch the lab to <b>Random forest</b>. With just two features, each split may use only one feature picked at random. Now about half of the trees open with debt-to-income. The next section shows why this helps.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 02 -->
+<section id="features" class="lesson">
+  <div class="section-head">
+    <p class="eyebrow">02 / §18.4 · DECORRELATING THE TREES</p>
+    <h2>If every tree asks the same first question, the crowd thinks alike.</h2>
+    <p>Bootstrap samples overlap a lot. When one feature is very strong (here, credit score), almost every bagged tree splits on it first and ends up looking much like its neighbors. Averaging near-copies doesn't help much, just as polling 50 weather forecasters adds little if they all read the same computer model.</p>
+    <p>A random forest considers only a random subset of <b>m<sub>try</sub></b> features at each split. Sometimes credit score isn't on the menu, so a tree has to use other evidence. Each tree gets slightly worse, but their errors become less related, and the <em>average</em> gets better.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">RANDOM-FEATURE LAB</span><h3>Eight features per applicant. How many may each split look at?</h3></div>
+    </div>
+    <div class="controls">
+      <label><span>Features considered per split, m<sub>try</sub></span> <b id="r-mtry-out">8</b><input id="r-mtry" type="range" min="1" max="8" value="8"></label>
+      <label>Number of trees <b id="r-m-out">60</b><input id="r-m" type="range" min="1" max="150" value="60"></label>
+    </div>
+    <p class="caption" id="r-mode">m<sub>try</sub> = 8 means every feature is always allowed. That is plain bagging.</p>
+    <div class="grid two tight">
+      <div>
+        <p class="mini-label">FIRST QUESTION ASKED BY EACH OF THE FIRST 48 TREES</p>
+        <div class="chips" id="r-chips"></div>
+        <div class="legend" id="r-legend"></div>
+      </div>
+      <div>
+        <figure class="plot"><canvas id="r-curve" height="230" aria-label="Test accuracy versus number of trees for bagging and the chosen random forest."></canvas>
+          <figcaption><span class="ln grey"></span>bagging (m<sub>try</sub> = 8) <span class="ln green"></span>your forest · accuracy on 2,000 new applicants</figcaption></figure>
+        <div class="stats three">
+          <div><span>Correlation between two trees, ρ</span><b id="r-rho">–</b></div>
+          <div><span>Single tree</span><b id="r-single">–</b></div>
+          <div><span>Whole forest</span><b id="r-acc">–</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">WHY CORRELATION MATTERS</span>
+      <div class="math">Var[average of M trees] = ρσ² + <span class="frac"><span>1 − ρ</span><span>M</span></span>σ²</div>
+      <p>Each tree's prediction has variance σ², and any two trees have correlation ρ. Adding trees shrinks only the second term. The first term, <strong>ρσ²</strong>, is a floor that no number of trees can get below. Random features lower ρ, which lowers that floor.</p>
+      <p class="fine">This standard identity (Hastie, Tibshirani &amp; Friedman, <i>ESL</i> §15.2) is the usual explanation behind the random-forest idea in §18.4.</p>
+    </div>
+    <div class="lab small">
+      <div class="controls">
+        <label>Correlation ρ <b id="v-rho-out">0.50</b><input id="v-rho" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+      </div>
+      <figure class="plot"><canvas id="v-curve" height="200" aria-label="Variance of the average versus number of trees."></canvas>
+        <figcaption><span class="ln green"></span>variance of the average (as a fraction of σ²) <span class="ln dash"></span>floor ρσ²</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- 03 -->
+<section id="boost" class="lesson">
+  <div class="section-head">
+    <p class="eyebrow">03 / §18.5–18.5.1 · FORWARD STAGEWISE ADDITIVE MODELING</p>
+    <h2>Boosting: a sequence of weak learners, each fixing the last.</h2>
+    <p>Think of editing an essay in passes. The first editor fixes the biggest problems. The next one reads the <em>revised</em> draft and fixes what's still wrong, and so on. No single editor needs to be brilliant. Boosting does the same thing with <strong>weak learners</strong>, usually stumps (one-split trees) or very shallow trees.</p>
+  </div>
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">THE MODEL · A WEIGHTED SUM</span>
+      <div class="math">f(<b>x</b>) = ∑<sub>m=1</sub><sup>M</sup> β<sub>m</sub> F<sub>m</sub>(<b>x</b>)</div>
+      <p>F<sub>m</sub> is a small tree and β<sub>m</sub> is how much we trust it. Unlike a forest, the trees are <em>added</em>, not averaged, and each depends on the ones before it.</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">THE GREEDY RECIPE · ONE TREE AT A TIME</span>
+      <div class="math">(β<sub>m</sub>, θ<sub>m</sub>) = argmin<sub>β, θ</sub> ∑<sub>i</sub> ℓ(y<sub>i</sub>, f<sub>m−1</sub>(<b>x</b><sub>i</sub>) + β F(<b>x</b><sub>i</sub>; θ))<br>f<sub>m</sub>(<b>x</b>) = f<sub>m−1</sub>(<b>x</b>) + ν β<sub>m</sub> F(<b>x</b>; θ<sub>m</sub>)</div>
+      <p>Freeze everything learned so far, then find the single best tree to add. The <strong>learning rate</strong> 0 &lt; ν ≤ 1 (shrinkage) takes only part of each step, which usually generalizes better. Choosing the loss ℓ gives the different algorithms below.</p>
+    </div>
+  </div>
+  <div class="loss-map">
+    <div><b>Squared loss</b><span>→ least-squares boosting</span><a href="#residuals">§04</a></div>
+    <div><b>Exponential loss</b><span>→ AdaBoost</span><a href="#adaboost">§05</a></div>
+    <div><b>Log loss</b><span>→ LogitBoost</span><a href="#logitboost">§06</a></div>
+  </div>
+</section>
+
+<!-- 04 -->
+<section id="residuals" class="lesson">
+  <div class="section-head">
+    <p class="eyebrow">04 / §18.5.2 · QUADRATIC LOSS AND LEAST-SQUARES BOOSTING</p>
+    <h2>With squared loss, every new tree just fits what's left over.</h2>
+    <p>A bike-share company predicts daily rentals from the temperature. Rentals peak on mild days and drop on freezing or scorching ones. Plug squared loss into the recipe and something simple falls out: the best next tree is the one that best predicts the <strong>residuals</strong>, the part of the data the current model still gets wrong.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">RESIDUAL LAB</span><h3>Add trees one at a time</h3></div>
+      <div class="button-group">
+        <button id="b-step" class="btn">Add 1 tree</button>
+        <button id="b-step10" class="btn ghost">+10</button>
+        <button id="b-play" class="btn ghost" aria-pressed="false">▶ Play</button>
+        <button id="b-reset" class="btn ghost">Reset</button>
+      </div>
+    </div>
+    <div class="controls">
+      <label>Learning rate ν <b id="b-nu-out">1.00</b><input id="b-nu" type="range" min="0.05" max="1" step="0.05" value="1"></label>
+      <label>Weak learner<select id="b-depth"><option value="1">Stump (1 split)</option><option value="2">Depth-2 tree (3 splits)</option></select></label>
+    </div>
+    <div class="grid two tight">
+      <div>
+        <figure class="plot"><canvas id="b-fit" height="250" aria-label="Rentals versus temperature with the current boosted fit."></canvas>
+          <figcaption><span class="ln green"></span>current model f<sub>m</sub> · dots are past days</figcaption></figure>
+        <figure class="plot"><canvas id="b-res" height="190" aria-label="Residuals and the next tree fit to them."></canvas>
+          <figcaption>residuals r<sub>i</sub> = y<sub>i</sub> − f<sub>m</sub>(x<sub>i</sub>) <span class="ln amber"></span>the next tree, fit to these residuals</figcaption></figure>
+      </div>
+      <div>
+        <div class="stats">
+          <div><span>Trees so far, m</span><b id="b-m">0</b></div>
+          <div><span>Training error (RMSE)</span><b id="b-train">–</b></div>
+          <div><span>Error on new days (RMSE)</span><b id="b-test">–</b></div>
+        </div>
+        <figure class="plot"><canvas id="b-curve" height="200" aria-label="Training and test error versus number of trees."></canvas>
+          <figcaption><span class="ln grey"></span>training <span class="ln green"></span>new days · bikes/day, first 300 trees</figcaption></figure>
+        <p class="caption"><b>Try this:</b> switch to depth-2 trees with ν = 1. Training error keeps falling, but error on new days bottoms out and starts creeping back up as the model starts fitting noise. Then lower ν to 0.1: progress is slower, but the error on new days stays low much longer.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="eq-card wide">
+    <span class="eq-ref">WHY THE LOSS TURNS INTO “FIT THE RESIDUALS”</span>
+    <div class="math">ℓ(y, f<sub>m−1</sub>(x) + βF(x)) = (r − βF(x))², where r = y − f<sub>m−1</sub>(x)</div>
+    <p>Squared error on the original targets equals squared error of the new tree against the residuals r<sub>i</sub>. So each round is an ordinary regression-tree fit with the residuals as the targets (β can be absorbed into the tree's leaf values). This is <b>least-squares boosting</b>.</p>
+  </div>
+</section>
+
+<!-- 05 -->
+<section id="adaboost" class="lesson">
+  <div class="section-head">
+    <p class="eyebrow">05 / §18.5.3 · EXPONENTIAL LOSS AND ADABOOST</p>
+    <h2>AdaBoost: re-weight the emails you keep getting wrong.</h2>
+    <p>Now a classification problem. A mail filter labels emails as <span class="c-amber">spam</span> (ỹ = +1) or <span class="c-green">ham</span> (ỹ = −1) from two clues: the <strong>number of links</strong> and the <strong>percentage of CAPITAL letters</strong>. Each weak learner is a single yes/no rule such as “links &gt; 4.3”.</p>
+    <p>After each round, AdaBoost <strong>raises the weight</strong> of every email the team misclassifies and lowers the weight of the rest. The next stump is trained to minimize <em>weighted</em> error, so it is pushed toward the hard cases. <b>Dot size shows weight.</b></p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">SPAM LAB</span><h3>Step through the rounds</h3></div>
+      <div class="seg" role="group" aria-label="Algorithm">
+        <button data-algo="ada" class="on">AdaBoost</button>
+        <button data-algo="logit">LogitBoost</button>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="button-group">
+        <button id="a-step" class="btn">Next round</button>
+        <button id="a-step10" class="btn ghost">+10</button>
+        <button id="a-play" class="btn ghost" aria-pressed="false">▶ Play</button>
+        <button id="a-reset" class="btn ghost">Reset</button>
+      </div>
+      <label class="check"><input id="a-noise" type="checkbox"> Add 8 mislabeled emails <span class="muted">(ringed)</span></label>
+    </div>
+    <div class="forest-grid">
+      <figure class="plot">
+        <canvas id="a-map" height="340" aria-label="Map of the boosted classifier over links and capital letters, with emails sized by weight."></canvas>
+        <figcaption><span class="sw amber"></span>predicted spam <span class="sw green"></span>predicted ham · dashed line = the stump just added · dot size = weight on that email</figcaption>
+      </figure>
+      <div>
+        <div class="stats">
+          <div><span>Round m</span><b id="a-m">0</b></div>
+          <div id="a-err-row"><span>This stump's weighted error, err<sub>m</sub></span><b id="a-err">–</b></div>
+          <div id="a-beta-row"><span>Its say in the vote, β<sub>m</sub></span><b id="a-beta">–</b></div>
+          <div><span>Mistakes on training emails</span><b id="a-train">–</b></div>
+          <div><span>Mistakes on 3,000 new emails</span><b id="a-test">–</b></div>
+          <div id="a-share-row" class="hl"><span>Share of total weight on the 8 mislabeled emails</span><b id="a-share">–</b></div>
+        </div>
+        <figure class="plot"><canvas id="a-curve" height="170" aria-label="Test error versus rounds for AdaBoost and LogitBoost."></canvas>
+          <figcaption><span class="ln amber"></span>AdaBoost <span class="ln green"></span>LogitBoost · error on new emails, 200 rounds</figcaption></figure>
+      </div>
+    </div>
+    <p class="caption"><b>Try this:</b> tick <i>Add 8 mislabeled emails</i> and press Play. AdaBoost keeps inflating the weight on those few hopeless emails, eventually putting about a fifth of its attention on 5% of the data, and the stumps it adds bend the boundary toward them. Its error on new emails stays far above where it was without the bad labels. Switch to LogitBoost and compare.</p>
+  </div>
+
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">THE LOSS · AND WHERE THE WEIGHTS COME FROM</span>
+      <div class="math">ℓ(ỹ, f) = exp(−ỹ f)<br>ℓ(ỹ<sub>i</sub>, f<sub>m−1</sub> + βF) = <u>exp(−ỹ<sub>i</sub> f<sub>m−1</sub>(x<sub>i</sub>))</u> · exp(−β ỹ<sub>i</sub> F(x<sub>i</sub>))<br><span class="under">w<sub>i,m</sub>: fixed by the earlier rounds</span></div>
+      <p>The margin ỹf is positive when the email is classified correctly. The part of the loss that earlier rounds have already fixed acts as a <strong>weight</strong> on each email: emails with a large negative margin get exponentially large weights.</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">ONE ROUND OF ADABOOST</span>
+      <div class="math">F<sub>m</sub> = argmin<sub>F</sub> ∑ w<sub>i,m</sub> 𝟙(ỹ<sub>i</sub> ≠ F(x<sub>i</sub>))<br>err<sub>m</sub> = <span class="frac"><span>∑ w<sub>i,m</sub> 𝟙(ỹ<sub>i</sub> ≠ F<sub>m</sub>(x<sub>i</sub>))</span><span>∑ w<sub>i,m</sub></span></span><br>β<sub>m</sub> = ½ log <span class="frac"><span>1 − err<sub>m</sub></span><span>err<sub>m</sub></span></span><br>w<sub>i,m+1</sub> = w<sub>i,m</sub> · e<sup>−β<sub>m</sub> ỹ<sub>i</sub> F<sub>m</sub>(x<sub>i</sub>)</sup></div>
+      <p>An accurate stump (small err) gets a big β. Misclassified emails are multiplied by e<sup>β</sup> and correct ones by e<sup>−β</sup>. The book's Algorithm 18.2 writes the same thing with α = 2β, rescaling only the misclassified emails by e<sup>α</sup>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 06 -->
+<section id="logitboost" class="lesson">
+  <div class="section-head">
+    <p class="eyebrow">06 / §18.5.4 · LOG LOSS AND LOGITBOOST</p>
+    <h2>LogitBoost: same idea, gentler punishment.</h2>
+    <p>Exponential loss has two drawbacks. It <strong>explodes</strong> for badly wrong examples, so a few mislabeled emails can take over training, as you just saw. And it isn't the log-likelihood of any probability model, so its scores aren't calibrated probabilities. The fix is to boost the <strong>log loss</strong> (logistic loss) instead. Its penalty grows only <em>linearly</em> for confident mistakes.</p>
+  </div>
+
+  <div class="grid two">
+    <div class="lab small">
+      <div class="controls">
+        <label>Margin ỹ·f(x) <b id="l-m-out">−2.0</b><input id="l-m" type="range" min="-3" max="3" step="0.05" value="-2"></label>
+      </div>
+      <figure class="plot"><canvas id="l-curve" height="250" aria-label="Zero-one, exponential and log loss as functions of the margin."></canvas>
+        <figcaption><span class="ln grey"></span>0–1 loss <span class="ln amber"></span>exponential (AdaBoost) <span class="ln green"></span>log loss (LogitBoost), scaled to 1 at 0</figcaption></figure>
+      <div class="stats three">
+        <div><span>0–1 loss</span><b id="l-01">–</b></div>
+        <div><span>Exponential</span><b id="l-exp">–</b></div>
+        <div><span>Log loss</span><b id="l-log">–</b></div>
+      </div>
+      <p class="caption">Drag the margin left, toward a confidently wrong example. At −3 the exponential penalty is about 20, while log loss is about 9 and rising only in a straight line.</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">LOGITBOOST · NEWTON STEPS ON LOG LOSS</span>
+      <div class="math">ℓ(ỹ, f) = log(1 + e<sup>−2ỹf</sup>), &nbsp; p(x) = σ(2f(x))<br>z<sub>i</sub> = <span class="frac"><span>y<sub>i</sub>* − p<sub>i</sub></span><span>p<sub>i</sub>(1 − p<sub>i</sub>)</span></span>, &nbsp; w<sub>i</sub> = p<sub>i</sub>(1 − p<sub>i</sub>)<br>F<sub>m</sub> = argmin<sub>F</sub> ∑ w<sub>i</sub>(z<sub>i</sub> − F(x<sub>i</sub>))²<br>f ← f + ½ F<sub>m</sub></div>
+      <p>Here y* ∈ {0, 1}. Each round fits a <em>regression</em> stump to a working response z with weights w, which is one Newton step on the log loss. Because f is a log-odds score, p(x) is an honest probability.</p>
+      <p><b>Why it resists outliers:</b> the weight w = p(1 − p) is largest for emails <em>near the boundary</em>. An email the model confidently gets wrong has p close to 0 or 1, so its weight is tiny. Its pull on the next stump, w·z = y* − p, can never exceed 1. Flip the spam lab to LogitBoost: the big dots move to the boundary, and the ringed emails stay small.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 07 -->
+<section id="recap" class="lesson last">
+  <div class="section-head">
+    <p class="eyebrow">07 / RECAP</p>
+    <h2>Crowd versus coach, side by side.</h2>
+  </div>
+  <div class="table-scroll">
+    <table class="compare">
+      <thead><tr><th></th><th><span class="tag green">Random forest</span></th><th><span class="tag amber">Boosting</span></th></tr></thead>
+      <tbody>
+        <tr><th>Trees are trained</th><td>Independently (in parallel)</td><td>One after another; each depends on the last</td></tr>
+        <tr><th>Each tree is</th><td>Deep, low bias, high variance</td><td>Shallow (stump), high bias, low variance</td></tr>
+        <tr><th>Mainly reduces</th><td>Variance, by averaging decorrelated trees</td><td>Bias, by adding corrections</td></tr>
+        <tr><th>Randomness from</th><td>Bootstrap rows + random feature subsets</td><td>None needed (deterministic re-weighting or residuals)</td></tr>
+        <tr><th>Combine by</th><td>Average / majority vote</td><td>Weighted sum ∑ β<sub>m</sub>F<sub>m</sub></td></tr>
+        <tr><th>More trees…</th><td>Rarely hurts; just costs compute</td><td>Can overfit; tune M and learning rate ν</td></tr>
+        <tr><th>Key knobs</th><td>m<sub>try</sub>, number of trees</td><td>Loss, tree depth, ν, number of rounds</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="quiz-h">Check yourself</h3>
+  <div class="quiz">
+    <details><summary>Why can't we just bag 10,000 trees and drive the error to zero?</summary><p>Averaging only removes the variance the trees <em>don't</em> share. The ρσ² term stays no matter how large M gets, and bias is untouched. Random features lower ρ, which lowers that floor.</p></details>
+    <details><summary>Lowering m<sub>try</sub> makes each tree worse. Why can the forest get better?</summary><p>Weaker but less correlated trees can average to a better ensemble. In the feature lab, a single tree's accuracy falls slightly as m<sub>try</sub> drops, but ρ falls more and the forest's accuracy rises.</p></details>
+    <details><summary>In least-squares boosting, what is the next tree trained to predict?</summary><p>The current residuals y<sub>i</sub> − f<sub>m−1</sub>(x<sub>i</sub>). Squared error on y with the old model held fixed equals squared error of the new tree against the residuals.</p></details>
+    <details><summary>A stump has weighted error 0.5. What is its β, and why?</summary><p>β = ½ log(0.5 / 0.5) = 0. A coin-flip learner gets no vote. If err &gt; 0.5, β is negative, which means flipping the stump's answers.</p></details>
+    <details><summary>Why is LogitBoost more robust to mislabeled data than AdaBoost?</summary><p>Exponential loss (and so AdaBoost's weights) grows exponentially as the margin becomes negative. Log loss grows only linearly, so each example's pull on the next learner is bounded by 1. Log loss also gives calibrated probabilities through p = σ(2f).</p></details>
+  </div>
+</section>
+</div>
+</main>
+
+<footer class="wrap foot">
+  <p>Companion to K. P. Murphy, <i>Probabilistic Machine Learning: An Introduction</i>, §18.4–18.5.4. All data are synthetic and generated in your browser with a fixed random seed, so every visit looks the same. Explanations are original paraphrases, not text from the book.</p>
+</footer>
+</body>
+</html>
