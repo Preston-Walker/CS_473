@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An interactive walkthrough of gradient boosting, XGBoost, and how to interpret tree ensembles with feature importance and partial dependence plots. Companion to Murphy, Probabilistic Machine Learning, sections 18.5.5–18.6.">
+  <title>Reading the Ensemble</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="ml.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the walkthrough</a>
+<header class="topbar wrap">
+  <span class="brand">FIELD NOTES <span class="muted">/ machine learning</span></span>
+  <span class="chapter">MURPHY · §18.5.5–18.6</span>
+</header>
+
+<main id="main">
+<section class="hero wrap">
+  <div>
+    <p class="eyebrow">GRADIENT BOOSTING &amp; INTERPRETING TREE ENSEMBLES</p>
+    <h1>200 trees.<br>What did they learn?</h1>
+    <p class="lede">A boosted ensemble is often the most accurate model you can train on a table of data. It is also impossible to read: nobody can follow 200 trees at once.</p>
+    <ul class="hero-list">
+      <li><span class="tag amber">Build it</span> <strong>Gradient boosting</strong> and <strong>XGBoost</strong>: the versions of boosting people actually use.</li>
+      <li><span class="tag green">Read it</span> Two tools answer the two questions everyone asks:<br><strong>Feature importance</strong>: <em>which inputs matter?</em><br><strong>Partial dependence</strong>: <em>how does the prediction change as one input changes?</em></li>
+    </ul>
+    <p class="hero-note">Every chart is live and trained in your browser. The data are synthetic but modeled on real problems: pricing houses from listings, and the email spam dataset the book uses.</p>
+  </div>
+  <figure class="hero-art" aria-label="Diagram. A row of trees feeds into a box labelled 'ensemble'. Two outputs come out: a bar chart labelled 'which inputs matter' and a rising curve labelled 'how they matter'.">
+    <svg viewBox="0 0 460 300" role="img">
+      <g class="svg-green">
+        <g transform="translate(40,26)"><path d="M18 0 L36 34 H0Z"/><rect x="15" y="34" width="6" height="10"/></g>
+        <g transform="translate(92,26)"><path d="M18 0 L36 34 H0Z"/><rect x="15" y="34" width="6" height="10"/></g>
+        <g transform="translate(144,26)"><path d="M18 0 L36 34 H0Z"/><rect x="15" y="34" width="6" height="10"/></g>
+        <g transform="translate(196,26)"><path d="M18 0 L36 34 H0Z"/><rect x="15" y="34" width="6" height="10"/></g>
+      </g>
+      <text x="262" y="56" class="svg-text">… ×200</text>
+      <rect x="60" y="100" width="200" height="54" rx="12" class="svg-node"/>
+      <text x="160" y="132" text-anchor="middle" class="svg-text">ensemble f(x)</text>
+      <g class="svg-line"><path d="M130 72 L150 98"/><path d="M190 72 L170 98"/></g>
+      <g class="svg-line"><path d="M110 156 L80 196" marker-end="url(#arr)"/><path d="M210 156 L320 196" marker-end="url(#arr)"/></g>
+      <g transform="translate(20,204)">
+        <rect x="0" y="0" width="120" height="10" rx="2" class="svg-green"/>
+        <rect x="0" y="16" width="86" height="10" rx="2" class="svg-green" opacity=".75"/>
+        <rect x="0" y="32" width="50" height="10" rx="2" class="svg-green" opacity=".55"/>
+        <rect x="0" y="48" width="14" height="10" rx="2" class="svg-green" opacity=".35"/>
+        <text x="0" y="82" class="svg-small">which inputs matter</text>
+      </g>
+      <g transform="translate(260,204)">
+        <path d="M0 58 H170 M0 58 V0" class="svg-line"/>
+        <path d="M4 52 C40 50, 50 14, 90 10 S150 8, 166 8" fill="none" stroke-width="3" class="svg-amber-stroke"/>
+        <text x="0" y="82" class="svg-small">how they matter</text>
+      </g>
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" class="svg-arrow"/></marker></defs>
+    </svg>
+  </figure>
+</section>
+
+<nav class="lesson-nav" aria-label="Sections"><div class="wrap">
+  <a href="#gradient">01 Gradient boosting</a>
+  <a href="#xgboost">02 XGBoost</a>
+  <a href="#importance">03 Feature importance</a>
+  <a href="#pdp">04 Partial dependence</a>
+  <a href="#recap">05 Recap</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- 01 -->
+<section id="gradient" class="lesson">
+  <div class="section-head">
+    <p class="eyebrow">01 / §18.5.5–18.5.5.1 · GRADIENT BOOSTING</p>
+    <h2>Fit the next tree to the slope of the loss, not the raw residual.</h2>
+    <p>In §18.5.2, least-squares boosting fit each new tree to the residuals y − f(x). That trick only works for squared loss. <strong>Gradient boosting</strong> works for <em>any</em> differentiable loss: each new tree is fit to the <strong>negative gradient</strong> of the loss at every training point, called the <em>pseudo-residual</em>. It is gradient descent, where each step is a small tree.</p>
+    <p>Why would you want a different loss? Say you predict <strong>house prices</strong> from size. Five listings have typos that overstate the price by about $650k. Squared loss lets each typo pull on the model with a force proportional to its error. A robust loss caps that pull.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">HOUSE PRICE LAB</span><h3>Pick a loss, then add trees</h3></div>
+      <div class="seg" role="group" aria-label="Loss function">
+        <button data-loss="squared" class="on">Squared</button>
+        <button data-loss="absolute">Absolute</button>
+        <button data-loss="huber">Huber</button>
+      </div>
+    </div>
+    <div class="controls">
+      <label>Number of trees, M <b id="g-m-out">40</b><input id="g-m" type="range" min="0" max="200" value="40"></label>
+    </div>
+    <div class="forest-grid">
+      <div>
+        <figure class="plot"><canvas id="g-fit" height="290" aria-label="House price versus size, with the boosted fit and the true price curve."></canvas>
+          <figcaption><span class="ln green"></span>boosted model <span class="ln dash"></span>true price curve · <span class="sw amber"></span>typo listings · grey dots are normal listings</figcaption></figure>
+        <figure class="plot"><canvas id="g-res" height="170" aria-label="Pseudo-residuals the next tree will be fit to."></canvas>
+          <figcaption>pseudo-residuals r̃<sub>i</sub> = −∂ℓ/∂f, what the <em>next</em> tree is trained to predict (own scale)</figcaption></figure>
+      </div>
+      <div>
+        <div class="stats">
+          <div><span>Predicted price, 1,550 sq ft</span><b id="g-pred">–</b></div>
+          <div><span>True price, 1,550 sq ft</span><b id="g-true">–</b></div>
+          <div><span>Average miss on 1,000 clean new listings</span><b id="g-mae">–</b></div>
+          <div class="hl"><span>Pull of one typo on the next tree (its pseudo-residual)</span><b id="g-pull">–</b></div>
+        </div>
+        <p class="caption" id="g-note"></p>
+        <p class="caption"><b>Try this:</b> at M = 200, flip between the three losses and watch the bump near 1,500 sq ft. Then look at the lower chart: with absolute loss every pseudo-residual is just ±1, so a $650k typo counts no more than a $5k miss.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">ONE ROUND OF GRADIENT TREE BOOSTING</span>
+      <div class="math">1. r̃<sub>i</sub> = −<span class="frac"><span>∂ℓ(y<sub>i</sub>, f)</span><span>∂f</span></span> at f = f<sub>m−1</sub>(x<sub>i</sub>)<br>2. fit a regression tree to {(x<sub>i</sub>, r̃<sub>i</sub>)} → leaf regions R<sub>j</sub><br>3. w<sub>j</sub> = argmin<sub>w</sub> ∑<sub>i∈R<sub>j</sub></sub> ℓ(y<sub>i</sub>, f<sub>m−1</sub>(x<sub>i</sub>) + w)<br>4. f<sub>m</sub>(x) = f<sub>m−1</sub>(x) + ν·w<sub>j(x)</sub></div>
+      <p>Step 2 uses the gradient only to decide <em>where</em> to split. Step 3 then picks each leaf's value using the real loss: the mean residual for squared loss, the <strong>median</strong> residual for absolute loss.</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">THE LOSS DECIDES WHAT “RESIDUAL” MEANS</span>
+      <table class="mini-table">
+        <thead><tr><th>Loss ℓ(y, f)</th><th>Pseudo-residual −∂ℓ/∂f</th></tr></thead>
+        <tbody>
+          <tr><td>Squared ½(y − f)²</td><td>y − f</td></tr>
+          <tr><td>Absolute |y − f|</td><td>sign(y − f)</td></tr>
+          <tr><td>Huber (δ)</td><td>y − f, clipped to ±δ</td></tr>
+          <tr><td>Log loss, y ∈ {0,1}</td><td>y − σ(f)</td></tr>
+        </tbody>
+      </table>
+      <p class="fine">Huber here uses δ = $60k. <b>Stochastic gradient boosting</b> adds one twist: fit each tree on a random subsample of the rows (often half). It is faster and usually generalizes better.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 02 -->
+<section id="xgboost" class="lesson">
+  <div class="section-head">
+    <p class="eyebrow">02 / §18.5.5.2 · XGBOOST</p>
+    <h2>XGBoost: gradient boosting that penalizes complicated trees.</h2>
+    <p>XGBoost (“extreme gradient boosting”) is one of the most popular libraries for tabular data and a regular winner of data-science competitions. It changes two things. It adds a <strong>penalty for tree complexity</strong> to the objective, and it uses the <strong>second derivative</strong> of the loss as well as the first. Together these give closed-form answers for each leaf's value and for whether a split is worth making.</p>
+    <p>Here a spam filter is growing its first tree. Every email starts at p(spam) = 0.5. Should the tree split on <em>“does the email contain the word <b>hp</b>?”</em></p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">SPLIT CALCULATOR</span><h3>Is this split worth it?</h3></div>
+      <div class="seg" role="group" aria-label="Scenario">
+        <button data-case="clear" class="on">Big, clear split</button>
+        <button data-case="tiny">Tiny split</button>
+        <button data-case="useless">Useless split</button>
+      </div>
+    </div>
+    <div class="controls">
+      <label>λ, leaf-weight penalty <b id="x-lambda-out">1.0</b><input id="x-lambda" type="range" min="0" max="10" step="0.1" value="1"></label>
+      <label>γ, cost per extra leaf <b id="x-gamma-out">0.5</b><input id="x-gamma" type="range" min="0" max="10" step="0.1" value="0.5"></label>
+    </div>
+    <div class="split-viz">
+      <div class="split-parent"><span class="mini-label">PARENT NODE</span><div id="x-parent"></div></div>
+      <div class="split-kids">
+        <div class="split-leaf"><span class="mini-label">CONTAINS “hp”</span><div class="emails" id="x-left"></div><div class="leaf-stats" id="x-left-s"></div></div>
+        <div class="split-leaf"><span class="mini-label">NO “hp”</span><div class="emails" id="x-right"></div><div class="leaf-stats" id="x-right-s"></div></div>
+      </div>
+    </div>
+    <div class="gain-row">
+      <div class="gain-label"><span>Split gain, before the γ charge</span><b id="x-gain">–</b></div>
+      <div class="gain-track" aria-hidden="true"><div class="gain-fill" id="x-gain-bar"></div><div class="gain-gamma" id="x-gamma-mark"><span>γ</span></div></div>
+      <p class="verdict" id="x-verdict"></p>
+    </div>
+    <p class="caption"><span class="sw amber"></span>spam <span class="sw green"></span>not spam. Leaf values are in log-odds; the probability shows what a leaf would predict if it were the only tree. <b>Try this:</b> pick <i>Tiny split</i> and raise λ: its leaf values shrink sharply toward 0 because it has so few emails behind it, while the big split barely changes. Then raise γ until the split is pruned.</p>
+  </div>
+
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">THE REGULARIZED OBJECTIVE</span>
+      <div class="math">ℒ = ∑<sub>i</sub> ℓ(y<sub>i</sub>, f(x<sub>i</sub>)) + Ω(f)<br>Ω(f) = γJ + ½λ ∑<sub>j=1</sub><sup>J</sup> w<sub>j</sub>²</div>
+      <p>J is the number of leaves and w<sub>j</sub> are the leaf values. γ charges for every leaf; λ discourages extreme leaf values. Expanding the loss to second order around the current model gives each email a gradient g<sub>i</sub> and a curvature h<sub>i</sub>. For log loss, g<sub>i</sub> = p<sub>i</sub> − y<sub>i</sub> and h<sub>i</sub> = p<sub>i</sub>(1 − p<sub>i</sub>).</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">CLOSED-FORM LEAVES AND SPLITS</span>
+      <div class="math">w<sub>j</sub>* = −<span class="frac"><span>G<sub>j</sub></span><span>H<sub>j</sub> + λ</span></span>, &nbsp; G<sub>j</sub> = ∑<sub>i∈leaf</sub> g<sub>i</sub>, H<sub>j</sub> = ∑ h<sub>i</sub><br>gain = ½ [ <span class="frac"><span>G<sub>L</sub>²</span><span>H<sub>L</sub>+λ</span></span> + <span class="frac"><span>G<sub>R</sub>²</span><span>H<sub>R</sub>+λ</span></span> − <span class="frac"><span>(G<sub>L</sub>+G<sub>R</sub>)²</span><span>H<sub>L</sub>+H<sub>R</sub>+λ</span></span> ] − γ</div>
+      <p>Split only if the gain is positive. That gain number matters again in a moment: <strong>adding it up per feature is how feature importance is computed.</strong></p>
+    </div>
+  </div>
+</section>
+
+<!-- 03 -->
+<section id="importance" class="lesson">
+  <div class="section-head">
+    <p class="eyebrow">03 / §18.6.1 · FEATURE IMPORTANCE</p>
+    <h2>Which inputs matter? Add up the gain from every split that used them.</h2>
+    <p>We trained a 200-tree boosted spam filter on 1,200 emails. Each email is described by how often nine words or characters appear, modeled on the UCI <em>spambase</em> data the book uses. That data came from emails at HP Labs, so the words <b>hp</b> and <b>george</b> (the person who collected it) are strong signs of a <em>non</em>-spam work email. We also slipped in one input that is pure noise: a random digit from the message ID.</p>
+    <p>Every time a tree splits on a feature, that split reduces the loss by some amount (its gain). A feature's importance is the total gain from all splits on it, summed over all trees. The top feature is scaled to 100.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">SPAM FILTER · IMPORTANCE</span><h3>Grow the ensemble and watch the ranking</h3></div>
+    </div>
+    <div class="controls">
+      <label>Number of trees, M <b id="i-m-out">200</b><input id="i-m" type="range" min="1" max="200" value="200"></label>
+      <label class="check"><input id="i-copy" type="checkbox"> Add a near-duplicate of “!” <span class="muted">(a second “!” counter)</span></label>
+    </div>
+    <div class="grid two tight">
+      <div>
+        <div class="bars" id="i-bars" role="list"></div>
+        <p class="caption">Click a bar to see that feature's partial dependence plot in section 04.</p>
+      </div>
+      <div>
+        <div class="stats">
+          <div><span>Accuracy on 2,000 new emails</span><b id="i-acc">–</b></div>
+          <div><span>Top feature</span><b id="i-top">–</b></div>
+          <div><span>Importance of the noise digit</span><b id="i-noise">–</b></div>
+        </div>
+        <p class="caption" id="i-note"></p>
+        <div class="note-box">
+          <p><b>What importance does <em>not</em> tell you</b></p>
+          <ul>
+            <li><b>Direction.</b> “hp” and “!” both rank high, but one points toward ham and the other toward spam. You need section 04 for that.</li>
+            <li><b>Credit is shared between look-alikes.</b> Tick the checkbox. Nothing about the emails changes, yet “!” drops sharply because a near-copy now takes some of the splits. Add the twins' scores together to judge the underlying signal.</li>
+            <li><b>Cause.</b> It ranks what the model uses, not what causes spam.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="eq-card wide">
+    <span class="eq-ref">THE FORMULA</span>
+    <div class="math">R<sub>k</sub>(T) = ∑<sub>j = 1</sub><sup>J−1</sup> G<sub>j</sub> · 𝟙(v<sub>j</sub> = k), &nbsp;&nbsp;&nbsp; R<sub>k</sub> = <span class="frac"><span>1</span><span>M</span></span> ∑<sub>m=1</sub><sup>M</sup> R<sub>k</sub>(T<sub>m</sub>)</div>
+    <p>The sum runs over the J − 1 internal (splitting) nodes of tree T; v<sub>j</sub> is the feature node j splits on and G<sub>j</sub> is the gain (drop in loss) from that split. Average over the trees, then rescale so the largest is 100. Averaging over many trees makes the ranking much more reliable than reading a single tree.</p>
+  </div>
+</section>
+
+<!-- 04 -->
+<section id="pdp" class="lesson">
+  <div class="section-head">
+    <p class="eyebrow">04 / §18.6.2 · PARTIAL DEPENDENCE PLOTS</p>
+    <h2>How does the prediction move as one input changes?</h2>
+    <p>Pick a feature, say the frequency of “!”. Pretend every email in the data set had “!” at exactly 0.3%, leaving every other word as it was. Run all of them through the model and average the predicted spam probability. Repeat for a range of values. That curve is the <strong>partial dependence</strong> of the model on “!”: its effect with the other features <em>averaged out</em>.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">SPAM FILTER · PARTIAL DEPENDENCE</span><h3>Choose a feature</h3></div>
+      <label class="check"><input id="p-ice" type="checkbox" checked> Show 40 individual emails</label>
+    </div>
+    <div class="chip-row" id="p-feats" role="group" aria-label="Feature"></div>
+    <div class="controls">
+      <label><span>Set <b id="p-fname">“!”</b> to this value in every email</span> <b id="p-v-out">–</b><input id="p-v" type="range" min="0" max="39" value="10"></label>
+    </div>
+    <div class="forest-grid">
+      <figure class="plot"><canvas id="p-plot" height="320" aria-label="Partial dependence of spam probability on the chosen feature."></canvas>
+        <figcaption><span class="ln amber"></span>partial dependence (average of all 300 emails) <span class="ln grey"></span>individual emails · ticks along the bottom show where real emails lie</figcaption></figure>
+      <div>
+        <p class="readout" id="p-readout"></p>
+        <div class="stats">
+          <div><span>Average spam probability at this value</span><b id="p-avg">–</b></div>
+          <div><span>Change across the plotted range</span><b id="p-range">–</b></div>
+        </div>
+        <p class="caption"><b>Try this:</b> compare “remove” (a sharp jump: any mention at all is a red flag), “hp” and “george” (falling curves: work emails), and the noise digit (flat, as it should be). The book shows the same shapes for the real spam data.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid two">
+    <div class="lab small">
+      <span class="mini-label">TWO FEATURES AT ONCE</span>
+      <div class="controls">
+        <label>Across<select id="p2-a"></select></label>
+        <label>Up<select id="p2-b"></select></label>
+      </div>
+      <figure class="plot"><canvas id="p2-map" height="270" aria-label="Two-feature partial dependence heat map."></canvas>
+        <figcaption><span class="sw amber"></span>higher spam probability <span class="sw green"></span>lower · averaged over 200 emails</figcaption></figure>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">THE FORMULA</span>
+      <div class="math">f̄<sub>k</sub>(x<sub>k</sub>) = <span class="frac"><span>1</span><span>N</span></span> ∑<sub>n=1</sub><sup>N</sup> f(x<sub>k</sub>, <b>x</b><sub>n,−k</sub>)</div>
+      <p><b>x</b><sub>n,−k</sub> means email n's values for every feature <em>except</em> k. So we sweep feature k while keeping each email's other features as they really are. The grey lines are those individual sweeps; the colored line is their average.</p>
+      <p><b>Interactions.</b> The same idea works for a pair of features. With “!” across and “hp” up, the map shows that “!” raises the spam probability a lot for emails <em>without</em> “hp”, but much less for work emails that mention hp. A one-feature plot averages that difference away.</p>
+      <p class="fine">Caveat: if features are strongly correlated, the sweep invents unrealistic emails (lots of “$” but no other money words), so read the edges of the plot with care.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 05 -->
+<section id="recap" class="lesson last">
+  <div class="section-head">
+    <p class="eyebrow">05 / RECAP</p>
+    <h2>Two lenses on a black box.</h2>
+  </div>
+  <div class="table-scroll">
+    <table class="compare">
+      <thead><tr><th></th><th><span class="tag green">Feature importance</span></th><th><span class="tag amber">Partial dependence</span></th></tr></thead>
+      <tbody>
+        <tr><th>Answers</th><td>Which inputs does the model rely on most?</td><td>How does the prediction change as one (or two) inputs change?</td></tr>
+        <tr><th>Computed by</th><td>Summing split gains per feature over all trees</td><td>Fixing x<sub>k</sub> in every row and averaging the predictions</td></tr>
+        <tr><th>Output</th><td>One number per feature (top = 100)</td><td>A curve per feature, or a heat map per pair</td></tr>
+        <tr><th>Shows direction?</th><td>No</td><td>Yes</td></tr>
+        <tr><th>Watch out for</th><td>Correlated features splitting credit</td><td>Interactions averaged away; unrealistic combinations of features</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="quiz-h">Check yourself</h3>
+  <div class="quiz">
+    <details><summary>For absolute loss, what is each pseudo-residual, and why does that make the model robust to typos?</summary><p>sign(y − f), so every point is ±1. A listing that is $650k too high pulls on the next tree exactly as hard as one that is $5k too high. With squared loss the pull is proportional to the error.</p></details>
+    <details><summary>In XGBoost, a leaf holds 2 emails, both spam, and every email currently has p = 0.5. What is its weight with λ = 0 and with λ = 1?</summary><p>g = 0.5 − 1 = −0.5 each, so G = −1. h = 0.25 each, so H = 0.5. w* = −G/(H + λ) = 2 with λ = 0, and 1/1.5 ≈ 0.67 with λ = 1. λ shrinks small leaves the most.</p></details>
+    <details><summary>The noise digit gets a small but nonzero importance. Why not exactly zero?</summary><p>With enough trees, a few splits on noise will happen to reduce the training loss slightly by chance. Gain-based importance is measured on training data, so it gives those lucky splits a bit of credit.</p></details>
+    <details><summary>Two features are near-copies. Each gets importance 50. What can you conclude?</summary><p>That the shared signal they carry is important, roughly on par with a single feature scoring about 100. Removing one copy would probably hurt the model very little, since the other could take over.</p></details>
+    <details><summary>The partial dependence on “!” is nearly flat for one subgroup of emails and steep for another. Where would you see that?</summary><p>In the individual (ICE) lines fanning out, or in a two-feature partial dependence plot such as “!” against “hp”. The single averaged curve would hide it.</p></details>
+  </div>
+</section>
+</div>
+</main>
+
+<footer class="wrap foot">
+  <p>Companion to K. P. Murphy, <i>Probabilistic Machine Learning: An Introduction</i>, §18.5.5–18.6. All data are synthetic and generated in your browser with a fixed random seed, so every visit looks the same. The spam features are modeled on the UCI spambase data set. Explanations are original paraphrases, not text from the book.</p>
+</footer>
+</body>
+</html>
