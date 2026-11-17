@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An interactive comparison of supervised, unsupervised and semi-supervised learning, with real-world examples, live demos and pros and cons. Companion to Murphy, Probabilistic Machine Learning, section 19.3.">
+  <title>Who Gives the Answers?</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="ml.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the walkthrough</a>
+<header class="topbar wrap">
+  <span class="brand">FIELD NOTES <span class="muted">/ machine learning</span></span>
+  <span class="chapter">MURPHY · §19.3 CONTEXT</span>
+</header>
+
+<main id="main">
+<section class="hero wrap">
+  <div>
+    <p class="eyebrow">SUPERVISED · UNSUPERVISED · SEMI-SUPERVISED</p>
+    <h1>Who gives<br>the answers?</h1>
+    <p class="lede">The three kinds of learning differ in one thing: how many of your examples come with the right answer (a <em>label</em>) attached.</p>
+    <ul class="hero-list">
+      <li><span class="tag green">Supervised</span> Every example is labeled. Learn to predict the label.</li>
+      <li><span class="tag violet">Unsupervised</span> No labels at all. Find structure: groups, oddities, simpler descriptions.</li>
+      <li><span class="tag amber">Semi-supervised</span> A few labels and a lot of unlabeled data. Use the unlabeled data to make the few labels go further. (This is §19.3.)</li>
+    </ul>
+    <p class="hero-note">This page fills in the middle row, unsupervised learning, and then sets all three side by side. Every chart runs in your browser on small synthetic datasets modeled on real problems.</p>
+  </div>
+  <figure class="hero-art" aria-label="Three panels showing the same scatter of points. Left, every point is coloured by its class. Middle, every point is grey. Right, most points are grey and only four are coloured.">
+    <svg viewBox="0 0 460 300" role="img" id="heroSvg"></svg>
+  </figure>
+</section>
+
+<nav class="lesson-nav" aria-label="Sections">
+  <div class="wrap">
+    <a href="#labels">1 · The label question</a>
+    <a href="#compare">2 · Same data, three ways</a>
+    <a href="#toolkit">3 · Unsupervised toolkit</a>
+    <a href="#world">4 · Real-world sorter</a>
+    <a href="#proscons">5 · Pros &amp; cons</a>
+    <a href="#choose">6 · Which one?</a>
+    <a href="#check">7 · Self-check</a>
+  </div>
+</nav>
+
+<!-- 1 -->
+<section class="lesson wrap" id="labels">
+  <div class="section-head">
+    <span class="eyebrow">1 · THE LABEL QUESTION</span>
+    <h2>Labels are the expensive part</h2>
+    <p>Collecting raw data is usually cheap: cameras, logs and web crawlers produce it nonstop. Getting someone to write the right answer next to each example is slow and costs money, and sometimes it needs an expert. A radiologist has to read the scan, a linguist has to transcribe the recording, a lab has to run the assay.</p>
+    <p>So the practical question in most projects is <strong>how many labels can we afford, and what do we do with everything else?</strong></p>
+  </div>
+
+  <div class="grid three">
+    <article class="kind-card k-green">
+      <span class="mini-label">SUPERVISED</span>
+      <h3>Learn from an answer key</h3>
+      <p class="data-shape"><code>(x, y)</code> pairs: input <em>and</em> the correct output</p>
+      <p>The model sees thousands of examples like “this email → spam” and learns a function that maps inputs to outputs. It can be <strong>classification</strong> (pick a category) or <strong>regression</strong> (predict a number).</p>
+      <p class="fine"><b>Everyday analogy:</b> studying with worked solutions.</p>
+    </article>
+    <article class="kind-card k-violet">
+      <span class="mini-label">UNSUPERVISED</span>
+      <h3>Find structure without answers</h3>
+      <p class="data-shape"><code>x</code> only: inputs, no outputs</p>
+      <p>There is nothing to predict, so the model looks for patterns in the inputs: <strong>clusters</strong> of similar items, <strong>anomalies</strong> that don’t fit, or a <strong>smaller set of directions</strong> that captures most of the variation.</p>
+      <p class="fine"><b>Everyday analogy:</b> sorting a drawer of unlabeled photos into piles.</p>
+    </article>
+    <article class="kind-card k-amber">
+      <span class="mini-label">SEMI-SUPERVISED</span>
+      <h3>A few answers plus lots of data</h3>
+      <p class="data-shape">A few <code>(x, y)</code> pairs plus many <code>x</code> alone</p>
+      <p>The goal is still to predict <code>y</code>, as in supervised learning. The unlabeled examples show how the data is shaped, and that tells the model where a decision boundary can and can’t sensibly go.</p>
+      <p class="fine"><b>Everyday analogy:</b> a teacher grades three essays; you infer the rubric by reading the whole pile.</p>
+    </article>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="lesson wrap" id="compare">
+  <div class="section-head">
+    <span class="eyebrow">2 · SAME DATA, THREE WAYS</span>
+    <h2>A help desk with 300 tickets</h2>
+    <p>Each dot is a support ticket, placed so that tickets with similar wording sit near each other. There are two kinds, <span class="c-green">billing</span> and <span class="c-amber">technical</span>, and they form two interlocking arcs. Your team can read and tag some tickets. Slide the label budget and watch what each approach does.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LIVE LAB</span><h3>How far do your labels go?</h3></div>
+      <div class="button-group"><button class="btn ghost" id="cmpShuffle">Pick different tickets to label</button></div>
+    </div>
+    <div class="controls">
+      <label>Tickets a person has labeled <b id="cmpNOut">4</b>
+        <input type="range" id="cmpN" min="2" max="300" step="1" value="4">
+      </label>
+      <label>Cost to label one ticket (an agent's time) <b id="cmpCostOut">$1.50</b>
+        <input type="range" id="cmpCost" min="0.1" max="20" step="0.1" value="1.5">
+      </label>
+    </div>
+    <div class="grid three tight">
+      <figure class="plot panel">
+        <figcaption class="panel-h"><span class="tag green">Supervised</span> labeled tickets only</figcaption>
+        <canvas id="cmpSup" height="250"></canvas>
+        <div class="panel-stat"><span>Accuracy on 400 new tickets</span><b id="cmpSupAcc">–</b></div>
+        <p class="caption">A nearest-neighbor classifier trained on the labeled dots alone. The grey dots are ignored.</p>
+      </figure>
+      <figure class="plot panel">
+        <figcaption class="panel-h"><span class="tag violet">Unsupervised</span> no labels used</figcaption>
+        <canvas id="cmpUns" height="250"></canvas>
+        <div class="panel-stat"><span>Accuracy <em>if</em> someone names the 2 clusters</span><b id="cmpUnsAcc">–</b></div>
+        <p class="caption">k-means with k = 2 on all 300 tickets. It doesn't know what billing or technical means; it just finds two compact groups. Labels don't change it.</p>
+      </figure>
+      <figure class="plot panel">
+        <figcaption class="panel-h"><span class="tag amber">Semi-supervised</span> labeled + unlabeled</figcaption>
+        <canvas id="cmpSemi" height="250"></canvas>
+        <div class="panel-stat"><span>Accuracy on 400 new tickets</span><b id="cmpSemiAcc">–</b></div>
+        <p class="caption">Label propagation: each labeled ticket passes its label to its neighbors, who pass it on, so labels flow along the arcs.</p>
+      </figure>
+    </div>
+    <div class="legend" style="margin-top:6px">
+      <span><i style="background:var(--green)"></i>billing (labeled)</span>
+      <span><i style="background:var(--amber)"></i>technical (labeled)</span>
+      <span><i class="hollow"></i>unlabeled</span>
+      <span>background tint = what the model would predict there</span>
+    </div>
+    <div class="readout" id="cmpReadout" style="margin-top:16px"></div>
+  </div>
+
+  <div class="note-box">
+    <p><strong>What to try</strong></p>
+    <ul>
+      <li>At <b>2–6 labels</b>, supervised draws a boundary that cuts through both arcs. Semi-supervised usually gets nearly everything right, because the unlabeled dots outline the arcs.</li>
+      <li>At <b>300 labels</b>, supervised catches up. When labels are plentiful, the unlabeled data has little left to add.</li>
+      <li>The <b>unsupervised</b> panel never changes, and it splits the data left/right, not by arc. It finds <em>a</em> structure (two compact blobs), not necessarily the structure you care about. This is the main risk of unsupervised learning.</li>
+      <li>Semi-supervised works here because the classes follow the shape of the data (the <em>cluster</em> or <em>manifold</em> assumption in §19.3). Where that assumption fails, unlabeled data can mislead the model.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="lesson wrap" id="toolkit">
+  <div class="section-head">
+    <span class="eyebrow">3 · THE UNSUPERVISED TOOLKIT</span>
+    <h2>Three jobs you can do with no labels</h2>
+    <p>Unsupervised learning isn't a single algorithm. It is a family of tools that each answer a different question about unlabeled data. The three below are the ones you'll meet most often in practice.</p>
+  </div>
+
+  <div class="seg tabs" role="tablist" aria-label="Unsupervised tasks">
+    <button role="tab" class="on" aria-selected="true" data-tab="tClust">Clustering</button>
+    <button role="tab" aria-selected="false" data-tab="tAnom">Anomaly detection</button>
+    <button role="tab" aria-selected="false" data-tab="tPca">Dimensionality reduction</button>
+  </div>
+
+  <!-- clustering -->
+  <div class="tabpanel" id="tClust" role="tabpanel">
+    <p class="question">“Are there natural groups in this data?”</p>
+    <div class="lab">
+      <div class="lab-top">
+        <div><span class="pill">K-MEANS</span><h3>Segmenting 210 grocery shoppers</h3></div>
+        <div class="button-group">
+          <button class="btn" id="kmStep">Take one step</button>
+          <button class="btn ghost" id="kmRun">Run to the end</button>
+          <button class="btn ghost" id="kmReset">New random start</button>
+        </div>
+      </div>
+      <div class="controls">
+        <label>Number of clusters k <b id="kmKOut">4</b>
+          <input type="range" id="kmK" min="1" max="8" step="1" value="4">
+        </label>
+        <div class="stats inline"><div><span>Step</span><b id="kmIt">0</b></div><div><span>Total distance to centers²</span><b id="kmJ">–</b></div></div>
+      </div>
+      <div class="forest-grid">
+        <figure class="plot">
+          <canvas id="kmCanvas" height="340"></canvas>
+          <figcaption>x: store visits per month · y: average basket ($). Crosses are cluster centers. Each step: (1) assign every shopper to the nearest center, (2) move each center to the middle of its shoppers. Both axes are rescaled to 0–1 before measuring distance; otherwise dollars would swamp visits.</figcaption>
+        </figure>
+        <div>
+          <span class="mini-label">CHOOSING K: THE “ELBOW”</span>
+          <canvas id="kmElbow" height="150"></canvas>
+          <p class="caption">More clusters always reduce the distance, so the smallest number doesn't tell you the right k. Look for the bend where adding clusters stops helping much.</p>
+          <span class="mini-label" style="margin-top:14px">WHAT THE ALGORITHM FOUND</span>
+          <div id="kmDesc" class="cluster-list"></div>
+          <p class="caption">The algorithm only outputs numbers. Names like “weekly big shop” come from a person who looks at the centers, so interpretation stays a human job.</p>
+        </div>
+      </div>
+    </div>
+    <div class="uses">
+      <span class="mini-label">USED FOR</span>
+      <ul>
+        <li><b>Customer segmentation</b>: tailor offers to groups nobody defined in advance.</li>
+        <li><b>Grouping news stories</b>: put 40 articles about the same event under one headline.</li>
+        <li><b>Cell types in biology</b>: cluster single-cell gene measurements to find new cell types.</li>
+        <li><b>Image compression</b>: replace millions of colors with the k most representative ones.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- anomaly -->
+  <div class="tabpanel" id="tAnom" role="tabpanel" hidden>
+    <p class="question">“Which of these doesn't look like the others?”</p>
+    <div class="lab">
+      <div class="lab-top">
+        <div><span class="pill">NEAREST-NEIGHBOR DISTANCE</span><h3>Flagging odd card transactions</h3></div>
+        <label class="check"><input type="checkbox" id="anReveal"> Reveal which ones were actually fraud</label>
+      </div>
+      <div class="controls">
+        <label>Flag the most unusual <b id="anPctOut">5%</b>
+          <input type="range" id="anPct" min="0.5" max="20" step="0.5" value="5">
+        </label>
+      </div>
+      <div class="forest-grid">
+        <figure class="plot">
+          <canvas id="anCanvas" height="340"></canvas>
+          <figcaption>x: hour of day · y: amount ($, log scale). Each transaction gets a “loneliness” score: its average distance to its 10 nearest neighbors. The loneliest ones are flagged (ringed). The model never sees the fraud labels.</figcaption>
+        </figure>
+        <div>
+          <div class="stats" id="anStats"></div>
+          <div class="note-box" id="anNote"></div>
+        </div>
+      </div>
+    </div>
+    <div class="uses">
+      <span class="mini-label">USED FOR</span>
+      <ul>
+        <li><b>Fraud and intrusion detection</b>: new attack patterns have no labels yet, but they still look unusual.</li>
+        <li><b>Manufacturing</b>: spot defective parts when almost every training example is fine.</li>
+        <li><b>Equipment monitoring</b>: warn when a turbine's vibration pattern drifts from normal.</li>
+        <li><b>Data cleaning</b>: find sensor glitches and typos before training any other model.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- PCA -->
+  <div class="tabpanel" id="tPca" role="tabpanel" hidden>
+    <p class="question">“Can I describe this data with fewer numbers?”</p>
+    <div class="lab">
+      <div class="lab-top">
+        <div><span class="pill">PCA</span><h3>Squashing two exam scores into one</h3></div>
+        <div class="button-group"><button class="btn" id="pcaBest">Let PCA choose the direction</button></div>
+      </div>
+      <div class="controls">
+        <label>Direction of the summary line <b id="pcaAngOut">0°</b>
+          <input type="range" id="pcaAng" min="0" max="179" step="1" value="0">
+        </label>
+      </div>
+      <div class="forest-grid">
+        <figure class="plot">
+          <canvas id="pcaCanvas" height="340"></canvas>
+          <figcaption>x: midterm score · y: final score for 120 students. Each student is projected (thin lines) onto the summary line, so one number replaces two.</figcaption>
+        </figure>
+        <div>
+          <span class="mini-label">SPREAD KEPT BY THIS ONE NUMBER</span>
+          <div class="gain-track big"><div class="gain-fill" id="pcaFill"></div></div>
+          <p class="readout" id="pcaRead" style="margin-top:12px"></p>
+          <div class="note-box">
+            <p>PCA picks the direction where the projected points are most spread out, because that direction keeps the most information. Here it amounts to an “overall ability” score.</p>
+            <p>Real datasets have hundreds or thousands of columns. PCA and its nonlinear relatives (t-SNE, UMAP, autoencoders) reduce them to a few, which you can plot or feed to another model.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="uses">
+      <span class="mini-label">USED FOR</span>
+      <ul>
+        <li><b>Visualization</b>: plot 20,000-gene or 768-dimensional embedding data on a 2-D screen.</li>
+        <li><b>Compression and denoising</b>: keep the main directions, drop the noise.</li>
+        <li><b>Preprocessing</b>: give a supervised model 10 informative features instead of 1,000 redundant ones.</li>
+        <li><b>Survey analysis</b>: summarize 50 questionnaire items as a few underlying traits.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="fine" style="margin-top:22px">Also unsupervised: <b>density estimation</b> (how likely is this x?), <b>topic models</b> (what themes run through these documents?), and <b>generative models</b> such as VAEs and diffusion models, which learn the data distribution well enough to produce new samples. §19.3 uses some of these (e.g. VAEs) as building blocks for semi-supervised learning.</p>
+</section>
+
+<!-- 4 -->
+<section class="lesson wrap" id="world">
+  <div class="section-head">
+    <span class="eyebrow">4 · REAL-WORLD SORTER</span>
+    <h2>Which kind of learning fits?</h2>
+    <p>Each card describes a real situation. Decide which approach fits best, then read the reasoning. Many real systems combine approaches, so the explanations say when that happens.</p>
+  </div>
+  <div class="score-row"><span id="sortScore">0 of 0 answered</span><button class="btn ghost" id="sortReset">Start over</button></div>
+  <div class="scenarios" id="scenarios"></div>
+</section>
+
+<!-- 5 -->
+<section class="lesson wrap" id="proscons">
+  <div class="section-head">
+    <span class="eyebrow">5 · PROS &amp; CONS</span>
+    <h2>What each approach costs you</h2>
+  </div>
+  <div class="grid three">
+    <article class="kind-card k-green">
+      <span class="mini-label">SUPERVISED</span>
+      <ul class="pc">
+        <li class="pro">Clear goal, easy to evaluate: accuracy on held-out labeled data.</li>
+        <li class="pro">Usually the most accurate option once you have enough labels.</li>
+        <li class="pro">Mature, well-understood tools (linear models, trees, neural nets).</li>
+        <li class="con">Labels are slow and expensive, and often need experts.</li>
+        <li class="con">The model learns whatever the labels say, including their mistakes and biases.</li>
+        <li class="con">Can't find categories nobody labeled, e.g. a brand-new fraud type.</li>
+      </ul>
+    </article>
+    <article class="kind-card k-violet">
+      <span class="mini-label">UNSUPERVISED</span>
+      <ul class="pc">
+        <li class="pro">Needs no labels, so it can use huge amounts of raw data.</li>
+        <li class="pro">Can find structure you didn't know to look for: new segments, new anomalies.</li>
+        <li class="pro">Useful for exploring data, compressing it, and building features for other models.</li>
+        <li class="con">No answer key, so it's hard to say whether a result is “right”. Choices like k are partly judgment calls.</li>
+        <li class="con">The structure it finds may not match your goal (the left/right split in §2).</li>
+        <li class="con">Results depend heavily on feature scaling and the distance measure, and a person has to interpret them.</li>
+      </ul>
+    </article>
+    <article class="kind-card k-amber">
+      <span class="mini-label">SEMI-SUPERVISED</span>
+      <ul class="pc">
+        <li class="pro">Makes a small label budget go much further by using cheap unlabeled data.</li>
+        <li class="pro">Often comes close to fully supervised accuracy with a fraction of the labels.</li>
+        <li class="pro">Fits a very common real situation: a little labeled data and a lot of raw data.</li>
+        <li class="con">Depends on assumptions (classes follow clusters or the data's shape). If they're wrong, it can do worse than supervised.</li>
+        <li class="con">Self-training can reinforce its own mistakes (confirmation bias in pseudo-labels).</li>
+        <li class="con">More moving parts and hyperparameters, and tuning them is hard with only a small labeled validation set.</li>
+      </ul>
+    </article>
+  </div>
+
+  <div class="table-scroll" style="margin-top:28px">
+    <table class="compare">
+      <thead><tr><th></th><th>Supervised</th><th>Unsupervised</th><th>Semi-supervised</th></tr></thead>
+      <tbody>
+        <tr><th>Training data</th><td>All labeled</td><td>None labeled</td><td>Few labeled, many unlabeled</td></tr>
+        <tr><th>Goal</th><td>Predict y from x</td><td>Describe the structure of x</td><td>Predict y from x</td></tr>
+        <tr><th>How you evaluate</th><td>Held-out accuracy / error</td><td>Indirect: inertia, likelihood, usefulness downstream, human judgment</td><td>Held-out accuracy (often on a small set)</td></tr>
+        <tr><th>Typical methods</th><td>Linear/logistic regression, trees &amp; boosting, neural nets, SVMs</td><td>k-means, Gaussian mixtures, PCA, t-SNE/UMAP, autoencoders, isolation forest</td><td>Self-training / pseudo-labels, co-training, label propagation, consistency regularization, semi-supervised VAEs</td></tr>
+        <tr><th>Classic failure</th><td>Too few or biased labels → overfits or learns the bias</td><td>Finds a pattern that's real but irrelevant</td><td>Wrong assumption about the data's shape → confidently wrong</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="lesson wrap" id="choose">
+  <div class="section-head">
+    <span class="eyebrow">6 · WHICH ONE?</span>
+    <h2>A quick decision guide</h2>
+    <p>Answer three questions about your project.</p>
+  </div>
+  <div class="grid two">
+    <div class="lab small" id="wizard">
+      <fieldset>
+        <legend>1. Is there a specific thing you want to predict?</legend>
+        <label><input type="radio" name="q1" value="yes"> Yes, e.g. a category or a number</label>
+        <label><input type="radio" name="q1" value="no"> No, I want to explore or understand the data</label>
+      </fieldset>
+      <fieldset>
+        <legend>2. How many labeled examples do you have (or can afford)?</legend>
+        <label><input type="radio" name="q2" value="none"> Essentially none</label>
+        <label><input type="radio" name="q2" value="few"> A few dozen to a few hundred</label>
+        <label><input type="radio" name="q2" value="many"> Plenty: thousands or more</label>
+      </fieldset>
+      <fieldset>
+        <legend>3. Is unlabeled data plentiful and cheap?</legend>
+        <label><input type="radio" name="q3" value="yes"> Yes, far more than the labeled data</label>
+        <label><input type="radio" name="q3" value="no"> Not really</label>
+      </fieldset>
+    </div>
+    <div class="verdict-card" id="wizOut">
+      <span class="mini-label">SUGGESTION</span>
+      <p class="readout">Answer the questions on the left.</p>
+    </div>
+  </div>
+
+  <div class="note-box" style="margin-top:24px">
+    <p><strong>Two relatives worth knowing</strong></p>
+    <ul>
+      <li><b>Self-supervised learning</b> generates labels from the data itself, for example by hiding a word and predicting it, or predicting the next frame of a video. This is how large language models are pre-trained. It's often grouped with unsupervised learning, and §19.3 shows how it can be combined with semi-supervised learning: pre-train on unlabeled data, then fine-tune on the few labels.</li>
+      <li><b>Reinforcement learning</b> has no labels either, but it gets a <em>reward</em> after acting (win/lose, profit, user click). It's the right tool when your decisions affect what data you see next, as in games, robotics or recommendation.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="lesson last wrap" id="check">
+  <div class="section-head">
+    <span class="eyebrow">7 · SELF-CHECK</span>
+    <h2>Test yourself</h2>
+  </div>
+  <div class="quiz">
+    <details><summary>k-means returns clusters 0, 1, 2. Why can't you report its “accuracy” straight away?</summary>
+      <p>Because there's no answer key. The cluster numbers are arbitrary, and nothing guarantees they correspond to any category you care about. You would need labels (from a person) to name clusters and then measure agreement, which is exactly what §2 does with “accuracy <em>if</em> someone names the clusters”.</p></details>
+    <details><summary>In §2, why does semi-supervised beat supervised with 4 labels but not with 300?</summary>
+      <p>With 4 labels the supervised model has almost nothing to go on, so its boundary is close to arbitrary. The unlabeled points show where the arcs are, and label propagation follows them. With 300 labels the supervised model already sees the arcs through its own labeled points, so the unlabeled data adds little.</p></details>
+    <details><summary>When could adding unlabeled data make a model <em>worse</em>?</summary>
+      <p>When the classes don't follow the data's structure, for example if two classes overlap in one dense blob, or one natural cluster contains both classes. Methods that push boundaries into low-density gaps, or spread labels along neighbors, will then confidently put the boundary in the wrong place. Self-training can also amplify early mistakes.</p></details>
+    <details><summary>A bank has millions of transactions, only a few hundred confirmed frauds, and fraudsters keep changing tactics. Which approaches would you combine?</summary>
+      <p>Unsupervised anomaly detection to catch new, unlabeled patterns; supervised (or semi-supervised) classification on the confirmed cases to catch known patterns precisely; and analysts' reviews of flagged items as new labels that feed back into the system.</p></details>
+    <details><summary>Is PCA supervised or unsupervised? What about using PCA features inside a classifier?</summary>
+      <p>PCA itself is unsupervised: it uses only x. Using its outputs as inputs to a classifier makes a two-stage pipeline, unsupervised feature learning followed by supervised prediction. Many semi-supervised methods follow the same pattern: learn representations from unlabeled data, then train on the labels.</p></details>
+  </div>
+</section>
+</main>
+
+<footer class="foot wrap">
+  Companion to Kevin P. Murphy, <em>Probabilistic Machine Learning: An Introduction</em>, §19.3 (semi-supervised learning). All data are synthetic and seeded; all explanations and diagrams are original. Algorithms in <code>ml.js</code>: k-nearest neighbors, label propagation, k-means++, k-NN outlier scores and 2-D PCA.
+</footer>
+</body>
+</html>
