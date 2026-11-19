@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A visual, interactive walkthrough of principal components analysis: what the projection directions are, why they are eigenvectors of the covariance matrix, and how many to keep. Companion to Murphy, Probabilistic Machine Learning, section 20.1.">
+  <title>Finding the Best Shadow</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="pca.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the walkthrough</a>
+<header class="topbar wrap">
+  <span class="brand">FIELD NOTES <span class="muted">/ machine learning</span></span>
+  <span class="chapter">MURPHY · §20.1</span>
+</header>
+
+<main id="main">
+<section class="hero wrap">
+  <div>
+    <p class="eyebrow">PRINCIPAL COMPONENTS ANALYSIS</p>
+    <h1>Finding the<br>best shadow</h1>
+    <p class="lede">PCA squashes data onto fewer dimensions by projecting it onto a few well-chosen directions. The directions it picks are the ones where the data are <em>most spread out</em>.</p>
+    <p>Imagine shining a light on a cloud of points and looking at its shadow on a line. Most lines give you a cramped shadow where points pile on top of each other. One line gives the widest shadow, and that one keeps the most information. That line is the <span class="c-green">first principal component</span>.</p>
+    <p class="hero-note">Every figure on this page runs in your browser on small synthetic datasets. Drag, slide and step through them. Notation follows Murphy: data <b>x</b><sub>n</sub> ∈ ℝ<sup>D</sup>, codes <b>z</b><sub>n</sub> ∈ ℝ<sup>L</sup>, projection matrix <b>W</b> (D×L).</p>
+  </div>
+  <figure class="hero-art">
+    <canvas id="heroCanvas" height="330" aria-label="Animated scatter plot. A line rotates through a tilted cloud of points and settles along its long axis; each point drops a short orange segment onto the line."></canvas>
+    <figcaption class="hero-cap"><span><span class="ln green"></span>projection line <span class="ln amber"></span>what each point loses</span><button class="btn ghost small" id="heroReplay" type="button">Replay</button></figcaption>
+  </figure>
+</section>
+
+<nav class="lesson-nav" aria-label="Sections">
+  <div class="wrap">
+    <a href="#idea">1 · The idea</a>
+    <a href="#line">2 · Find the line</a>
+    <a href="#eigen">3 · Why eigenvectors?</a>
+    <a href="#recipe">4 · The recipe</a>
+    <a href="#three">5 · 3-D → 2-D</a>
+    <a href="#faces">6 · Eigenfaces</a>
+    <a href="#howmany">7 · How many?</a>
+    <a href="#scale">8 · Units matter</a>
+    <a href="#check">9 · Self-check</a>
+  </div>
+</nav>
+
+<!-- 1 -->
+<section class="lesson wrap" id="idea">
+  <div class="section-head">
+    <span class="eyebrow">1 · THE IDEA</span>
+    <h2>Compress, then rebuild</h2>
+    <p>PCA is a pair of very simple maps. An <strong>encoder</strong> turns each D-dimensional point into L numbers (L &lt; D), and a <strong>decoder</strong> turns those L numbers back into a point in the original space. Both are just multiplications by the same matrix <b>W</b>, whose L columns are unit-length and at right angles to each other.</p>
+  </div>
+  <div class="grid three">
+    <article class="kind-card k-green">
+      <span class="mini-label">ENCODE</span>
+      <h3>Project</h3>
+      <p class="math sm">z<sub>n</sub> = <b>W</b><sup>⊤</sup>(<b>x</b><sub>n</sub> − <b>μ</b>)</p>
+      <p>Each code z<sub>nj</sub> is the dot product of the centred point with direction <b>w</b><sub>j</sub>: how far along that direction the point sits. It is the point's shadow.</p>
+    </article>
+    <article class="kind-card k-violet">
+      <span class="mini-label">DECODE</span>
+      <h3>Reconstruct</h3>
+      <p class="math sm">x̂<sub>n</sub> = <b>μ</b> + <b>W</b> z<sub>n</sub></p>
+      <p>Walk z<sub>n1</sub> steps along <b>w</b><sub>1</sub>, z<sub>n2</sub> along <b>w</b><sub>2</sub>, and so on, starting at the mean. You land on the closest point of the line, plane or subspace.</p>
+    </article>
+    <article class="kind-card k-amber">
+      <span class="mini-label">SCORE</span>
+      <h3>Reconstruction error</h3>
+      <p class="math sm">ℒ(<b>W</b>) = <span class="frac"><span>1</span><span>N</span></span> Σ<sub>n</sub> ‖<b>x</b><sub>n</sub> − x̂<sub>n</sub>‖²</p>
+      <p>PCA chooses the <b>W</b> that makes this as small as possible. The rest of the page is about what that <b>W</b> turns out to be and how to find it.</p>
+    </article>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="lesson wrap" id="line">
+  <div class="section-head">
+    <span class="eyebrow">2 · FIND THE LINE YOURSELF</span>
+    <h2>Two ways of saying the same thing</h2>
+    <p>Below are 120 flowers measured by petal length and petal width (both in cm). We want to describe each flower with <em>one</em> number instead of two, so we pick a line through the mean and record each flower's position along it.</p>
+    <p>Rotate the line by dragging on the plot or using the slider. Watch two quantities: the <span class="c-green">spread of the shadows</span> along the line, and the <span class="c-amber">average squared length of the orange drop-lines</span>, which is the reconstruction error.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB A</span><h3>Rotate the projection line</h3></div>
+      <div class="button-group">
+        <button class="btn" id="lineBest" type="button">Snap to best line</button>
+        <button class="btn ghost" id="lineWorst" type="button">Worst line</button>
+        <button class="btn ghost" id="lineSweep" type="button">Sweep all angles</button>
+      </div>
+    </div>
+    <div class="controls">
+      <label>Line angle <b id="lineAngleOut">0°</b><input type="range" id="lineAngle" min="0" max="179" step="1" value="150"></label>
+      <label class="check"><input type="checkbox" id="lineResid" checked> drop-lines</label>
+      <label class="check"><input type="checkbox" id="lineShadow" checked> shadows on the line</label>
+    </div>
+    <div class="forest-grid">
+      <figure class="plot">
+        <canvas id="lineCanvas" height="400" class="drag" aria-label="Scatter plot of petal length against petal width with a rotatable line through the mean. Orange segments connect each point to its projection on the line."></canvas>
+        <figcaption>Drag anywhere on the plot to aim the line. Axes use the same scale, so right angles look like right angles.</figcaption>
+      </figure>
+      <div>
+        <div class="split-bar" aria-hidden="true"><div id="lineKeptBar"></div><div id="lineLostBar"></div></div>
+        <div class="stats">
+          <div><span><span class="sw green"></span>Variance kept (spread of shadows)</span><b id="lineKept">–</b></div>
+          <div><span><span class="sw amber"></span>Reconstruction error (lost)</span><b id="lineLost">–</b></div>
+          <div><span>Total variance (never changes)</span><b id="lineTotal">–</b></div>
+          <div class="hl"><span>Share of the variance kept</span><b id="lineShare">–</b></div>
+        </div>
+        <figure class="plot">
+          <canvas id="angleCanvas" height="190" aria-label="Line chart of variance kept and reconstruction error as functions of the line's angle. The two curves are mirror images."></canvas>
+          <figcaption><span class="ln green"></span>kept <span class="ln amber"></span>lost, for every angle. The dot marks your line.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+
+  <div class="eq-card">
+    <span class="eq-ref">WHY THE TWO GOALS ARE THE SAME · PYTHAGORAS</span>
+    <p>Each orange drop-line meets the green line at a right angle. So for every point, the squared distance from the mean splits into two pieces:</p>
+    <p class="math">‖<b>x</b><sub>n</sub> − <b>μ</b>‖² = <span class="c-green">z<sub>n</sub>²</span> + <span class="c-amber">‖<b>x</b><sub>n</sub> − x̂<sub>n</sub>‖²</span></p>
+    <p>Averaging over points: <strong>total variance = variance kept + reconstruction error</strong>. The left side doesn't depend on the line at all. So <em>minimising the reconstruction error</em> and <em>maximising the variance of the projections</em> are the same problem, which is why the two curves in the chart are mirror images. Murphy's derivation (§20.1.2) reaches the same fact algebraically: once you plug in the best codes z<sub>n1</sub> = <b>w</b><sub>1</sub><sup>⊤</sup><b>x</b><sub>n</sub>, the loss becomes a constant minus <b>w</b><sub>1</sub><sup>⊤</sup><b>Σ̂</b><b>w</b><sub>1</sub>.</p>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="lesson wrap" id="eigen">
+  <div class="section-head">
+    <span class="eyebrow">3 · WHY THE ANSWER IS AN EIGENVECTOR</span>
+    <h2>The covariance matrix already knows the answer</h2>
+    <p>Sweeping every angle works in 2-D, but not with 400 dimensions. We need to find the best direction directly. The key fact is that the variance of the data along any unit direction <b>v</b> is a quadratic form in the empirical covariance matrix <b>Σ̂</b>:</p>
+    <p class="math">variance along <b>v</b> = <span class="frac"><span>1</span><span>N</span></span> Σ<sub>n</sub> (<b>v</b><sup>⊤</sup>(<b>x</b><sub>n</sub> − <b>μ</b>))² = <b>v</b><sup>⊤</sup><b>Σ̂</b><b>v</b></p>
+    <p>So the problem is: <strong>maximise v<sup>⊤</sup>Σ̂v subject to ‖v‖ = 1</strong>. Drag the arrow <b>v</b> below and look at where the matrix sends it.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB B</span><h3>Push a direction through Σ̂</h3></div>
+      <div class="button-group">
+        <button class="btn" id="eigStep" type="button">Multiply by Σ̂ and rescale</button>
+        <button class="btn ghost" id="eigRun" type="button">Run 10 steps</button>
+        <button class="btn ghost" id="eigReset" type="button">Random start</button>
+      </div>
+    </div>
+    <div class="controls">
+      <label>Direction of v <b id="eigAngleOut">0°</b><input type="range" id="eigAngle" min="0" max="359" step="1" value="110"></label>
+      <label class="check"><input type="checkbox" id="eigPeanut" checked> variance in every direction</label>
+      <label class="check"><input type="checkbox" id="eigEllipse" checked> covariance ellipse</label>
+    </div>
+    <div class="forest-grid">
+      <figure class="plot">
+        <canvas id="eigCanvas" height="420" class="drag" aria-label="Centred petal data with a unit arrow v and the arrow Sigma times v. A peanut-shaped curve shows the variance in each direction."></canvas>
+        <figcaption><span class="ln ink"></span><b>v</b> (length 1) <span class="ln violet"></span><b>Σ̂v</b> <span class="ln dash"></span>unit circle. The pale peanut has radius v<sup>⊤</sup>Σ̂v in each direction <b>v</b>, so its tips point where the shadow is widest.</figcaption>
+      </figure>
+      <div>
+        <p class="readout" id="eigReadout">–</p>
+        <div class="stats">
+          <div><span>Variance along <b>v</b>: v<sup>⊤</sup>Σ̂v</span><b id="eigVar">–</b></div>
+          <div><span>Angle between <b>v</b> and Σ̂<b>v</b></span><b id="eigGap">–</b></div>
+          <div><span>Steps taken</span><b id="eigSteps">0</b></div>
+        </div>
+        <div class="note-box">
+          <p><strong>What to notice</strong></p>
+          <ul>
+            <li>In general, Σ̂ <em>turns</em> <b>v</b> towards the long axis of the cloud and stretches it.</li>
+            <li>In exactly two directions, it doesn't turn <b>v</b> at all, only stretches it: <b>Σ̂v = λv</b>. Those are the <strong>eigenvectors</strong>.</li>
+            <li>Along an eigenvector the variance is v<sup>⊤</sup>Σ̂v = λ. The bigger λ is <b>w</b><sub>1</sub>; the smaller is <b>w</b><sub>2</sub>.</li>
+            <li>Pressing “multiply” over and over (<em>power iteration</em>) always swings <b>v</b> onto <b>w</b><sub>1</sub>, because the stretch along it is the largest.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="eq-card">
+    <span class="eq-ref">MURPHY §20.1.2 · THE LAGRANGIAN STEP</span>
+    <p>Add a Lagrange multiplier λ<sub>1</sub> for the unit-length constraint and set the gradient to zero:</p>
+    <p class="math">∂/∂<b>w</b><sub>1</sub> [ <b>w</b><sub>1</sub><sup>⊤</sup><b>Σ̂</b><b>w</b><sub>1</sub> + λ<sub>1</sub>(1 − <b>w</b><sub>1</sub><sup>⊤</sup><b>w</b><sub>1</sub>) ] = 2<b>Σ̂</b><b>w</b><sub>1</sub> − 2λ<sub>1</sub><b>w</b><sub>1</sub> = 0 &nbsp;⟹&nbsp; <b>Σ̂</b><b>w</b><sub>1</sub> = λ<sub>1</sub><b>w</b><sub>1</sub></p>
+    <p>Any stationary direction is an eigenvector, and its variance is <b>w</b><sub>1</sub><sup>⊤</sup><b>Σ̂</b><b>w</b><sub>1</sub> = λ<sub>1</sub>. To make the variance largest, choose the eigenvector with the <strong>largest eigenvalue</strong>. Repeating the argument for a second direction that must be orthogonal to the first gives the eigenvector with the second-largest eigenvalue, and so on. With L directions kept, the reconstruction error is exactly the sum of the eigenvalues you threw away: ℒ = Σ<sub>j&gt;L</sub> λ<sub>j</sub>.</p>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="lesson wrap" id="recipe">
+  <div class="section-head">
+    <span class="eyebrow">4 · THE RECIPE</span>
+    <h2>Centre, measure, rotate, drop</h2>
+    <p>Put together, PCA is four short steps. Here they are on 60 flowers, one stage at a time. Step through and watch where each point goes.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB C</span><h3>PCA one step at a time</h3></div>
+      <div class="button-group">
+        <button class="btn ghost" id="recPrev" type="button">← Back</button>
+        <button class="btn" id="recNext" type="button">Next step →</button>
+      </div>
+    </div>
+    <ol class="stepper" id="recSteps"></ol>
+    <div class="forest-grid">
+      <figure class="plot">
+        <canvas id="recCanvas" height="380" aria-label="Scatter plot that animates through the stages of PCA: raw data, centred data, covariance ellipse, eigenvectors, rotation into principal-component coordinates, dropping the second coordinate, and reconstruction."></canvas>
+      </figure>
+      <div>
+        <h3 class="step-title" id="recTitle">–</h3>
+        <p id="recText">–</p>
+        <div class="numbox" id="recNums"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">IN CODE · EIGENDECOMPOSITION</span>
+<pre class="code"><code>Xc = X - X.mean(axis=0)          # 1. centre
+S  = Xc.T @ Xc / N               # 2. covariance (D×D)
+lam, V = np.linalg.eigh(S)       # 3. eigenpairs
+order  = np.argsort(lam)[::-1]
+W  = V[:, order[:L]]             #    top-L directions
+Z  = Xc @ W                      # 4. codes (N×L)
+Xhat = Z @ W.T + X.mean(axis=0)  #    reconstruction</code></pre>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">IN CODE · SVD (MURPHY §20.1.3.3)</span>
+<pre class="code"><code>U, s, Vt = np.linalg.svd(Xc, full_matrices=False)
+W   = Vt[:L].T                   # same directions
+lam = s**2 / N                   # same eigenvalues
+Z   = U[:, :L] * s[:L]           # same codes</code></pre>
+      <p>Libraries use the SVD of the centred data instead of forming <b>Σ̂</b>. It is more numerically stable and gives the same <b>W</b>. When N &lt; D (few images, many pixels), the same trick lets you work with the N×N matrix <b>X</b><b>X</b><sup>⊤</sup> instead of the huge D×D one.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="lesson wrap" id="three">
+  <div class="section-head">
+    <span class="eyebrow">5 · FROM 3-D TO 2-D</span>
+    <h2>Two directions make a plane</h2>
+    <p>With D = 3 and L = 2, PCA picks the plane through the mean that the cloud lies closest to. <b>w</b><sub>1</sub> is the direction of greatest spread, <b>w</b><sub>2</sub> the greatest spread at right angles to it, and <b>w</b><sub>3</sub>, the direction we throw away, is the one where the cloud is thinnest.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB D</span><h3>Flatten a cloud onto its best plane</h3></div>
+      <div class="button-group">
+        <button class="btn" id="d3Project" type="button" aria-pressed="false">Project onto the plane</button>
+        <button class="btn ghost" id="d3Edge" type="button">View edge-on</button>
+        <button class="btn ghost" id="d3Spin" type="button" aria-pressed="true">Pause spin</button>
+      </div>
+    </div>
+    <div class="grid two tight">
+      <figure class="plot panel">
+        <p class="panel-h">3-D data (drag to rotate)</p>
+        <canvas id="d3Canvas" height="360" class="drag" aria-label="Rotatable 3-D scatter plot of three groups of points lying near a tilted plane, with the plane and the three principal directions drawn."></canvas>
+        <figcaption><span class="ln green"></span><b>w</b><sub>1</sub> <span class="ln violet"></span><b>w</b><sub>2</sub> <span class="ln amber"></span><b>w</b><sub>3</sub> (discarded). Arrow lengths are 2√λ. Colours only help you track the groups; PCA never sees them.</figcaption>
+      </figure>
+      <figure class="plot panel">
+        <p class="panel-h">The 2-D codes z = (z<sub>1</sub>, z<sub>2</sub>)</p>
+        <canvas id="d3Flat" height="360" aria-label="Scatter plot of the two principal-component scores. The three groups remain clearly separated."></canvas>
+        <figcaption>This is what you would hand to the next algorithm: 2 numbers per point instead of 3, with the groups still separated.</figcaption>
+      </figure>
+    </div>
+    <div class="var-rows" id="d3Vars"></div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="lesson wrap" id="faces">
+  <div class="section-head">
+    <span class="eyebrow">6 · MANY DIMENSIONS · EIGENFACES</span>
+    <h2>When each pixel is a dimension</h2>
+    <p>Murphy's examples apply PCA to images of digits and faces. A 20×20 greyscale image is a point in ℝ<sup>400</sup>. Here are 400 toy cartoon faces, each drawn from eight hidden knobs (width, brightness, lighting side, hairline, smile and so on) plus pixel noise. PCA never sees the knobs, only the 400 pixel values.</p>
+    <p>Each principal direction <b>w</b><sub>j</sub> is itself a 400-pixel image, an <strong>eigenface</strong>. Any face is approximately the mean face plus a weighted sum of a few eigenfaces.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB E</span><h3>Rebuild a face from L numbers</h3></div>
+      <div class="button-group">
+        <button class="btn ghost" id="faceNext" type="button">Another face</button>
+        <button class="btn ghost" id="faceTest" type="button" aria-pressed="false">Use an unseen face</button>
+      </div>
+    </div>
+    <div class="loading" id="faceLoading">Computing the 400×400 covariance and its top 40 eigenvectors…</div>
+    <div class="controls">
+      <label>Components kept, L <b id="faceKOut">4</b><input type="range" id="faceK" min="0" max="40" step="1" value="4"></label>
+    </div>
+    <div class="face-row">
+      <figure><canvas id="faceOrig" class="pix" width="20" height="20"></canvas><figcaption>Original (400 numbers)</figcaption></figure>
+      <span class="op">≈</span>
+      <figure><canvas id="faceMean" class="pix" width="20" height="20"></canvas><figcaption>Mean face <b>μ</b></figcaption></figure>
+      <span class="op">+</span>
+      <div class="terms" id="faceTerms"></div>
+      <span class="op">=</span>
+      <figure><canvas id="faceRecon" class="pix" width="20" height="20"></canvas><figcaption id="faceReconCap">Rebuilt from L numbers</figcaption></figure>
+    </div>
+    <div class="stats three">
+      <div><span>Numbers stored per face</span><b id="faceStore">–</b></div>
+      <div><span>Reconstruction error, this face</span><b id="faceErr">–</b></div>
+      <div class="hl"><span>Variance explained by L components</span><b id="faceFrac">–</b></div>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB E′</span><h3>Walk along one eigenface</h3></div>
+    </div>
+    <div class="grid two tight">
+      <div>
+        <p>Pick a component and slide along it. The image shown is <b>μ</b> + t·√λ<sub>j</sub>·<b>w</b><sub>j</sub>, i.e. the mean face pushed t standard deviations along direction j. Green pixels in the eigenface get brighter as t increases; orange ones get darker.</p>
+        <div class="seg" id="walkPick" role="group" aria-label="Component"></div>
+        <div class="controls" style="margin-top:14px">
+          <label>Step along the component, t <b id="walkTOut">0</b><input type="range" id="walkT" min="-3" max="3" step="0.1" value="1.5"></label>
+        </div>
+        <p class="fine" id="walkNote">–</p>
+      </div>
+      <div class="walk-row">
+        <figure><canvas id="walkEig" class="pix" width="20" height="20"></canvas><figcaption id="walkEigCap">Eigenface</figcaption></figure>
+        <figure><canvas id="walkImg" class="pix" width="20" height="20"></canvas><figcaption>Mean + t·√λ·w</figcaption></figure>
+      </div>
+    </div>
+    <p class="panel-h" style="margin-top:18px">The first 12 eigenfaces, largest eigenvalue first</p>
+    <div class="eig-grid" id="eigGrid"></div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="lesson wrap" id="howmany">
+  <div class="section-head">
+    <span class="eyebrow">7 · CHOOSING THE NUMBER OF DIMENSIONS (§20.1.4)</span>
+    <h2>How many components should you keep?</h2>
+    <p>Each eigenvalue λ<sub>j</sub> is the variance along its direction, and the error with L components is the sum of the eigenvalues left out. So the eigenvalue spectrum tells you directly what each extra component buys. These charts use the same 400-pixel faces; the slider is shared with Lab E.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB F</span><h3>Scree plot, variance explained, and test error</h3></div>
+    </div>
+    <div class="controls">
+      <label>Components kept, L <b id="howKOut">4</b><input type="range" id="howK" min="0" max="40" step="1" value="4"></label>
+    </div>
+    <div class="grid three tight">
+      <figure class="plot"><p class="panel-h">Scree plot: eigenvalue λ<sub>j</sub></p><canvas id="screeCanvas" height="230" aria-label="Bar chart of the first 40 eigenvalues, falling quickly then flattening."></canvas><figcaption>Look for the “elbow” where the bars stop dropping fast and flatten into a scree slope of noise.</figcaption></figure>
+      <figure class="plot"><p class="panel-h">Fraction of variance explained</p><canvas id="fracCanvas" height="230" aria-label="Rising curve of cumulative variance explained against number of components."></canvas><figcaption>F<sub>L</sub> = Σ<sub>j≤L</sub>λ<sub>j</sub> / Σ<sub>j</sub>λ<sub>j</sub>. A common rule: keep enough for 90% or 95%.</figcaption></figure>
+      <figure class="plot"><p class="panel-h">Reconstruction error per image</p><canvas id="errCanvas" height="230" aria-label="Two falling curves of reconstruction error on training and held-out faces."></canvas><figcaption><span class="ln green"></span>training faces <span class="ln amber"></span>held-out faces</figcaption></figure>
+    </div>
+    <p class="readout" id="howReadout">–</p>
+    <div class="note-box">
+      <p><strong>A subtlety Murphy points out:</strong> the held-out error never goes back up. Adding a direction can only bring the subspace closer to <em>any</em> point, seen or unseen, so reconstruction error can't detect overfitting the way test error does for a classifier. That's why people fall back on the scree elbow, a variance-explained threshold, or the <em>profile likelihood</em> method (fit one simple model to the large eigenvalues and another to the small ones, and pick the split L that makes the two-model fit most likely). A probabilistic version of PCA (§20.2) gives a proper likelihood instead.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="lesson wrap" id="scale">
+  <div class="section-head">
+    <span class="eyebrow">8 · UNITS MATTER (§20.1.3.1)</span>
+    <h2>Standardise first, or the biggest numbers win</h2>
+    <p>PCA maximises variance, and variance depends on units. Measure height in millimetres and its variance is 100× larger than in centimetres, so the first component will chase height. The usual fix is to <strong>standardise</strong> each feature to mean 0 and variance 1 first. That is the same as running PCA on the <em>correlation</em> matrix instead of the covariance matrix.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB G</span><h3>Height and weight of 200 adults</h3></div>
+    </div>
+    <div class="controls">
+      <div class="ctl"><span class="ctl-l">Height in</span><div class="seg" id="unitH" role="group" aria-label="Height unit"><button type="button" data-v="m">metres</button><button type="button" data-v="cm" class="on">cm</button><button type="button" data-v="mm">mm</button></div></div>
+      <div class="ctl"><span class="ctl-l">Weight in</span><div class="seg" id="unitW" role="group" aria-label="Weight unit"><button type="button" data-v="kg" class="on">kg</button><button type="button" data-v="g">grams</button></div></div>
+      <label class="check"><input type="checkbox" id="unitStd"> standardise each feature</label>
+    </div>
+    <div class="forest-grid">
+      <figure class="plot">
+        <canvas id="unitCanvas" height="380" aria-label="Scatter plot of weight against height drawn with equal axis scales, with the first principal component as a green line."></canvas>
+        <figcaption>Drawn with equal scales on both axes, which is how PCA “sees” the data. The green line is <b>w</b><sub>1</sub>.</figcaption>
+      </figure>
+      <div>
+        <p class="readout" id="unitReadout">–</p>
+        <p class="panel-h">What <b>w</b><sub>1</sub> is made of (share of its squared length)</p>
+        <div class="load-row"><span>height</span><div class="gain-track"><div class="gain-fill" id="loadH"></div></div><b id="loadHOut">–</b></div>
+        <div class="load-row"><span>weight</span><div class="gain-track"><div class="gain-fill amber" id="loadW"></div></div><b id="loadWOut">–</b></div>
+        <div class="stats" style="margin-top:16px">
+          <div><span>Variance of height</span><b id="unitVH">–</b></div>
+          <div><span>Variance of weight</span><b id="unitVW">–</b></div>
+          <div class="hl"><span>Variance explained by PC1</span><b id="unitPC1">–</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section class="lesson wrap last" id="check">
+  <div class="section-head">
+    <span class="eyebrow">9 · SELF-CHECK</span>
+    <h2>Putting it together</h2>
+  </div>
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">THE WHOLE ALGORITHM ON ONE CARD</span>
+      <ol class="recap">
+        <li>Centre the data: subtract <b>μ</b>. (Standardise too if features have different units.)</li>
+        <li>Form <b>Σ̂</b> = <span class="frac"><span>1</span><span>N</span></span><b>X</b><sub>c</sub><sup>⊤</sup><b>X</b><sub>c</sub>, or take the SVD of <b>X</b><sub>c</sub>.</li>
+        <li>The principal directions <b>w</b><sub>1</sub>, <b>w</b><sub>2</sub>, … are its eigenvectors, sorted by eigenvalue λ<sub>1</sub> ≥ λ<sub>2</sub> ≥ ….</li>
+        <li>Keep the top L as the columns of <b>W</b>; codes are <b>z</b> = <b>W</b><sup>⊤</sup>(<b>x</b> − <b>μ</b>).</li>
+        <li>Variance kept = λ<sub>1</sub>+…+λ<sub>L</sub>; reconstruction error = λ<sub>L+1</sub>+…+λ<sub>D</sub>.</li>
+      </ol>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">WHAT PCA CAN'T DO</span>
+      <ul class="pc">
+        <li class="con">It only finds <em>flat</em> subspaces. Data on a curved surface (a spiral, a ring) needs nonlinear methods such as autoencoders or manifold learning (§20.3–20.4).</li>
+        <li class="con">Variance isn't the same as importance. A low-variance direction can be exactly the one that separates two classes.</li>
+        <li class="con">It is sensitive to scaling (Lab G) and to outliers, which inflate variance in their direction.</li>
+        <li class="pro">But it is fast, has no hyperparameters except L, has a closed-form answer, and is an excellent first look at almost any dataset.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 class="quiz-h">Self-check</h3>
+  <div class="quiz">
+    <details><summary>Why must the data be centred before computing the directions?</summary><p>The directions are meant to pass through the middle of the cloud. Without centring, <b>X</b><sup>⊤</sup><b>X</b>/N measures spread around the origin, so the first “component” mostly points from the origin to the mean, which says nothing about how the data vary.</p></details>
+    <details><summary>In Lab A, the best line kept about 93% of the variance. What is the reconstruction error in terms of eigenvalues?</summary><p>It is λ<sub>2</sub>, the eigenvalue of the discarded direction. Kept variance is λ<sub>1</sub>, and λ<sub>1</sub> + λ<sub>2</sub> is the total variance (the trace of <b>Σ̂</b>).</p></details>
+    <details><summary>Why are the principal directions orthogonal to each other?</summary><p>Because <b>Σ̂</b> is symmetric, its eigenvectors for distinct eigenvalues are orthogonal. It also follows from the derivation: each new direction is chosen to maximise variance <em>subject to</em> being orthogonal to the previous ones. As a bonus the codes z<sub>1</sub>, z<sub>2</sub>, … are uncorrelated.</p></details>
+    <details><summary>If every eigenvalue of Σ̂ were the same, what would PCA do?</summary><p>The cloud would be a round ball, equally spread in every direction, so no direction is better than another. Every unit vector is an eigenvector, the answer isn't unique, and keeping L of D components keeps exactly L/D of the variance. PCA only helps when the spectrum falls off.</p></details>
+    <details><summary>Your features are income in dollars and age in years. You run PCA and PC1 is almost entirely income. Is income the most important feature?</summary><p>Not necessarily. Dollar amounts have a variance in the millions while ages vary by tens, so PCA on the covariance matrix just chases the bigger numbers. Standardise first (use the correlation matrix) and see whether the answer changes.</p></details>
+    <details><summary>Why doesn't held-out reconstruction error rise as L grows, unlike test error for a classifier?</summary><p>A bigger L means a bigger subspace that contains the smaller one, so every point, training or not, can only get closer to it. In the limit L = D, every point is reconstructed perfectly. Reconstruction error can't tell signal from noise, so L has to be chosen another way (scree elbow, variance threshold, profile likelihood, or a probabilistic model).</p></details>
+  </div>
+</section>
+</main>
+
+<footer class="foot wrap">Companion to Kevin P. Murphy, <em>Probabilistic Machine Learning: An Introduction</em> (MIT Press, 2022), §20.1. All data are synthetic and generated in your browser.</footer>
+</body>
+</html>
