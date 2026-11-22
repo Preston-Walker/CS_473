@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An intuitive, interactive tour of the manifold-learning algorithms in Murphy, Probabilistic Machine Learning, section 20.4: MDS, Isomap, kernel PCA, maximum variance unfolding, LLE, Laplacian eigenmaps, t-SNE and UMAP, with real-world examples.">
+  <title>Unrolling the Data</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="manifold.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the walkthrough</a>
+<header class="topbar wrap">
+  <span class="brand">FIELD NOTES <span class="muted">/ machine learning</span></span>
+  <span class="chapter">MURPHY · §20.4</span>
+</header>
+
+<main id="main">
+<section class="hero wrap">
+  <div>
+    <p class="eyebrow">MANIFOLD LEARNING</p>
+    <h1>Unrolling<br>the data</h1>
+    <p class="lede">High-dimensional data usually lives on a curved, low-dimensional surface tucked inside the big space. Manifold learning finds that surface and lays it out flat.</p>
+    <p>Picture a rug rolled up in the corner. Every fibre has three coordinates, but two numbers really describe it: how far along the rug and how far across. PCA (§20.1) can only <em>project</em> the roll, which squashes the layers together. The methods in this section <span class="c-green">unroll</span> it.</p>
+    <p class="hero-note">Every figure runs live in your browser on small synthetic datasets. Notation follows Murphy: inputs <b>x</b><sub>n</sub> ∈ ℝ<sup>D</sup>, embeddings <b>z</b><sub>n</sub> ∈ ℝ<sup>L</sup> with L ≪ D, and N points.</p>
+  </div>
+  <figure class="hero-art">
+    <canvas id="heroCanvas" height="340" aria-label="Animated 3-D swiss roll of points coloured light to dark along the roll. It unrolls into a flat strip and then rolls back up."></canvas>
+    <figcaption class="hero-cap"><span><span class="ramp"></span> position along the roll (light → dark)</span><button class="btn ghost small" id="heroToggle" type="button" aria-pressed="false">Pause</button></figcaption>
+  </figure>
+</section>
+
+<nav class="lesson-nav" aria-label="Sections">
+  <div class="wrap">
+    <a href="#manifold">1 · Manifolds</a>
+    <a href="#hypothesis">2 · Hypothesis</a>
+    <a href="#menu">3 · The menu</a>
+    <a href="#mds">4 · MDS</a>
+    <a href="#isomap">5 · Isomap</a>
+    <a href="#kpca">6 · Kernel PCA</a>
+    <a href="#mvu">7 · MVU</a>
+    <a href="#lle">8 · LLE</a>
+    <a href="#laplacian">9 · Laplacian</a>
+    <a href="#tsne">10 · t-SNE &amp; UMAP</a>
+    <a href="#compare">11 · Compare</a>
+    <a href="#check">12 · Self-check</a>
+  </div>
+</nav>
+
+<!-- 1 -->
+<section class="lesson wrap" id="manifold">
+  <div class="section-head">
+    <span class="eyebrow">1 · WHAT IS A MANIFOLD? (§20.4.1)</span>
+    <h2>Curved globally, flat up close</h2>
+    <p>A <strong>manifold</strong> is a space that looks like ordinary flat ℝ<sup>L</sup> if you zoom in far enough, even though it may be curved, rolled or twisted overall. Its <strong>intrinsic dimension</strong> L is how many numbers you need to say where you are on it. The <strong>ambient dimension</strong> D is the size of the space it sits in.</p>
+  </div>
+  <div class="grid three">
+    <article class="kind-card k-green">
+      <span class="mini-label">L = 2 IN D = 3</span>
+      <h3>The Earth's surface</h3>
+      <p>A city map is flat and works fine; that is "locally Euclidean". But no flat map of the whole globe keeps every distance right. That is why Greenland looks huge on Mercator maps. Two numbers (latitude, longitude) locate you.</p>
+    </article>
+    <article class="kind-card k-violet">
+      <span class="mini-label">L = 1 IN D = 3</span>
+      <h3>A hiking trail</h3>
+      <p>The trail wiggles through 3-D terrain, but "mile marker 4.2" pins down where you are. Hikers measure distance <em>along the trail</em>, not straight through the mountain.</p>
+    </article>
+    <article class="kind-card k-amber">
+      <span class="mini-label">L = 2 IN D = 3</span>
+      <h3>A rolled-up rug</h3>
+      <p>An ant on the rug can walk from the inside to the outside, but only by going around every turn. Through the air, the next layer is close. On the rug, it is far away.</p>
+    </article>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB A</span><h3>Crow-flies distance vs. distance along the manifold</h3></div>
+    </div>
+    <div class="forest-grid">
+      <figure class="plot panel">
+        <canvas id="geoCanvas" class="drag" height="380" aria-label="End-on view of a rolled rug: a spiral. Two draggable beads sit on the spiral. A straight orange segment joins them through the air and a green path follows the spiral between them."></canvas>
+        <figcaption>Looking at the rolled rug end-on. <b>Drag either bead</b> along the spiral. <span class="ln amber"></span>straight-line (Euclidean) distance <span class="ln green"></span>distance along the rug (geodesic)</figcaption>
+      </figure>
+      <div>
+        <div class="stats">
+          <div><span>Straight line through the air</span><b id="geoE">–</b></div>
+          <div><span>Along the rug (geodesic)</span><b id="geoG">–</b></div>
+          <div class="hl"><span>Geodesic ÷ straight line</span><b id="geoR">–</b></div>
+        </div>
+        <p class="readout" id="geoReadout">Put the beads on neighbouring layers and watch the two distances disagree.</p>
+        <div class="note-box">
+          <p><b>Two lessons that drive the whole section</b></p>
+          <ul>
+            <li><b>Up close the two distances agree.</b> For beads a short way apart on the same turn, the ratio is ≈ 1. Local Euclidean distances can be trusted.</li>
+            <li><b>Far apart they can disagree badly.</b> Points on adjacent layers look close in ℝ<sup>3</sup> but are far apart on the rug. Any method that trusts long Euclidean distances (like PCA or plain MDS) will fold the layers together.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="lesson wrap" id="hypothesis">
+  <div class="section-head">
+    <span class="eyebrow">2 · THE MANIFOLD HYPOTHESIS (§20.4.2)</span>
+    <h2>Real data has far fewer knobs than pixels</h2>
+    <p>The <strong>manifold hypothesis</strong> says natural high-dimensional data (images, audio, gene expression) concentrates near a low-dimensional manifold. Most of pixel space is static. Murphy illustrates this with a rotating handwritten digit. Below, one 24×24 image is a single point in ℝ<sup>576</sup>, and rotating it traces a path with only one knob, the angle.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top"><div><span class="pill">LAB B</span><h3>576 numbers, one knob</h3></div></div>
+    <div class="grid two">
+      <div>
+        <div class="controls">
+          <label>Rotation angle <b id="rotOut">0°</b><input type="range" id="rotSlider" min="0" max="355" step="5" value="0"></label>
+        </div>
+        <div class="face-row">
+          <figure><canvas id="rotImg" class="pix big" width="24" height="24" aria-label="The rotated digit 6 as a 24 by 24 image"></canvas><figcaption>This image: one point in ℝ<sup>576</sup></figcaption></figure>
+          <figure><canvas id="rotNoise" class="pix big" width="24" height="24" aria-label="A random 24 by 24 image of static"></canvas><figcaption>A <em>random</em> point in ℝ<sup>576</sup></figcaption></figure>
+        </div>
+        <button class="btn ghost small" id="noiseBtn" type="button">Draw another random image</button>
+        <p class="readout" id="rotReadout" style="margin-top:14px">Random pixel vectors are almost always static, so real images fill a vanishingly thin slice of pixel space.</p>
+        <div class="note-box"><p><b>Where this shows up for real</b></p><ul>
+          <li>Product photos on a turntable: one knob (angle) per product.</li>
+          <li>Face photos: a handful of knobs (head pose, lighting, expression) instead of millions of pixels.</li>
+          <li>Single-cell RNA-seq: ~20,000 genes per cell, but cells follow a few developmental trajectories.</li>
+        </ul></div>
+      </div>
+      <figure class="plot panel">
+        <canvas id="rotLoop" class="drag" height="380" aria-label="A rotatable 3-D view of all 72 rotated images projected onto their first three principal components. They form a closed loop; the current angle is a highlighted dot."></canvas>
+        <figcaption>All 72 rotations (every 5°), projected onto their first 3 principal components. They form a <b>closed loop</b>: a 1-D manifold. 360° brings you back to the start. <b>Drag to rotate.</b></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="lesson wrap" id="menu">
+  <div class="section-head">
+    <span class="eyebrow">3 · APPROACHES (§20.4.3, TABLE 20.1)</span>
+    <h2>The menu: what does each method try to keep?</h2>
+    <p>Every method here produces one low-dimensional point <b>z</b><sub>n</sub> per input <b>x</b><sub>n</sub>. They differ in <em>which relationships</em> they preserve. A useful split is <strong>global</strong> methods, which try to get all pairwise distances right, and <strong>local</strong> methods, which only care about each point's neighbourhood. A second split is whether the answer comes from an <strong>eigenvector</strong> problem (a unique, exact solution) or from <strong>gradient descent</strong> (non-convex, depends on the start).</p>
+  </div>
+  <div class="method-map">
+    <div class="mm-col">
+      <span class="mini-label">GLOBAL · PRESERVE (SOME) DISTANCES BETWEEN ALL PAIRS</span>
+      <a class="mm-card" href="#mds"><b>MDS</b><span>Keep all pairwise distances. Rebuilding a map from a mileage table.</span><i>eigen / iterative</i></a>
+      <a class="mm-card" href="#isomap"><b>Isomap</b><span>MDS on <em>geodesic</em> (along-the-graph) distances. Road distance, not crow-flies.</span><i>eigen</i></a>
+      <a class="mm-card" href="#kpca"><b>Kernel PCA</b><span>PCA after a nonlinear feature map, done with kernels.</span><i>eigen</i></a>
+      <a class="mm-card" href="#mvu"><b>MVU</b><span>Learn the kernel: pin local distances, pull everything else apart.</span><i>SDP (convex)</i></a>
+    </div>
+    <div class="mm-col">
+      <span class="mini-label">LOCAL · PRESERVE NEIGHBOURHOODS ONLY</span>
+      <a class="mm-card" href="#lle"><b>LLE</b><span>Describe each point by its neighbours, then reuse the description in 2-D.</span><i>sparse eigen</i></a>
+      <a class="mm-card" href="#laplacian"><b>Laplacian eigenmaps</b><span>Rubber bands between neighbours; minimise total stretch.</span><i>sparse eigen</i></a>
+      <a class="mm-card" href="#tsne"><b>t-SNE / UMAP</b><span>Match "who is whose neighbour" probabilities. The go-to for visualising clusters.</span><i>gradient (non-convex)</i></a>
+    </div>
+  </div>
+  <p class="fine" style="margin-top:14px">Murphy also groups these by whether they are <em>parametric</em> (learn a function f(<b>x</b>) → <b>z</b>, like PCA or an autoencoder) or <em>non-parametric</em> (just output a table of z's for the training points). Everything in this section is non-parametric, so embedding a <em>new</em> point needs an extra trick.</p>
+</section>
+
+<!-- 4 -->
+<section class="lesson wrap" id="mds">
+  <div class="section-head">
+    <span class="eyebrow">4 · MULTIDIMENSIONAL SCALING (§20.4.4)</span>
+    <h2>Rebuild a map from a table of distances</h2>
+    <p>MDS gets only an N×N table of dissimilarities d<sub>ij</sub>, no coordinates at all, and must place N points so their distances match. The classic real-world example is a road atlas mileage chart. Hand MDS the distances between cities and it draws the map (up to rotation and reflection, which distances can't reveal).</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB C</span><h3>A map from great-circle distances</h3></div>
+      <div class="button-group">
+        <div class="seg" id="mdsData" role="group" aria-label="Cities"><button class="on" data-v="us" type="button">US cities</button><button data-v="world" type="button">World cities</button></div>
+        <div class="seg" id="mdsMethod" role="group" aria-label="MDS variant"><button class="on" data-v="classical" type="button">Classical</button><button data-v="metric" type="button">Metric</button><button data-v="sammon" type="button">Sammon</button></div>
+      </div>
+    </div>
+    <div class="controls">
+      <label>Measurement error in the distance table <b id="mdsNoiseOut">0%</b><input type="range" id="mdsNoise" min="0" max="30" step="1" value="0"></label>
+      <label class="check"><input type="checkbox" id="mdsTruth" checked> Show true positions (rings)</label>
+      <button class="btn ghost small" id="mdsScramble" type="button">Scramble &amp; re-fit</button>
+    </div>
+    <div class="forest-grid">
+      <figure class="plot panel">
+        <canvas id="mdsCanvas" height="420" aria-label="Map of cities placed by MDS. Filled dots are MDS positions; rings are true positions on a simple flat projection."></canvas>
+        <figcaption><span class="sw green"></span>where MDS puts each city <span class="ring-sw"></span>true position (flat lat/long projection), after the best rotation, reflection and scale</figcaption>
+      </figure>
+      <div>
+        <div class="stats">
+          <div><span>Stress (relative distance error)</span><b id="mdsStress">–</b></div>
+          <div><span>Iteration</span><b id="mdsIter">–</b></div>
+        </div>
+        <p class="panel-h">Eigenvalues of the centred Gram matrix <b>B</b> = −½ <b>J D</b><sup>(2)</sup> <b>J</b></p>
+        <canvas id="mdsEig" height="150" aria-label="Bar chart of the five largest eigenvalues of B and the most negative one"></canvas>
+        <p class="readout" id="mdsReadout" style="margin-top:10px"></p>
+      </div>
+    </div>
+    <details class="peek"><summary>All MDS sees: the distance table (first 6 cities, km)</summary><div class="table-scroll"><table class="dist" id="mdsTable"></table></div></details>
+  </div>
+
+  <div class="grid three">
+    <div class="eq-card">
+      <span class="eq-ref">CLASSICAL MDS · EIGENVECTORS</span>
+      <p class="math sm"><b>B</b> = −½ <b>J</b> <b>D</b><sup>(2)</sup> <b>J</b>, &nbsp; <b>Z</b> = <b>U</b><sub>L</sub> <b>Λ</b><sub>L</sub><sup>½</sup></p>
+      <p>If the distances really were Euclidean, <b>B</b> would equal the Gram matrix <b>X</b><b>X</b><sup>⊤</sup> of centred coordinates. So take its top-L eigenvectors, exactly as in PCA. On Euclidean input, <strong>classical MDS = PCA</strong>. Negative eigenvalues mean the distances can't come from <em>any</em> flat space.</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">METRIC MDS · STRESS</span>
+      <p class="math sm">ℒ = Σ<sub>i&lt;j</sub> (d<sub>ij</sub> − ‖<b>z</b><sub>i</sub> − <b>z</b><sub>j</sub>‖)²</p>
+      <p>Match the distances themselves, not inner products. No closed form. The lab uses <strong>SMACOF</strong>, which repeatedly minimises a simple quadratic upper bound, so stress never goes up.</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">SAMMON &amp; NON-METRIC</span>
+      <p class="math sm">ℒ = Σ<sub>i&lt;j</sub> (d<sub>ij</sub> − ‖<b>z</b><sub>i</sub> − <b>z</b><sub>j</sub>‖)² / d<sub>ij</sub></p>
+      <p><strong>Sammon mapping</strong> divides by d<sub>ij</sub>, so small distances count more, which is a step towards "local". <strong>Non-metric MDS</strong> keeps only the <em>rank order</em> of distances, useful for survey answers like "A is more similar to B than to C".</p>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="lesson wrap" id="isomap">
+  <div class="section-head">
+    <span class="eyebrow">5 · ISOMAP (§20.4.5)</span>
+    <h2>MDS with road distances instead of crow-flies</h2>
+    <p>Lab A showed that long straight-line distances lie, while short ones are trustworthy. Isomap builds on that. It connects each point to its K nearest neighbours, estimates the <strong>geodesic distance</strong> between any two points as the shortest path through that graph (like driving on roads), then runs classical MDS on those distances.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB D</span><h3>Unroll the rug with a neighbour graph</h3></div>
+      <div class="button-group"><button class="btn ghost small" id="isoPair" type="button">New pair of points</button></div>
+    </div>
+    <div class="controls">
+      <label>Neighbours per point K <b id="isoKOut">10</b><input type="range" id="isoK" min="4" max="24" step="1" value="10"></label>
+      <label>Noise (roll thickness) <b id="isoNoiseOut">0.25</b><input type="range" id="isoNoise" min="0" max="1.6" step="0.05" value="0.25"></label>
+      <label class="check"><input type="checkbox" id="isoEdges" checked> Show graph edges</label>
+    </div>
+    <div class="grid two">
+      <figure class="plot panel">
+        <canvas id="isoRoll" class="drag" height="380" aria-label="Rotatable 3-D swiss roll with its nearest-neighbour graph and a shortest path between two marked points."></canvas>
+        <figcaption>600 points on the roll. <b>Drag to rotate.</b> <span class="ln green"></span>shortest path through the graph <span class="ln amber"></span>"short-circuit" edges that jump between layers</figcaption>
+      </figure>
+      <figure class="plot panel">
+        <canvas id="isoEmbed" height="380" aria-label="Two-dimensional Isomap embedding of the swiss roll, coloured by true position along the roll."></canvas>
+        <figcaption>Isomap's 2-D embedding. If it worked, colour runs smoothly light → dark from one end to the other and the path is a straight-ish line.</figcaption>
+      </figure>
+    </div>
+    <div class="stats three">
+      <div><span>Crow-flies distance</span><b id="isoE">–</b></div>
+      <div><span>Graph (geodesic) distance</span><b id="isoG">–</b></div>
+      <div><span>True distance on the rug</span><b id="isoT">–</b></div>
+      <div class="hl"><span>Short-circuit edges</span><b id="isoBad">–</b></div>
+      <div><span>Neighbours kept (10-NN on the rug)</span><b id="isoTrust">–</b></div>
+      <div><span>Compute time</span><b id="isoTime">–</b></div>
+    </div>
+    <p class="readout" id="isoReadout"></p>
+  </div>
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">THE ALGORITHM</span>
+      <ol class="recap">
+        <li>Build a K-nearest-neighbour graph; edge weights are Euclidean distances (trusted because they are short).</li>
+        <li>Geodesic distances d<sub>ij</sub><sup>G</sup> = shortest-path length (Dijkstra or Floyd–Warshall).</li>
+        <li>Classical MDS on <b>D</b><sup>G</sup>: top-L eigenvectors of −½<b>J</b>(<b>D</b><sup>G</sup>)<sup>(2)</sup><b>J</b>.</li>
+      </ol>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">THE CATCH</span>
+      <ul class="pc">
+        <li class="con"><b>Short-circuits.</b> One edge that hops between layers is a tunnel through the rug, and it shrinks many geodesics at once. Raise K or the noise above and watch the embedding fold.</li>
+        <li class="con">Too small K and the graph breaks into pieces with no path between them.</li>
+        <li class="con">Cost: all-pairs shortest paths plus a dense N×N eigenproblem.</li>
+        <li class="pro">When the graph is right, it recovers distances <em>along</em> the manifold globally, which makes it great for "unrolling".</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="lesson wrap" id="kpca">
+  <div class="section-head">
+    <span class="eyebrow">6 · KERNEL PCA (§20.4.6)</span>
+    <h2>PCA in a feature space you never build</h2>
+    <p>PCA needs only inner products between centred data points (the Gram matrix). Replace each inner product with a kernel k(<b>x</b><sub>i</sub>, <b>x</b><sub>j</sub>) = φ(<b>x</b><sub>i</sub>)<sup>⊤</sup>φ(<b>x</b><sub>j</sub>) and you get PCA in a (possibly infinite-dimensional) feature space φ, without computing φ. In MDS terms it is classical MDS with d<sub>ij</sub><sup>2</sup> = k<sub>ii</sub> + k<sub>jj</sub> − 2k<sub>ij</sub>.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB E</span><h3>Downtown core vs. the suburbs ring</h3></div>
+      <div class="seg" id="kpKernel" role="group" aria-label="Kernel"><button data-v="linear" type="button">Linear (= PCA)</button><button data-v="poly" type="button">Polynomial</button><button class="on" data-v="rbf" type="button">RBF</button></div>
+    </div>
+    <p class="fine" style="margin-bottom:12px">Delivery drop-off locations: a dense downtown core and a ring of suburbs around it. No straight line separates them, but "distance from the centre" does. Can kernel PCA discover that on its own, without labels?</p>
+    <div class="controls">
+      <label id="kpParamLab">RBF width γ <b id="kpParamOut">0.89</b><input type="range" id="kpParam" min="0" max="100" step="1" value="65"></label>
+    </div>
+    <div class="grid two">
+      <figure class="plot panel">
+        <canvas id="kpData" height="340" aria-label="Scatter plot of two concentric rings of points."></canvas>
+        <figcaption>Original 2-D data. <span class="sw k1"></span>downtown <span class="sw k2"></span>suburbs (colours shown for you only; kernel PCA never sees them)</figcaption>
+      </figure>
+      <figure class="plot panel">
+        <canvas id="kpEmbed" height="340" aria-label="Scatter plot of the first two kernel principal components, with a strip of first-component values below."></canvas>
+        <figcaption>First two kernel principal components. The strip underneath shows KPC 1 on its own.</figcaption>
+      </figure>
+    </div>
+    <div class="stats three">
+      <div class="hl"><span>Best split using KPC 1 alone</span><b id="kpAcc">–</b></div>
+      <div><span>Variance share of KPC 1</span><b id="kpVar">–</b></div>
+      <div><span>Kernel</span><b id="kpForm">–</b></div>
+    </div>
+    <p class="readout" id="kpReadout"></p>
+  </div>
+  <div class="note-box">
+    <p><b>Why isn't kernel PCA the end of the story?</b> A generic kernel like the RBF doesn't know the shape of <em>your</em> manifold. On the swiss roll (try it in <a href="#compare">Lab J</a>) it does no better than PCA. The kernel decides what "similar" means, and a hand-picked kernel is usually the wrong one. MVU, next, <em>learns</em> the kernel instead.</p>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="lesson wrap" id="mvu">
+  <div class="section-head">
+    <span class="eyebrow">7 · MAXIMUM VARIANCE UNFOLDING (§20.4.7)</span>
+    <h2>Pull the tangled necklace taut</h2>
+    <p>Take a crumpled necklace and pull its ends. The links between neighbouring beads can't stretch, but everything else moves apart, until the necklace is a straight line. MVU (also called <em>semidefinite embedding</em>) does exactly this. It keeps the distance between every pair of neighbours fixed and <strong>maximises the total spread</strong>. Spread with locked local distances can only be gained by unfolding.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB F</span><h3>Unfold by stretching, while neighbour links stay rigid</h3></div>
+      <div class="button-group">
+        <button class="btn" id="mvuPlay" type="button">Pull</button>
+        <button class="btn ghost" id="mvuReset" type="button">Crumple again</button>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="ctl"><span class="ctl-l">Which distances are locked</span>
+        <div class="seg" id="mvuLinks" role="group" aria-label="Locked links"><button class="on" data-v="2" type="button">Neighbour distances locked</button><button data-v="0" type="button">Nothing locked</button></div></div>
+    </div>
+    <div class="forest-grid">
+      <figure class="plot panel">
+        <canvas id="mvuCanvas" height="360" aria-label="A chain of beads, initially a spiral, that straightens out when pulled."></canvas>
+        <figcaption>60 beads, coloured along the chain. Grey lines are locked distances.</figcaption>
+      </figure>
+      <div>
+        <div class="stats">
+          <div><span>Total spread (variance)</span><b id="mvuSpread">–</b></div>
+          <div><span>Worst stretch of a locked link</span><b id="mvuViol">–</b></div>
+          <div><span>Step</span><b id="mvuStep">0</b></div>
+        </div>
+        <p class="readout" id="mvuReadout">Press <b>Pull</b>. Spread grows, locked links stay put, and the only way to satisfy both is to straighten out.</p>
+        <p class="fine">Illustration: a simple physics simulation (push outward, then re-impose the link lengths). Real MVU solves the equivalent convex problem exactly, shown below.</p>
+      </div>
+    </div>
+  </div>
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">THE SEMIDEFINITE PROGRAM</span>
+      <p class="math sm">max<sub><b>K</b></sub> tr(<b>K</b>) &nbsp; s.t. &nbsp; K<sub>ii</sub> + K<sub>jj</sub> − 2K<sub>ij</sub> = ‖<b>x</b><sub>i</sub> − <b>x</b><sub>j</sub>‖² for neighbours, &nbsp; Σ<sub>ij</sub>K<sub>ij</sub> = 0, &nbsp; <b>K</b> ⪰ 0</p>
+      <p>Optimise over the <em>Gram matrix</em> <b>K</b> of the embedding rather than the points themselves. tr(<b>K</b>) is the total variance (spread) of centred points, the constraints lock neighbour distances, and the problem is convex. Then run kernel PCA on the learned <b>K</b>.</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">TRADE-OFFS</span>
+      <ul class="pc">
+        <li class="pro">Convex, so there are no bad local optima, and the learned kernel fits <em>this</em> manifold.</li>
+        <li class="con">SDP solvers scale badly (roughly N³ or worse), so it is practical only for a few thousand points.</li>
+        <li class="con">Try "Nothing locked" in the lab: without the constraints, maximising variance just inflates the data, so the constraints are what do the unfolding. Lock too few and the result can flex in ways you didn't intend.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="lesson wrap" id="lle">
+  <div class="section-head">
+    <span class="eyebrow">8 · LOCALLY LINEAR EMBEDDING (§20.4.8)</span>
+    <h2>Describe each point by its neighbours</h2>
+    <p>Describe your house to a friend without coordinates: "about 40% of the way from the library to the grocery store, nudged towards the park". That recipe still works if someone rotates, moves or resizes the map. LLE writes such a recipe for every point (a weighted average of its neighbours), then finds 2-D positions where <strong>the same recipes still hold</strong>.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top"><div><span class="pill">LAB G</span><h3>Recipes on an S-shaped sheet</h3></div></div>
+    <div class="controls">
+      <label>Neighbours K <b id="lleKOut">12</b><input type="range" id="lleK" min="5" max="24" step="1" value="12"></label>
+      <div class="ctl"><span class="ctl-l">Regulariser on the local fit</span>
+        <div class="seg" id="lleReg" role="group" aria-label="Regulariser"><button data-v="0.00001" type="button">10⁻⁵</button><button class="on" data-v="0.001" type="button">10⁻³</button><button data-v="0.1" type="button">10⁻¹</button></div></div>
+    </div>
+    <div class="grid three-lle">
+      <figure class="plot panel">
+        <canvas id="lleCurve" class="drag" height="340" aria-label="Rotatable 3-D S-curve. Click a point to select it; its neighbours are highlighted."></canvas>
+        <figcaption><b>Click a point</b> to see its recipe; drag to rotate.</figcaption>
+      </figure>
+      <div class="panel">
+        <p class="panel-h">Recipe for the selected point: <b>x</b><sub>i</sub> ≈ Σ<sub>j</sub> w<sub>ij</sub> <b>x</b><sub>j</sub></p>
+        <div id="lleWeights" class="wbars" aria-live="polite"></div>
+        <p class="fine" id="lleRecon"></p>
+      </div>
+      <figure class="plot panel">
+        <canvas id="lleEmbed" height="340" aria-label="Two-dimensional LLE embedding coloured by position along the S."></canvas>
+        <figcaption>2-D positions that best honour every recipe. Same point and neighbours highlighted.</figcaption>
+      </figure>
+    </div>
+    <p class="readout" id="lleReadout"></p>
+  </div>
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">TWO LEAST-SQUARES PROBLEMS</span>
+      <p class="math sm">1. &nbsp;min<sub><b>W</b></sub> Σ<sub>i</sub> ‖<b>x</b><sub>i</sub> − Σ<sub>j∈nbr(i)</sub> w<sub>ij</sub><b>x</b><sub>j</sub>‖² &nbsp; s.t. Σ<sub>j</sub> w<sub>ij</sub> = 1</p>
+      <p class="math sm">2. &nbsp;min<sub><b>Z</b></sub> Σ<sub>i</sub> ‖<b>z</b><sub>i</sub> − Σ<sub>j</sub> w<sub>ij</sub><b>z</b><sub>j</sub>‖² = tr(<b>Z</b><sup>⊤</sup>(<b>I</b>−<b>W</b>)<sup>⊤</sup>(<b>I</b>−<b>W</b>)<b>Z</b>)</p>
+      <p>Step 1 is a small linear solve per point. Weights summing to 1 make the recipe immune to translation, rotation and scale. Step 2 takes the <em>bottom</em> eigenvectors of the sparse matrix <b>M</b> = (<b>I</b>−<b>W</b>)<sup>⊤</sup>(<b>I</b>−<b>W</b>), skipping the constant one (eigenvalue 0).</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">REAL WORLD &amp; GOTCHAS</span>
+      <ul class="pc">
+        <li class="pro"><b>Sensor-network localisation:</b> each sensor only knows its neighbours' relative signal strengths, yet you want a global map. This is the same idea.</li>
+        <li class="pro">Sparse eigenproblem, so it is fast and scales to large N.</li>
+        <li class="con">When K exceeds the local dimension, the local fit has many exact solutions, so a regulariser is required. Try 10⁻⁵ vs 10⁻¹ above.</li>
+        <li class="con">Only local structure is kept. Embeddings often look squashed or bunched at the edges, because nothing preserves global scale.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section class="lesson wrap" id="laplacian">
+  <div class="section-head">
+    <span class="eyebrow">9 · LAPLACIAN EIGENMAPS (§20.4.9)</span>
+    <h2>Rubber bands between neighbours</h2>
+    <p>Seating guests at a long table: connect every pair of friends with a rubber band (stronger for closer friends) and let everyone slide until the bands are as relaxed as possible. Friends end up near each other. To stop the lazy answer (everyone in one chair), require the seats to have a fixed spread. That is Laplacian eigenmaps, and the answer is given by eigenvectors of the <strong>graph Laplacian</strong>.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB H</span><h3>The smoothest ways to colour a graph</h3></div>
+      <div class="seg" id="lapColor" role="group" aria-label="Colour the roll by"><button class="on" data-v="1" type="button">Eigenvector 1</button><button data-v="2" type="button">Eigenvector 2</button><button data-v="3" type="button">Eigenvector 3</button><button data-v="4" type="button">Eigenvector 4</button><button data-v="t" type="button">True position</button></div>
+    </div>
+    <div class="controls">
+      <label>Neighbours K <b id="lapKOut">10</b><input type="range" id="lapK" min="4" max="24" step="1" value="10"></label>
+      <div class="ctl"><span class="ctl-l">Edge weights</span>
+        <div class="seg" id="lapT" role="group" aria-label="Edge weights"><button class="on" data-v="1" type="button">Heat kernel</button><button data-v="Infinity" type="button">All equal (0/1)</button></div></div>
+    </div>
+    <div class="grid two">
+      <figure class="plot panel">
+        <canvas id="lapRoll" class="drag" height="370" aria-label="Rotatable 3-D swiss roll coloured by the selected Laplacian eigenvector, using a diverging blue to red scale."></canvas>
+        <figcaption>The roll coloured by the chosen eigenvector: <span class="div-ramp"></span> negative → 0 → positive. <b>Drag to rotate.</b></figcaption>
+      </figure>
+      <figure class="plot panel">
+        <canvas id="lapEmbed" height="370" aria-label="Two-dimensional Laplacian eigenmap embedding: eigenvector 1 against eigenvector 2."></canvas>
+        <figcaption>Embedding: <b>z</b><sub>i</sub> = (eigenvector 1, eigenvector 2) at point i, coloured by true position along the roll.</figcaption>
+      </figure>
+    </div>
+    <div class="stats three">
+      <div><span>λ<sub>1</sub> (smoothest non-constant)</span><b id="lapL1">–</b></div>
+      <div><span>λ<sub>2</sub></span><b id="lapL2">–</b></div>
+      <div><span>Compute time</span><b id="lapTime">–</b></div>
+    </div>
+    <p class="readout" id="lapReadout"></p>
+  </div>
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">THE OBJECTIVE IS A QUADRATIC FORM</span>
+      <p class="math sm">½ Σ<sub>ij</sub> W<sub>ij</sub> (z<sub>i</sub> − z<sub>j</sub>)² = <b>z</b><sup>⊤</sup><b>L</b><b>z</b>, &nbsp; <b>L</b> = <b>D</b> − <b>W</b></p>
+      <p><b>W</b><sub>ij</sub> = exp(−‖<b>x</b><sub>i</sub>−<b>x</b><sub>j</sub>‖²/2σ²) for neighbours (else 0), and <b>D</b> is the diagonal degree matrix. Minimise subject to <b>z</b><sup>⊤</sup><b>D</b><b>z</b> = 1, which gives the generalised eigenproblem <b>L</b><b>z</b> = λ<b>D</b><b>z</b>. The constant vector has λ = 0 and is useless, so take the next L.</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">INTUITION &amp; CONNECTIONS</span>
+      <ul class="pc">
+        <li class="pro"><b>Vibration modes.</b> The eigenvectors are the "harmonics" of the graph, like a guitar string's fundamental and overtones. Eigenvector 1 rises once from end to end, eigenvector 2 waves across or up-and-back, and so on.</li>
+        <li class="pro">Same machinery as <b>spectral clustering</b> (§21.5): disconnected clusters give extra zero eigenvalues.</li>
+        <li class="con">Like LLE, it keeps neighbourhoods but not distances, so the layout can be squashed. Higher eigenvectors are often just overtones of the first (look at eigenvector 2 on a long roll), not new directions.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="lesson wrap" id="tsne">
+  <div class="section-head">
+    <span class="eyebrow">10 · t-SNE AND UMAP (§20.4.10)</span>
+    <h2>Keep the neighbours, let distances go</h2>
+    <p>t-SNE is the method behind most "map of the data" pictures you have seen: single-cell atlases with islands of cell types, word-embedding galaxies, MNIST digit clusters. It turns distances into <strong>neighbour probabilities</strong>, "if point i picked a neighbour at random, how likely is it to pick j?", in both the original space (p<sub>ij</sub>) and the map (q<sub>ij</sub>). It then moves the map points to make the two match.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB I</span><h3>500 handwritten-style digits (256 pixels each) → 2-D</h3></div>
+      <div class="button-group">
+        <button class="btn" id="tsPlay" type="button">Pause</button>
+        <button class="btn ghost" id="tsRestart" type="button">Restart (new seed)</button>
+      </div>
+    </div>
+    <div class="controls">
+      <label>Perplexity (≈ effective number of neighbours) <b id="tsPerpOut">30</b><input type="range" id="tsPerp" min="2" max="100" step="1" value="30"></label>
+      <div class="ctl"><span class="ctl-l">Map-side similarity</span>
+        <div class="seg" id="tsKernel" role="group" aria-label="Map-side kernel"><button class="on" data-v="t" type="button">Student-t (t-SNE)</button><button data-v="gauss" type="button">Gaussian (symmetric SNE)</button></div></div>
+      <div class="ctl"><span class="ctl-l">View</span>
+        <div class="seg" id="tsView" role="group" aria-label="View"><button class="on" data-v="tsne" type="button">t-SNE</button><button data-v="pca" type="button">PCA (for contrast)</button></div></div>
+    </div>
+    <div class="ctl" style="margin-bottom:12px"><span class="ctl-l">Highlight up to three digits (others in grey)</span>
+      <div class="chipset" id="tsChips" role="group" aria-label="Highlight digits"></div></div>
+    <div class="forest-grid">
+      <figure class="plot panel">
+        <canvas id="tsCanvas" height="460" aria-label="t-SNE embedding of 500 digit images, each drawn as its digit character. Hover to inspect an image."></canvas>
+        <figcaption>Each point is drawn as its own digit label (t-SNE never sees labels). <b>Hover</b> to see the image.</figcaption>
+      </figure>
+      <div>
+        <div class="stats">
+          <div><span>Iteration</span><b id="tsIter">0</b></div>
+          <div><span>KL(P ‖ Q)</span><b id="tsKL">–</b></div>
+          <div class="hl"><span>Map neighbours with the same digit</span><b id="tsAcc">–</b></div>
+        </div>
+        <div class="hover-card" id="tsHover">
+          <canvas id="tsHoverImg" class="pix big" width="16" height="16" aria-label="Image of the hovered digit"></canvas>
+          <div><b id="tsHoverLab">Hover a point</b><p class="fine" id="tsHoverTxt">Its original 16×16 image appears here, with its 5 nearest neighbours in pixel space.</p><div class="nb-row" id="tsHoverNb"></div></div>
+        </div>
+        <p class="readout" id="tsReadout" style="margin-top:14px"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-top"><div><span class="pill">LAB I·2</span><h3>The crowding problem, and why the "t"</h3></div></div>
+    <div class="grid two">
+      <div>
+        <p>In 10 dimensions you can have 11 points all equally far apart. In 2-D you can't. There isn't enough room near each point for all its moderately close neighbours. With a Gaussian on the map side, they all get crushed together in the middle.</p>
+        <p>t-SNE uses a heavy-tailed <strong>Student-t</strong> (Cauchy) kernel on the map side. To match a given small similarity, a heavy-tailed kernel needs a <em>larger</em> distance, so moderately dissimilar points are pushed further apart and clusters separate cleanly.</p>
+        <div class="controls"><label>Similarity to match (from high-D) <b id="crowdOut">0.05</b><input type="range" id="crowdP" min="1" max="90" step="1" value="5"></label></div>
+        <div class="stats">
+          <div><span>Map distance needed, Gaussian</span><b id="crowdG">–</b></div>
+          <div class="hl"><span>Map distance needed, Student-t</span><b id="crowdT">–</b></div>
+        </div>
+      </div>
+      <figure class="plot panel">
+        <canvas id="crowdCanvas" height="300" aria-label="Line chart of Gaussian and Student-t similarity as a function of map distance, with markers where each reaches the chosen similarity."></canvas>
+        <figcaption><span class="ln violet"></span>Gaussian exp(−d²) <span class="ln green"></span>Student-t 1/(1+d²). Both are 1 at d = 0; the t falls off much more slowly.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="grid three">
+    <div class="eq-card">
+      <span class="eq-ref">SNE → SYMMETRIC SNE → t-SNE</span>
+      <p class="math sm">p<sub>j|i</sub> ∝ exp(−‖<b>x</b><sub>i</sub>−<b>x</b><sub>j</sub>‖²/2σ<sub>i</sub>²), &nbsp; p<sub>ij</sub> = (p<sub>j|i</sub>+p<sub>i|j</sub>)/2N</p>
+      <p class="math sm">q<sub>ij</sub> ∝ (1 + ‖<b>z</b><sub>i</sub>−<b>z</b><sub>j</sub>‖²)<sup>−1</sup>, &nbsp; ℒ = KL(P‖Q)</p>
+      <p>Each σ<sub>i</sub> is tuned by binary search so the neighbour distribution has the requested <strong>perplexity</strong> 2<sup>H</sup>. Dense regions get small σ, sparse ones large. Minimise by gradient descent with momentum and "early exaggeration" (multiply P by ~4–12 for the first iterations so clusters form first).</p>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">READ t-SNE PLOTS CAREFULLY</span>
+      <ul class="pc">
+        <li class="con"><b>Cluster sizes mean nothing.</b> The per-point σ<sub>i</sub> expands dense clusters and shrinks sparse ones.</li>
+        <li class="con"><b>Gaps between clusters mean little.</b> Global layout is weakly preserved; try "Restart" and watch clusters swap places.</li>
+        <li class="con"><b>Perplexity changes the picture.</b> Very low values make fake little clumps. Always try a few.</li>
+        <li class="con">Non-convex: different seeds give different maps. No f(<b>x</b>) for new points.</li>
+      </ul>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">COST &amp; UMAP</span>
+      <p>Exact t-SNE is O(N²) per iteration. The lab does exactly this for 500 points. Real implementations use Barnes–Hut trees or FFT interpolation (O(N log N)) to reach millions of points.</p>
+      <p><strong>UMAP</strong> is the popular successor. It builds a fuzzy K-NN graph, then lays it out with attractive forces along edges and repulsion sampled from non-edges (a cross-entropy loss). It is faster, tends to keep more global structure, and can embed new points. The same reading cautions apply.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 11 -->
+<section class="lesson wrap" id="compare">
+  <div class="section-head">
+    <span class="eyebrow">11 · SIDE BY SIDE</span>
+    <h2>Same data, six methods</h2>
+    <p>Choose a dataset and run every method on it. Each panel reports "kept", short for <em>neighbours kept</em>: the fraction of each point's 10 nearest neighbours (in the original space) that are still among its 10 nearest in 2-D. It is a quick, label-free score of how faithful the map is <em>locally</em>.</p>
+  </div>
+  <div class="lab">
+    <div class="lab-top">
+      <div><span class="pill">LAB J</span><h3>Bake-off</h3></div>
+      <div class="button-group">
+        <div class="seg" id="cmpData" role="group" aria-label="Dataset"><button class="on" data-v="swiss" type="button">Swiss roll</button><button data-v="scurve" type="button">S-curve</button><button data-v="digits" type="button">Digits</button></div>
+        <button class="btn" id="cmpRun" type="button">Run all six</button>
+      </div>
+    </div>
+    <div class="loading" id="cmpStatus">Press “Run all six”. It takes a few seconds; t-SNE is the slow one.</div>
+    <div class="cmp-grid" id="cmpGrid"></div>
+  </div>
+  <div class="table-scroll">
+    <table class="compare">
+      <thead><tr><th>Method</th><th>Keeps</th><th>Solved by</th><th>New points?</th><th>Watch out for</th><th>Real-world flavour</th></tr></thead>
+      <tbody>
+        <tr><th>PCA / classical MDS</th><td>All distances (Euclidean)</td><td>Dense eigen</td><td>Yes (PCA)</td><td>Folds curved data</td><td>Map from a mileage chart</td></tr>
+        <tr><th>Metric / Sammon MDS</th><td>All distances (weighted)</td><td>Iterative (SMACOF, gradient)</td><td>No</td><td>Local optima</td><td>Perceptual similarity maps</td></tr>
+        <tr><th>Isomap</th><td>Geodesic distances</td><td>Shortest paths + dense eigen</td><td>With extra work</td><td>Short-circuit edges</td><td>Road vs. crow-flies distance</td></tr>
+        <tr><th>Kernel PCA</th><td>Distances in a feature space</td><td>Dense eigen</td><td>Yes</td><td>Choosing the kernel</td><td>Separating a core from a ring</td></tr>
+        <tr><th>MVU</th><td>Local distances, max spread</td><td>Semidefinite program</td><td>No</td><td>Very slow</td><td>Pulling a necklace taut</td></tr>
+        <tr><th>LLE</th><td>Local linear recipes</td><td>Sparse eigen</td><td>With extra work</td><td>Regulariser, squashed edges</td><td>Sensor-network localisation</td></tr>
+        <tr><th>Laplacian eigenmaps</th><td>Neighbours stay close</td><td>Sparse eigen</td><td>With extra work</td><td>Overtone eigenvectors</td><td>Seating friends together</td></tr>
+        <tr><th>t-SNE / UMAP</th><td>Neighbour probabilities</td><td>Gradient descent (non-convex)</td><td>No / yes (UMAP)</td><td>Misreading sizes and gaps</td><td>Cell-type atlases, digit maps</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 12 -->
+<section class="lesson wrap last" id="check">
+  <div class="section-head">
+    <span class="eyebrow">12 · SELF-CHECK</span>
+    <h2>Putting it together</h2>
+  </div>
+  <div class="grid two">
+    <div class="eq-card">
+      <span class="eq-ref">ONE IDEA, MANY VARIATIONS</span>
+      <ol class="recap">
+        <li>Decide what "similar" means: all distances (MDS), graph distances (Isomap), a kernel (kPCA, MVU) or neighbourhoods (LLE, Laplacian, t-SNE).</li>
+        <li>Almost all of them use a <b>K-nearest-neighbour graph</b>, because only short distances are trusted on a curved manifold.</li>
+        <li>Spectral methods reduce to an eigenproblem: <em>top</em> eigenvectors of a Gram-like matrix (MDS, Isomap, kPCA, MVU) or <em>bottom</em> eigenvectors of a Laplacian-like matrix (LLE, Laplacian eigenmaps).</li>
+        <li>t-SNE and UMAP trade guarantees for pictures, giving the best cluster visualisations through non-convex optimisation.</li>
+      </ol>
+    </div>
+    <div class="eq-card">
+      <span class="eq-ref">WHEN TO REACH FOR WHAT</span>
+      <ul class="pc">
+        <li class="pro">Need features for a downstream model or new points later → PCA, kernel PCA, a parametric UMAP or an autoencoder (§20.3).</li>
+        <li class="pro">Believe the data is one smooth sheet and want it unrolled faithfully → Isomap (with care over K).</li>
+        <li class="pro">Want to <em>see</em> clusters in high-dimensional data → t-SNE or UMAP, with several perplexities and seeds.</li>
+        <li class="con">Never read cluster sizes or between-cluster distances off a t-SNE plot as facts.</li>
+      </ul>
+    </div>
+  </div>
+  <h3 class="quiz-h">Self-check</h3>
+  <div class="quiz">
+    <details><summary>Why does PCA fail on the swiss roll, even though the roll is only 2-dimensional?</summary><p>PCA looks for a flat 2-D plane and projects onto it. Any plane through the roll stacks the layers on top of each other, so points far apart on the rug land close together. The roll's 2-D structure is curved, and PCA only knows about flat subspaces.</p></details>
+    <details><summary>In Lab C, why do the world cities give a third large eigenvalue and some negative ones, while US cities essentially don't?</summary><p>Great-circle distances live on a sphere, a 2-D manifold that needs 3 flat dimensions to sit in. Over the whole globe the curvature is large, so a 3rd dimension carries real variance, and the distances aren't exactly Euclidean in any dimension, which shows up as negative eigenvalues. The continental US is a small patch, nearly flat, so 2 dimensions almost suffice.</p></details>
+    <details><summary>What goes wrong in Isomap when K is too large, and what goes wrong when it is too small?</summary><p>Too large: some neighbour edges jump between layers (short-circuits), creating shortcuts that make geodesic distances far too small and fold the embedding. Too small: the graph splits into disconnected pieces, some geodesic distances are infinite, and MDS can't place the pieces relative to each other.</p></details>
+    <details><summary>Classical MDS and kernel PCA take <em>top</em> eigenvectors; LLE and Laplacian eigenmaps take <em>bottom</em> ones. Why?</summary><p>MDS and kPCA eigen-decompose a Gram (similarity) matrix, where large eigenvalues are directions of large spread, which you want to keep. LLE and Laplacian eigenmaps minimise a cost (reconstruction error or rubber-band stretch) written as <b>z</b><sup>⊤</sup><b>M</b><b>z</b>, so the best embeddings are the eigenvectors with the <em>smallest</em> eigenvalues, after discarding the trivial constant vector with eigenvalue 0.</p></details>
+    <details><summary>Why do LLE's weights have to sum to one?</summary><p>So that the recipe is unchanged by translation: adding the same vector <b>c</b> to every point adds Σ<sub>j</sub>w<sub>ij</sub><b>c</b> = <b>c</b> to the reconstruction, exactly matching <b>x</b><sub>i</sub> + <b>c</b>. Rotation and scaling already cancel because the reconstruction is linear. This invariance is what lets LLE reuse the same weights in 2-D.</p></details>
+    <details><summary>A colleague's t-SNE plot shows cluster A twice as wide as cluster B, and far from cluster C. What can you conclude?</summary><p>Very little about sizes and gaps. t-SNE adapts σ<sub>i</sub> per point, which equalises cluster densities, and it only weakly preserves global distances. What you <em>can</em> trust is that points inside a tight cluster were genuinely neighbours in the original space. Check with different perplexities and seeds, or with a method that keeps global structure.</p></details>
+    <details><summary>What does perplexity control, and what happens at the extremes in Lab I?</summary><p>It sets each σ<sub>i</sub> so that point i effectively considers about "perplexity" neighbours. Very low values (2–5) look only at the nearest couple of points and break true clusters into many fake fragments. Very high values approach a global view, blurring nearby clusters together. Typical values are 5–50.</p></details>
+  </div>
+</section>
+</main>
+
+<footer class="foot wrap">Companion to Kevin P. Murphy, <em>Probabilistic Machine Learning: An Introduction</em> (MIT Press, 2022), §20.4. All data are synthetic and generated in your browser, except the city coordinates, which are real.</footer>
+</body>
+</html>
